@@ -52,6 +52,8 @@ Scores are relative and deliberately practical:
 
 ### Milestone 2.1 — Replay and context correctness
 
+**Status:** implemented; regression tests added and local checks passed.
+
 **Goal:** make multi-turn tool conversations survive persistence, resume, compression, and Anthropic transport conversion.
 
 **Changes**
@@ -219,14 +221,14 @@ Validation must exercise behavior, not just imports. Results should be recorded 
 
 | Area | Required validation | Baseline at audit |
 |---|---|---|
-| Conversation persistence | Scripted mock-provider tool turn, exit, resume, second turn; assert tool history and token usage survive | Basic persistence passed; tool-call replay reload is broken |
+| Conversation persistence | Scripted mock-provider tool turn, exit, resume, second turn; assert tool history and token usage survive | M2.1 regression passed: tool calls and tool result IDs now survive reload; token usage was already covered |
 | Provider switching | Switch provider/model in chat and one-shot mode; assert active provider and model reset correctly | Synthetic/unit coverage passed; live provider switch not recorded |
 | Local inference | If Ollama is installed and serving, run one real local prompt; if unavailable, report "not validated" | Not validated; no live Ollama run recorded |
 | Tool execution | Safe parallel tools, unknown tool, denied approval, destructive strict-denial, timeout | Safe/approval/denial tests passed; executor-level timeout absent |
 | Memory retrieval | Add, search, export, import, and inject into prompt under char budget | Engine tests passed; CLI commands not unit-tested |
 | Skills | Create, view, edit, list, usage tracking; model-driven skill tool turn | Engine tests passed; model-driven turn not tested |
 | Subagents | Delegate two tasks with mock provider through real `Agent`; assert results, ledger, and reduced tools | Fake-agent test passed; real-agent end-to-end absent |
-| Error recovery | Provider failover, cooldown, malformed tool arguments, context compression with tool calls | Provider failover passed; context/tool replay repair absent |
+| Error recovery | Provider failover, cooldown, malformed tool arguments, context compression with tool calls | Provider failover passed; M2.1 context repair and Anthropic nested replay regressions passed |
 | Permissions | Deny, once, session, always, strict destructive denial, path root escape, terminal cwd, git paths | Core permission tests passed; several path surfaces untested |
 | Installation | Local git-remote install, mock run, uninstall; separate explicit network update test | Local install passed; network update not tested |
 | Web | Static-fixture search/fetch; redirect/private URL denial; oversized extract behavior | Basic code present; no focused tests |

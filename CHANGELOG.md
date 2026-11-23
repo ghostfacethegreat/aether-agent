@@ -8,6 +8,13 @@
 - Corrected feature-matrix entries that overstated tool replay reliability, subagent durability, session recovery, and skill curation completeness.
 - Published the repository at <https://github.com/ghostfacethegreat/aether-agent>; no hosted installer URL was published.
 
+## Phase 2 Milestone 2.1
+
+- Preserved tool-call names, IDs, and arguments across SQLite persistence and session resume.
+- Added context repair for orphaned tool results and missing tool-result placeholders after compression.
+- Fixed Anthropic replay conversion for nested OpenAI-style tool call fields.
+- Added regression tests for store round trip, resume history, context repair, and Anthropic tool-call replay.
+
 ## 0.1.0 (unreleased alpha)
 
 - Audited public Hermes Agent architecture and provider/security patterns.

@@ -49,12 +49,22 @@ class AnthropicProvider(OpenAICompatibleProvider):
                 if text:
                     blocks.append({"type": "text", "text": text})
                 for call in message.get("tool_calls") or []:
+                    function = call.get("function") if isinstance(call.get("function"), dict) else {}
+                    name = function.get("name") or call.get("name")
+                    arguments = function.get("arguments") if "arguments" in function else call.get("arguments")
+                    if isinstance(arguments, str):
+                        try:
+                            arguments = json.loads(arguments) if arguments.strip() else {}
+                        except ValueError:
+                            arguments = {}
+                    if not isinstance(arguments, dict):
+                        arguments = {}
                     blocks.append(
                         {
                             "type": "tool_use",
                             "id": str(call.get("id") or ""),
-                            "name": str(call.get("name") or ""),
-                            "input": call.get("arguments") or {},
+                            "name": str(name or ""),
+                            "input": arguments,
                         }
                     )
                 if not blocks:

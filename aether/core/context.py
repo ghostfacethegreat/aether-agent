@@ -42,6 +42,57 @@ class ContextManager:
             return (content + (" " + calls if calls else "")).strip()
         return str(message)
 
+    @staticmethod
+    def repair_tool_messages(messages: list[dict]) -> tuple[list[dict], int]:
+        repaired = [dict(item) for item in messages]
+        assistant_ids = set()
+        for item in repaired:
+            if item.get("role") != "assistant":
+                continue
+            for call in item.get("tool_calls") or []:
+                if isinstance(call, dict) and call.get("id"):
+                    assistant_ids.add(str(call["id"]))
+        changes = 0
+        for index, item in enumerate(repaired):
+            if item.get("role") != "tool":
+                continue
+            call_id = str(item.get("tool_call_id") or "")
+            if call_id and call_id in assistant_ids:
+                continue
+            repaired[index] = {
+                "role": "user",
+                "content": f"Tool result for unavailable call {call_id or 'unknown'}: {item.get('content') or ''}",
+            }
+            changes += 1
+        tool_result_ids = {
+            str(item.get("tool_call_id") or "")
+            for item in repaired
+            if item.get("role") == "tool" and item.get("tool_call_id")
+        }
+        result = []
+        inserted = set()
+        for item in repaired:
+            result.append(item)
+            if item.get("role") != "assistant":
+                continue
+            for call in item.get("tool_calls") or []:
+                if not isinstance(call, dict):
+                    continue
+                call_id = str(call.get("id") or "")
+                if not call_id or call_id in tool_result_ids or call_id in inserted:
+                    continue
+                result.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "name": str(call.get("function", {}).get("name") or call.get("name") or "tool"),
+                        "content": "Tool result unavailable after context compression.",
+                    }
+                )
+                inserted.add(call_id)
+                changes += 1
+        return result, changes
+
     def fit(self, messages: list[dict]) -> tuple[list[dict], dict]:
         source = [Message.from_dict(item) if isinstance(item, dict) else Message("user", str(item)) for item in messages]
         result = [item.to_dict() for item in source]
@@ -75,7 +126,16 @@ class ContextManager:
             summary = "Earlier conversation summary:\n" + "\n".join(summary_lines)
             insert_at = 1 if first_user_index is None else first_user_index + 1
             result.insert(insert_at, {"role": "system", "content": summary})
-        return result, {"changed": changed, "removed": len(removed), "tokens": message_tokens(result), "target": target}
+        result, repairs = self.repair_tool_messages(result)
+        if repairs:
+            changed = True
+        return result, {
+            "changed": changed,
+            "removed": len(removed),
+            "repaired": repairs,
+            "tokens": message_tokens(result),
+            "target": target,
+        }
 
     @staticmethod
     def count(messages) -> int:

@@ -47,6 +47,14 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - `scripts/check.sh` after the documentation checkpoint — passed: 38 tests, doctor, mock CLI smoke, secret scan, local Markdown links, and benchmark.
 - The public repository was created and source was pushed at commit `bdbe246` before this documentation checkpoint.
 
+## Phase 2 Milestone 2.1 checks
+
+- `python3 -m unittest tests.test_persistence tests.test_core tests.test_providers` — 17 targeted tests passed.
+- Targeted reruns emitted ResourceWarning notices for unclosed SQLite connections; no test failed, and the full check below passed.
+- `scripts/check.sh` after M2.1 — passed: 42 tests, doctor, mock CLI smoke, secret scan, local Markdown links, and benchmark.
+- Benchmark in that M2.1 run: 3 cold starts, median wall time 0.079s, peak child RSS 30.3 MiB.
+- Validated behavior: tool-call metadata round trip, resumed tool-call history, context repair, and Anthropic nested tool-call replay.
+
 ## Secrets
 
 - No `.env` file was created in the repository.

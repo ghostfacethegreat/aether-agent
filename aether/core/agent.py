@@ -82,8 +82,11 @@ class Agent:
         result = []
         for row in rows:
             item = {"role": row["role"], "content": row["content"]}
+            for key in ("name", "tool_call_id", "tool_calls"):
+                if row.get(key):
+                    item[key] = row[key]
             if row.get("metadata"):
-                item.update(row["metadata"])
+                item["metadata"] = row["metadata"]
             result.append(item)
         return result
 

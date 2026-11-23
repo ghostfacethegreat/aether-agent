@@ -207,3 +207,11 @@ Prior release checks are recorded in [RELEASE_CHECKS.md](RELEASE_CHECKS.md). Pri
 Aether has a working local-first core: bounded turn loop, provider switching/fallback, tool execution with approvals, SQLite sessions, Markdown memory, `SKILL.md` skills, task delegation, scheduler baseline, and a usable CLI. The largest verified gaps are not cosmetic: tool-call replay after resume, role-alternation repair, scheduler execution honesty, provider cost enforcement, web URL safety, tool timeout enforcement, external memory/provider/MCP extension surfaces, durable subagents, messaging, voice, browser automation, containers/Nix, and service management.
 
 This document should be updated when a capability is implemented and verified. Until then, no section should be read as a claim of Hermes parity.
+
+## Post-audit implementation updates
+
+- Milestone 2.1 implemented durable message-field preservation for `name`, `tool_call_id`, and `tool_calls`; resumed sessions now rebuild tool-call history from SQLite.
+- Milestone 2.1 added context repair for orphaned tool results and missing tool-result placeholders after compression.
+- Milestone 2.1 fixed Anthropic replay conversion to read nested OpenAI-style `function.name` and `function.arguments` fields emitted by the loop.
+- Regression tests cover store round trip, resumed tool-call history, context repair, and Anthropic nested tool-call conversion.
+- These fixes close the first two ranked gaps. They do not imply parity in compression quality, durable subagents, scheduling, provider cost enforcement, or the other areas above.

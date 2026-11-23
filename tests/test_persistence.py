@@ -26,6 +26,32 @@ class StoreTests(TempHomeTest):
         self.assertEqual(results[0]["session_id"], session)
         self.assertEqual(self.store.list_sessions()[0]["message_count"], 2)
 
+    def test_tool_call_fields_round_trip(self):
+        session = self.store.create_session(provider="mock", model="mock-standard")
+        self.store.append_messages(
+            session,
+            [
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "metadata": {"source": "test"},
+                    "tool_calls": [
+                        {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {"name": "read_file", "arguments": '{"path":"a.txt"}'},
+                        }
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "call_1", "name": "read_file", "content": "file body"},
+            ],
+        )
+        rows = self.store.get_messages(session)
+        self.assertEqual(rows[0]["tool_calls"][0]["id"], "call_1")
+        self.assertEqual(rows[0]["metadata"], {"source": "test"})
+        self.assertEqual(rows[1]["tool_call_id"], "call_1")
+        self.assertEqual(rows[1]["name"], "read_file")
+
     def test_tasks_usage_and_approvals(self):
         task = self.store.create_task("check build", session_id="s1")
         self.store.update_task(task, "completed", "passed")

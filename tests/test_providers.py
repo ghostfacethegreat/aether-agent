@@ -107,5 +107,31 @@ class ProviderTests(TempHomeTest):
         self.assertEqual(config.get("model"), "mock-tools")
 
 
+    def test_anthropic_replays_nested_tool_calls(self):
+        provider = build_provider(self.config(providers={"anthropic": {"api_key": "test-key"}}), "anthropic")
+        system, converted = provider._convert_messages(
+            [
+                {"role": "system", "content": "system"},
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {"name": "read_file", "arguments": '{"path":"a.txt"}'},
+                        }
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "call_1", "name": "read_file", "content": "file body"},
+            ]
+        )
+        self.assertEqual(system, "system")
+        self.assertEqual(converted[0]["content"][0]["type"], "tool_use")
+        self.assertEqual(converted[0]["content"][0]["name"], "read_file")
+        self.assertEqual(converted[0]["content"][0]["input"], {"path": "a.txt"})
+        self.assertEqual(converted[1]["content"][0]["tool_use_id"], "call_1")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -53,6 +53,32 @@ CREATE TABLE IF NOT EXISTS approvals (
 );
 """
 
+MESSAGE_FIELDS = ("name", "tool_call_id", "tool_calls")
+
+
+def _encode_message_metadata(message: dict) -> str:
+    metadata = dict(message.get("metadata") or {})
+    fields = {}
+    for key in MESSAGE_FIELDS:
+        value = message.get(key)
+        if value in (None, "", []):
+            continue
+        fields[key] = value
+    if fields:
+        metadata["__message_fields"] = fields
+    return json.dumps(metadata, ensure_ascii=False)
+
+
+def _decode_message_metadata(raw: str) -> tuple[dict, dict]:
+    try:
+        metadata = json.loads(raw or "{}")
+    except ValueError:
+        metadata = {}
+    if not isinstance(metadata, dict):
+        metadata = {}
+    fields = metadata.pop("__message_fields", None)
+    return metadata, fields if isinstance(fields, dict) else {}
+
 
 class Store:
     def __init__(self, path: Path | str):
@@ -119,7 +145,7 @@ class Store:
         with self.connect() as db:
             cursor = db.execute(
                 "INSERT INTO messages(session_id,role,content,metadata,created_at) VALUES(?,?,?,?,?)",
-                (session_id, role, str(content or ""), json.dumps(metadata, ensure_ascii=False), now),
+                (session_id, role, str(content or ""), _encode_message_metadata({"metadata": metadata}), now),
             )
             db.execute(
                 "UPDATE sessions SET message_count=message_count+1, updated_at=? WHERE id=?",
@@ -137,7 +163,7 @@ class Store:
                         session_id,
                         message.get("role", "user"),
                         str(message.get("content") or ""),
-                        json.dumps(message.get("metadata") or {}, ensure_ascii=False),
+                        _encode_message_metadata(message),
                         now,
                     ),
                 )
@@ -159,10 +185,9 @@ class Store:
         result = []
         for row in reversed(rows) if limit else rows:
             item = dict(row)
-            try:
-                item["metadata"] = json.loads(item.get("metadata") or "{}")
-            except ValueError:
-                item["metadata"] = {}
+            metadata, fields = _decode_message_metadata(item.get("metadata") or "{}")
+            item.update(fields)
+            item["metadata"] = metadata
             result.append(item)
         return result
 

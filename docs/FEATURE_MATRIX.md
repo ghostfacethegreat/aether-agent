@@ -19,9 +19,9 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | Custom OpenAI-compatible endpoint | `providers:` / `custom_providers:` config | Done | `aether config set providers.custom.base_url ...`; requires `base_url`. |
 | Model switching without restart | `/model` picker and host APIs | Done | In-chat `/model` and `/provider` commands rebuild the provider in place. Switching resets to the new provider's default model. |
 | Streaming responses | SSE with interrupt/single-writer fence | Partial | urllib SSE parsers, delta callback, synthetic SSE accumulation test; live provider streams not exercised. |
-| Conversation context management | Prompt tiers, preflight compression, cache planning | Partial | Prompt is rebuilt each turn from current files; token estimate and summary/truncate strategy exist. No frozen snapshot, cache breakpoints, or role-alternation repair yet. |
+| Conversation context management | Prompt tiers, preflight compression, cache planning | Partial | Prompt is rebuilt each turn from current files; token estimate, summary/truncate strategy, and M2.1 role-alternation repair exist. No frozen snapshot or provider cache breakpoints yet. |
 | Reasoning / planning modes | Reasoning params, trust gates, planning prompts | Partial | `reasoning_effort` forwarding, `/plan` mode, `todo` tool. Model must support reasoning. |
-| Reliable tool calling | Schema repair, retries, role alternation repair | Partial | Required-key validation, unknown-tool error message, and ordered parallel results. No full JSON Schema validation, executor-level timeout enforcement, or role-alternation repair yet. |
+| Reliable tool calling | Schema repair, retries, role alternation repair | Partial | Required-key validation, unknown-tool error message, ordered parallel results, and M2.1 role-alternation repair. No full JSON Schema validation or executor-level timeout enforcement yet. |
 | Provider fallback and error recovery | Credential pools, cooldowns, fallback chain | Done | Ordered fallback with retryable classification and cooldown per provider. |
 | Cost and limit transparency | Catalog pricing, usage guards, account usage | Partial | Every provider has a cost annotation in `aether providers`; no per-turn dollar estimate or account-balance scraping. |
 
@@ -38,7 +38,7 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | Web research | Exa/Firecrawl/Parallel plus fetch | Partial | Key-free `web_fetch` and DuckDuckGo HTML `web_search`; optional paid keys supported but not required. |
 | Browser automation | Local CDP, cloud Browserbase, desktop control | Partial | Configurable `browser` command template; no bundled browser runtime. Disabled by default. |
 | Code generation / debugging | Full coding agent | Done | Tool-driven editing plus built-in `debug` and `code-review` skills. |
-| Task history and recovery | Durable sessions, delegation ledgers | Partial | SQLite `tasks` table with `/tasks` and in-chat `/resume`; reload currently loses assistant tool calls and tool result IDs. |
+| Task history and recovery | Durable sessions, delegation ledgers | Done | SQLite `tasks` table with `/tasks` and in-chat `/resume`; M2.1 preserves assistant tool calls and tool result IDs across reload. |
 
 ## Memory and learning
 
