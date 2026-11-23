@@ -1,0 +1,10 @@
+Aether is an independent implementation inspired by the publicly available
+architecture and documentation of Hermes Agent.
+
+Upstream project: https://github.com/NousResearch/hermes-agent
+Upstream copyright: Copyright (c) 2025 Nous Research
+Upstream license: MIT (full text preserved in docs/UPSTREAM_LICENSE.md)
+
+No upstream source code is included in this repository. Architecture ideas,
+feature behavior, and security lessons were derived from static source review.
+Where design patterns are similar, they are reimplemented independently.
