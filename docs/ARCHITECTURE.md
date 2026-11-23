@@ -164,6 +164,7 @@ memories/MEMORY.md   agent notes
 memories/USER.md     user preferences
 skills/              user skills (SKILL.md)
 cron/jobs.json       scheduled jobs
+cron/executions.jsonl local scheduler execution ledger
 logs/aether.log      rotating local log
 ```
 
@@ -189,4 +190,4 @@ Secrets are read from environment variables or `.env` at runtime. They are never
 
 The original audit above remains the Milestone 1 record at upstream commit `bb89ad1a`. Phase 2 refreshed the upstream checkout to `b98c388a880b1b6fd303c9c2821a3946651a0b4c` and compared it against Aether commit `bdbe2462dda3c4646086385d600b4e2ab23f4957`.
 
-The detailed 14-area comparison is in [PHASE2_FEATURE_COMPARISON.md](PHASE2_FEATURE_COMPARISON.md). The implementation order is in [PHASE2_ROADMAP.md](PHASE2_ROADMAP.md). M2.1 addressed durable tool-call replay and context role repair; M2.2 addressed tool timeout, URL, redaction, and path-scope hardening. The next architecture corrections are scheduler execution truth, provider cost enforcement, and honest validation of local inference and updates.
+The detailed 14-area comparison is in [PHASE2_FEATURE_COMPARISON.md](PHASE2_FEATURE_COMPARISON.md). The implementation order is in [PHASE2_ROADMAP.md](PHASE2_ROADMAP.md). M2.1 addressed durable tool-call replay and context role repair; M2.2 addressed tool timeout, URL, redaction, and path-scope hardening; M2.3 made scheduler ticks execute real local prompts with claims and an execution ledger. The next architecture corrections are provider cost enforcement and honest validation of local inference and updates.

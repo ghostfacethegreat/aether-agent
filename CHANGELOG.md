@@ -23,6 +23,14 @@
 - Extended path-root validation to terminal `cwd`, git `paths`, and other explicit path arguments.
 - Added regression tests for timeout denial, private URL/redirect rejection, secret redaction, and path escapes.
 
+## Phase 2 Milestone 2.3
+
+- Made scheduled ticks run due prompts through a real local runner and report due, executed, skipped, and failed outcomes.
+- Added job claiming before execution, one-shot disabling, and a local execution ledger at `cron/executions.jsonl`.
+- Added scheduler update, pause, resume, and cancel controls to the CLI and slash commands.
+- Blocked scheduled execution with paid or custom providers unless `scheduler.allow_paid` is enabled.
+- Added regression tests for execution, skips, failures, restart no-refire, thread start/stop, and CLI summary output.
+
 ## 0.1.0 (unreleased alpha)
 
 - Audited public Hermes Agent architecture and provider/security patterns.

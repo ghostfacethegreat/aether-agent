@@ -55,6 +55,14 @@ class CliTests(TempHomeTest):
         self.assertIn("mock (local)", output)
         self.assertIn("mock-standard", output)
 
+    def test_schedule_tick_reports_summary(self):
+        code, output = self.run_cli(["--provider", "mock", "schedule", "tick"])
+        self.assertEqual(code, 0)
+        self.assertIn("Due", output)
+        self.assertIn("Executed", output)
+        self.assertIn("Skipped", output)
+        self.assertIn("Failed", output)
+
 
 if __name__ == "__main__":
     unittest.main()

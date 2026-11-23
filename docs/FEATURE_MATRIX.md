@@ -39,6 +39,7 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | Browser automation | Local CDP, cloud Browserbase, desktop control | Partial | Configurable `browser` command template; no bundled browser runtime. Disabled by default. |
 | Code generation / debugging | Full coding agent | Done | Tool-driven editing plus built-in `debug` and `code-review` skills. |
 | Task history and recovery | Durable sessions, delegation ledgers | Done | SQLite `tasks` table with `/tasks` and in-chat `/resume`; M2.1 preserves assistant tool calls and tool result IDs across reload. |
+| Local scheduling | Cron jobs with delivery and audit logs | Partial | M2.3 executes due prompts in-process, claims jobs before runs, records `cron/executions.jsonl`, reports due/executed/skipped/failed, and supports update/pause/resume/cancel. No daemon, delivery targets, or cron syntax. |
 
 ## Memory and learning
 

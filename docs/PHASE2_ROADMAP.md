@@ -97,6 +97,8 @@ Scores are relative and deliberately practical:
 
 ### Milestone 2.3 — Scheduler truth and durable local execution
 
+**Status:** implemented; regression tests added and local checks passed.
+
 **Goal:** make scheduled jobs actually run and report only what happened.
 
 **Changes**
@@ -234,7 +236,7 @@ Validation must exercise behavior, not just imports. Results should be recorded 
 | Permissions | Deny, once, session, always, strict destructive denial, path root escape, terminal cwd, git paths | M2.2 strict-mode regressions cover terminal cwd and git paths; core permission tests still pass |
 | Installation | Local git-remote install, mock run, uninstall; separate explicit network update test | Local install passed; network update not tested |
 | Web | Static-fixture search/fetch; redirect/private URL denial; oversized extract behavior | M2.2 private URL and safe-redirect regressions passed; live fetch remains unvalidated |
-| Scheduler | Add job, enable background scheduler, execute due mock job, simulate restart, no duplicate fire | CRUD/tick tests passed; execution honesty and durability incomplete |
+| Scheduler | Add job, enable background scheduler, execute due mock job, simulate restart, no duplicate fire | M2.3 tests cover real due-run execution, skip/fail reporting, restart no-refire, ledger records, thread start/stop, and CLI summary output |
 
 ## Public-development protocol
 

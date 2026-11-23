@@ -46,7 +46,7 @@ DEFAULTS = {
         "web_fetch": {"max_bytes": 262144},
         "browser": {"command": "", "enabled": False},
     },
-    "scheduler": {"enabled": False, "tick_seconds": 30},
+    "scheduler": {"enabled": False, "tick_seconds": 30, "allow_paid": False},
     "logging": {"level": "INFO", "file": True},
 }
 

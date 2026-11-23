@@ -75,7 +75,7 @@ Browser automation is disabled by default. If enabled, the command template rece
 ## Scheduler
 
 ```json
-{"scheduler": {"enabled": false, "tick_seconds": 30}}
+{"scheduler": {"enabled": false, "tick_seconds": 30, "allow_paid": false}}
 ```
 
-Scheduled jobs are stored at `~/.aether/cron/jobs.json`. The scheduler runs in-process only while an interactive chat or `aether run` process is alive.
+Scheduled jobs are stored at `~/.aether/cron/jobs.json`, and execution outcomes are appended to `~/.aether/cron/executions.jsonl`. The scheduler runs in-process only while an interactive chat or `aether run` process is alive. Manual `aether schedule tick` uses a real local runner and reports due, executed, skipped, and failed jobs. Paid or custom providers are refused for scheduled execution unless `allow_paid` is set to `true`.

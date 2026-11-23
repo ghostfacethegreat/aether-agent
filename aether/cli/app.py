@@ -15,7 +15,7 @@ from aether.home import aether_home, env_path
 from aether.logging import get_logger, set_level
 from aether.memory import MemoryStore
 from aether.persistence import Store
-from aether.providers.catalog import PROVIDERS
+from aether.providers.catalog import PROVIDERS, provider_spec
 from aether.tasks import Scheduler
 from aether.utils import parse_bool, read_json, redact, redact_mapping, truncate, atomic_json_write
 
@@ -147,6 +147,21 @@ def build_parser():
     sched_remove = sched.add_parser("remove")
     sched_remove.add_argument("id")
     sched_remove.set_defaults(func=cmd_schedule)
+    sched_cancel = sched.add_parser("cancel", help="Alias for remove")
+    sched_cancel.add_argument("id")
+    sched_cancel.set_defaults(func=cmd_schedule)
+    sched_update = sched.add_parser("update")
+    sched_update.add_argument("id")
+    sched_update.add_argument("prompt", nargs="?", default=None)
+    sched_update.add_argument("schedule_time", nargs="?", default=None)
+    sched_update.add_argument("--name", default=None)
+    sched_update.set_defaults(func=cmd_schedule)
+    sched_pause = sched.add_parser("pause")
+    sched_pause.add_argument("id")
+    sched_pause.set_defaults(func=cmd_schedule)
+    sched_resume = sched.add_parser("resume")
+    sched_resume.add_argument("id")
+    sched_resume.set_defaults(func=cmd_schedule)
     sched_tick = sched.add_parser("tick")
     sched_tick.set_defaults(func=cmd_schedule)
 
@@ -390,10 +405,21 @@ def _agent_command(agent, parts):
         elif sub == "add" and len(args) >= 3:
             job = agent.scheduler.add_job(args[1], args[2], " ".join(args[3:]))
             print(render.success_line(f"added {job['id']}"))
-        elif sub == "remove" and len(args) > 1:
+        elif sub in ("remove", "cancel") and len(args) > 1:
             print(render.success_line("removed") if agent.scheduler.remove_job(args[1]) else render.error_line("no matching job"))
+        elif sub == "pause" and len(args) > 1:
+            job = agent.scheduler.set_enabled(args[1], False)
+            print(render.success_line(f"paused {job['id']}") if job else render.error_line("no matching job"))
+        elif sub == "resume" and len(args) > 1:
+            job = agent.scheduler.set_enabled(args[1], True)
+            print(render.success_line(f"resumed {job['id']}") if job else render.error_line("no matching job"))
+        elif sub == "update" and len(args) >= 3:
+            job = agent.scheduler.update_job(args[1], schedule=args[2])
+            print(render.success_line(f"updated {job['id']}") if job else render.error_line("no matching job"))
+        elif sub == "tick":
+            print_schedule_summary(agent.scheduler.tick())
         else:
-            print(render.error_line("usage: /schedule list|add <prompt> <schedule>|remove <id>"))
+            print(render.error_line("usage: /schedule list|add <prompt> <schedule>|update <id> <schedule>|pause <id>|resume <id>|tick|remove <id>"))
         return False
     if action == "cost":
         usage = agent.store.session_usage(agent.session_id)
@@ -626,19 +652,56 @@ def cmd_tasks(args, config, home):
     return 1
 
 
+def scheduled_runner(config, home):
+    spec = provider_spec(str(config.get("provider") or ""))
+    blocked = ""
+    if (spec is None or spec.kind not in ("local", "free-tier")) and not parse_bool(config.get("scheduler.allow_paid"), False):
+        provider = str(config.get("provider") or "unknown")
+        blocked = f"Scheduled execution with provider '{provider}' is disabled by default; set scheduler.allow_paid=true"
+
+    def run(prompt):
+        if blocked:
+            raise RuntimeError(blocked)
+        agent = Agent(config, home=home, persist=False, approve_callback=None)
+        result = agent.run_turn(prompt)
+        if result.exit_reason == "provider_error":
+            raise RuntimeError("provider error during scheduled run")
+        return result.text
+
+    return run
+
+
+def print_schedule_summary(summary):
+    rows = [[summary["due"], summary["executed"], summary["skipped"], summary["failed"]]]
+    print(render.table(["Due", "Executed", "Skipped", "Failed"], rows))
+    for outcome in summary["outcomes"]:
+        detail = outcome.get("error") or outcome.get("reason") or outcome.get("result") or ""
+        label = outcome.get("status", "unknown")
+        suffix = f": {truncate(detail, 160)}" if detail else ""
+        print(f"- {label} {outcome.get('job_id', '')}{suffix}")
+
+
 def cmd_schedule(args, config, home):
-    scheduler = Scheduler(config, home)
+    scheduler = Scheduler(config, home, runner=scheduled_runner(config, home))
     if args.action == "list":
-        rows = [(job["id"], job["name"], job["schedule"], job["next_run"], str(job.get("enabled"))) for job in scheduler.list_jobs()]
-        print(render.table(["ID", "Name", "Schedule", "Next", "Enabled"], rows))
+        rows = [
+            (job["id"], job["name"], job["schedule"], job["next_run"], str(job.get("enabled")), str(job.get("last_status") or "-"))
+            for job in scheduler.list_jobs()
+        ]
+        print(render.table(["ID", "Name", "Schedule", "Next", "Enabled", "Last"], rows))
     elif args.action == "add":
         job = scheduler.add_job(args.prompt, args.schedule_time, args.name)
         print(render.success_line(job["id"]))
-    elif args.action == "remove":
+    elif args.action in ("remove", "cancel"):
         print(render.success_line("removed") if scheduler.remove_job(args.id) else render.error_line("job not found"))
+    elif args.action == "update":
+        job = scheduler.update_job(args.id, args.prompt, args.schedule_time, args.name)
+        print(render.success_line(f"updated {job['id']}") if job else render.error_line("job not found"))
+    elif args.action in ("pause", "resume"):
+        job = scheduler.set_enabled(args.id, args.action == "resume")
+        print(render.success_line(f"{args.action}d {job['id']}") if job else render.error_line("job not found"))
     else:
-        executed = scheduler.tick()
-        print(render.success_line(f"ran {len(executed)} due job(s)"))
+        print_schedule_summary(scheduler.tick())
     return 0
 
 
@@ -681,7 +744,7 @@ def main(argv=None):
         config, home = prepare(args)
         scheduler = None
         if getattr(args, "command", None) not in ("version", "update") and parse_bool(config.get("scheduler.enabled"), False):
-            scheduler = Scheduler(config, home)
+            scheduler = Scheduler(config, home, runner=scheduled_runner(config, home))
             if getattr(args, "func", None) in (cmd_chat, cmd_run):
                 scheduler.start()
         try:

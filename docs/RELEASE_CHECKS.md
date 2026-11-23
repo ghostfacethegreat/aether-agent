@@ -63,6 +63,14 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - Validated behavior: executor-level timeout denial, model-facing secret redaction, private URL rejection, redirect-to-private rejection, and strict-mode path checks for terminal `cwd` and git `paths`.
 - Not validated here: live web fetches, live search providers, DNS rebinding, OS-level sandboxing, or browser command templates.
 
+## Phase 2 Milestone 2.3 checks
+
+- `python3 -m unittest tests.test_tasks tests.test_cli -v` — 15 targeted tests passed.
+- `scripts/check.sh` after M2.3 — passed: 53 tests, doctor, mock CLI smoke, secret scan, local Markdown links, and benchmark.
+- Benchmarks in M2.3 runs: 3 cold starts each, median wall time around 0.08s and peak child RSS around 29 MiB.
+- Validated behavior: due-prompt execution, no-runner skips, failed-run records, restart no-refire, one-shot disabling, execution ledger, scheduler thread start/stop, update/pause/resume controls, and CLI summary output.
+- Not validated here: real daemon/service scheduling, cross-process concurrency, delivery targets, or live scheduled provider calls.
+
 ## Secrets
 
 - No `.env` file was created in the repository.
