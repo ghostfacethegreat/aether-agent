@@ -19,9 +19,9 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | Custom OpenAI-compatible endpoint | `providers:` / `custom_providers:` config | Done | `aether config set providers.custom.base_url ...`; requires `base_url`. |
 | Model switching without restart | `/model` picker and host APIs | Done | In-chat `/model` and `/provider` commands rebuild the provider in place. Switching resets to the new provider's default model. |
 | Streaming responses | SSE with interrupt/single-writer fence | Partial | urllib SSE parsers, delta callback, synthetic SSE accumulation test; live provider streams not exercised. |
-| Conversation context management | Prompt tiers, preflight compression, cache planning | Partial | Stable prompt prefix, token estimate, summary/truncate strategy. No provider prompt-cache breakpoints yet. |
+| Conversation context management | Prompt tiers, preflight compression, cache planning | Partial | Prompt is rebuilt each turn from current files; token estimate and summary/truncate strategy exist. No frozen snapshot, cache breakpoints, or role-alternation repair yet. |
 | Reasoning / planning modes | Reasoning params, trust gates, planning prompts | Partial | `reasoning_effort` forwarding, `/plan` mode, `todo` tool. Model must support reasoning. |
-| Reliable tool calling | Schema repair, retries, role alternation repair | Done | Strict JSON validation, unknown-tool error message, role alternation preserved. |
+| Reliable tool calling | Schema repair, retries, role alternation repair | Partial | Required-key validation, unknown-tool error message, and ordered parallel results. No full JSON Schema validation, executor-level timeout enforcement, or role-alternation repair yet. |
 | Provider fallback and error recovery | Credential pools, cooldowns, fallback chain | Done | Ordered fallback with retryable classification and cooldown per provider. |
 | Cost and limit transparency | Catalog pricing, usage guards, account usage | Partial | Every provider has a cost annotation in `aether providers`; no per-turn dollar estimate or account-balance scraping. |
 
@@ -31,14 +31,14 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 |---|---|---|---|
 | Autonomous task planning | Multi-step loop, todo tool | Done | Bounded iterative loop with visible task list. |
 | Multi-step execution | Phase-oriented loop | Done | Up to `max_iterations` tool rounds per turn. |
-| Subagents | Durable delegate tool with resumable children | Done | Parallel sync subagents with isolated history and reduced toolset; task ledger recorded. `SubagentManager.resume()` exists; CLI resume is not exposed yet. |
+| Subagents | Durable delegate tool with resumable children | Partial | Parallel sync subagents with isolated history and reduced toolset. Task-ledger integration, durable resume, steer/stop, output schemas, and CLI resume are incomplete. |
 | File read/write/edit | Rich file tools with guards | Done | `read_file`, `write_file`, `edit_file`, `list_directory`. |
 | Terminal execution | Sandboxed/backed terminal tool | Done | `terminal` with timeout, output cap, approval for destructive commands. Not a sandbox. |
 | Git integration | Several git helpers | Done | `git status/diff/log/add/commit` through one tool; git actions require approval by default. |
 | Web research | Exa/Firecrawl/Parallel plus fetch | Partial | Key-free `web_fetch` and DuckDuckGo HTML `web_search`; optional paid keys supported but not required. |
 | Browser automation | Local CDP, cloud Browserbase, desktop control | Partial | Configurable `browser` command template; no bundled browser runtime. Disabled by default. |
 | Code generation / debugging | Full coding agent | Done | Tool-driven editing plus built-in `debug` and `code-review` skills. |
-| Task history and recovery | Durable sessions, delegation ledgers | Done | SQLite `tasks` table with `/tasks` and in-chat `/resume`. |
+| Task history and recovery | Durable sessions, delegation ledgers | Partial | SQLite `tasks` table with `/tasks` and in-chat `/resume`; reload currently loses assistant tool calls and tool result IDs. |
 
 ## Memory and learning
 
@@ -48,7 +48,7 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | Long-term user preferences | `USER.md` | Done | Editable `USER.md` surfaced to the system prompt. |
 | Searchable conversation history | SQLite FTS | Done | FTS5 when available, substring fallback. |
 | Editable memory | Memory tool and files | Done | Tool actions plus direct file editing. |
-| Skills created and improved | Skill manager, curator, hub | Done | `skill` tool create/edit/view/list with usage tracking. No cloud hub. |
+| Skills created and improved | Skill manager, curator, hub | Partial | `skill` tool create/edit/view/list with usage counts. No deterministic curator, rollback, background review, or cloud hub. |
 | Memory import/export | Admin export/import | Done | JSON export/import via `memory export|import`. |
 | Local storage by default | `~/.hermes` | Done | `~/.aether`, overridable with `AETHER_HOME`. |
 
@@ -106,3 +106,7 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | Web search fallback | No key, but rate-limited | Best-effort DuckDuckGo HTML; may fail without notice. Use a paid search API only if configured. |
 | Browser automation provider | Depends on provider | Disabled unless a command template is configured. |
 | Messaging gateways | Depends on platform | Planned optional adapters; core does not require them. |
+
+## Phase 2 audit note
+
+The four-status table above is a quick summary. The authoritative source-level comparison is [PHASE2_FEATURE_COMPARISON.md](PHASE2_FEATURE_COMPARISON.md), and the staged gap work is in [PHASE2_ROADMAP.md](PHASE2_ROADMAP.md). A `Done` status here means implemented and locally checked within Aether's narrower scope, not Hermes parity.

@@ -95,8 +95,8 @@ This plan is intentionally milestone-based. Each milestone ends with a working c
 - [x] Branding assets (SVG logo/banner), README, provider/config guides, SECURITY, CONTRIBUTING, CHANGELOG.
 - [x] Generate screenshots from a real mock-provider CLI run; label the provider clearly.
 - [x] Full local release checks: tests, secrets, license attribution, README links, repo contents.
-- [ ] Create `aether-agent` GitHub repo under the authenticated account if available.
-- [ ] Push source. Do not publish a hosted `curl | bash` command unless the hosted installer was verified.
+- [x] Create `aether-agent` GitHub repo under the authenticated account if available.
+- [x] Push source. Do not publish a hosted `curl | bash` command unless the hosted installer was verified.
 
 ## Checkpoint protocol
 
@@ -110,4 +110,4 @@ For each milestone, the following will be recorded in the final response:
 
 Every checkpoint must be a commit with a concise message. No commit will contain secrets, `.env` files, fabricated results, or unverified claims.
 
-**Current checkpoint:** local implementation and release preparation are complete; commit, GitHub repository creation, push, and publication are deliberately not performed without explicit approval.
+**Current checkpoint:** Phase 1 is committed and pushed to <https://github.com/ghostfacethegreat/aether-agent>. Phase 2 begins with [PHASE2_FEATURE_COMPARISON.md](PHASE2_FEATURE_COMPARISON.md) and [PHASE2_ROADMAP.md](PHASE2_ROADMAP.md); no Hermes parity is claimed until each capability is implemented and verified.

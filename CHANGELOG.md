@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 2 audit (documentation checkpoint)
+
+- Refreshed the Hermes Agent comparison baseline to commit `b98c388a880b1b6fd303c9c2821a3946651a0b4c`.
+- Added a source-evidenced comparison of all 14 requested capability areas against Aether commit `bdbe2462dda3c4646086385d600b4e2ab23f4957`.
+- Added a ranked gap register and staged milestone plan with separate commit boundaries.
+- Corrected feature-matrix entries that overstated tool replay reliability, subagent durability, session recovery, and skill curation completeness.
+- Published the repository at <https://github.com/ghostfacethegreat/aether-agent>; no hosted installer URL was published.
+
 ## 0.1.0 (unreleased alpha)
 
 - Audited public Hermes Agent architecture and provider/security patterns.

@@ -184,3 +184,9 @@ Secrets are read from environment variables or `.env` at runtime. They are never
 - `scripts/check.sh` — compile check, secret scan, test suite, CLI smoke test.
 - `aether doctor` — user-facing diagnostics (Python, home layout, provider connectivity, tool availability, config validity).
 - Screenshots are generated from a real CLI run against the built-in mock provider and labelled as such.
+
+## Phase 2 architecture refresh
+
+The original audit above remains the Milestone 1 record at upstream commit `bb89ad1a`. Phase 2 refreshed the upstream checkout to `b98c388a880b1b6fd303c9c2821a3946651a0b4c` and compared it against Aether commit `bdbe2462dda3c4646086385d600b4e2ab23f4957`.
+
+The detailed 14-area comparison is in [PHASE2_FEATURE_COMPARISON.md](PHASE2_FEATURE_COMPARISON.md). The implementation order is in [PHASE2_ROADMAP.md](PHASE2_ROADMAP.md). The highest-priority architecture corrections are durable tool-call replay, context role repair, scheduler execution truth, provider cost enforcement, tool timeout/URL/path hardening, and honest validation of local inference and updates.

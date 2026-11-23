@@ -34,7 +34,18 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - Live hosted provider calls were not made.
 - Real provider SSE streams were not exercised; the OpenAI-compatible SSE accumulator has an unit test with synthetic chunks.
 - No hosted installer URL has been tested.
-- No public GitHub release or pushed repository is recorded in this document.
+- The local install test used a temporary git remote; no hosted installer URL was tested.
+- Live local inference with an Ollama server was not recorded in this document.
+- Network update (`aether update` against the public remote) was not recorded in this document.
+
+## Phase 2 audit checkpoint
+
+- Upstream comparison baseline: `b98c388a880b1b6fd303c9c2821a3946651a0b4c`.
+- Aether comparison baseline: `bdbe2462dda3c4646086385d600b4e2ab23f4957`.
+- Added [PHASE2_FEATURE_COMPARISON.md](PHASE2_FEATURE_COMPARISON.md) and [PHASE2_ROADMAP.md](PHASE2_ROADMAP.md).
+- This checkpoint changed documentation only; no new runtime behavior was implemented or validated.
+- `scripts/check.sh` after the documentation checkpoint — passed: 38 tests, doctor, mock CLI smoke, secret scan, local Markdown links, and benchmark.
+- The public repository was created and source was pushed at commit `bdbe246` before this documentation checkpoint.
 
 ## Secrets
 

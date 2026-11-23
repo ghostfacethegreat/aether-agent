@@ -6,14 +6,14 @@ Aether works with no paid account: the defaults target local Ollama, and a built
 
 ## Status
 
-Version `0.1.0` is an alpha release. The goal is a complete working core first, then honest screenshots, installer scripts, and publication. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
+Version `0.1.0` is an alpha release. A working core, screenshots, installer scripts, and source publication are complete. The Phase 2 feature gap audit and staged roadmap are public in [PHASE2_FEATURE_COMPARISON.md](docs/PHASE2_FEATURE_COMPARISON.md) and [PHASE2_ROADMAP.md](docs/PHASE2_ROADMAP.md); no Hermes parity is claimed. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
 
 ## Install
 
 Aether requires Python 3.10+ and has no third-party runtime dependencies.
 
 ```bash
-git clone <your-public-repo-url> aether-agent
+git clone https://github.com/ghostfacethegreat/aether-agent.git aether-agent
 cd aether-agent
 python3 -m pip install -e .
 aether setup
@@ -144,7 +144,7 @@ python3 -m unittest discover -s tests -v
 
 ## Attribution
 
-Aether's architecture was informed by a static audit of the public Hermes Agent repository at commit `bb89ad1a`, including its provider/memory/skills patterns. Hermes Agent is MIT-licensed; see `NOTICE` and `docs/UPSTREAM_LICENSE.md`. Aether is independently implemented and branded.
+Aether's architecture was informed by static audits of the public Hermes Agent repository, initially at commit `bb89ad1a` and refreshed for Phase 2 at `b98c388a880b1b6fd303c9c2821a3946651a0b4c`. Hermes Agent is MIT-licensed; see `NOTICE` and `docs/UPSTREAM_LICENSE.md`. Aether is independently implemented and branded.
 
 ## License
 
