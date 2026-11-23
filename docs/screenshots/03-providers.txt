@@ -1,0 +1,16 @@
+   Name         Kind       Default model                           Cost                                                              Limits
+-  -----------  ---------  --------------------------------------  ----------------------------------------------------------------  -----------------------------------------------------------------------------
+   mock         local      mock-standard                           Free. Runs in-process; no network.                                No external limits. Intended for tests and demos.
+*  ollama       local      llama3.2:3b                             Free. Uses your own hardware and electricity.                     No provider quota; limited by local RAM and CPU/GPU.
+   lmstudio     local      local-model                             Free. Uses your own hardware.                                     No provider quota; limited by local resources.
+   llamacpp     local      local-model                             Free. Uses your own hardware.                                     No provider quota; limited by local resources.
+   groq         free-tier  llama-3.3-70b-versatile                 Free tier available; paid rates may apply above quota.            Rate-limited per account and per model. Check your provider dashboard.
+   cerebras     free-tier  llama-3.3-70b                           Free tier available; quota applies.                               Rate-limited per account. Check your provider dashboard.
+   huggingface  free-tier  Qwen/Qwen2.5-7B-Instruct                Some models are free; others are billed to your account.          Free inference is rate-limited and provider-dependent.
+   gemini       free-tier  gemini-2.5-flash                        Free tier available; paid tiers exist.                            Daily request and token limits vary by model and account.
+   openrouter   mixed      meta-llama/llama-3.3-70b-instruct:free  Free and paid models. IDs ending in :free are usually no-charge.  Free models have per-minute and per-day limits and may change without notice.
+   openai       paid       gpt-4o-mini                             Paid. Usage is billed by tokens.                                  Subject to account limits and model availability.
+   anthropic    paid       claude-3-5-haiku-latest                 Paid. Usage is billed by tokens.                                  Subject to account limits and model availability.
+   custom       custom     local-model                             Depends entirely on the endpoint you configure.                   Depends on the provider; Aether cannot report external quotas.
+
+* active. Models with :free are usually no-charge but rate-limited.

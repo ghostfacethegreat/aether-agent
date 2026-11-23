@@ -1,0 +1,12 @@
+Aether doctor
+ok: Python 3.14.2
+ok: configuration valid
+ok: home writable: /tmp/aether-screens
+ok: state database ok: 2 sessions
+ok: memory entries: 0
+ok: ollama: /opt/homebrew/bin/ollama
+ok: git: /usr/bin/git
+ok: python3: /opt/homebrew/bin/python3
+ok: selected provider: ollama (local)
+  Free. Uses your own hardware and electricity.
+  No provider quota; limited by local RAM and CPU/GPU.

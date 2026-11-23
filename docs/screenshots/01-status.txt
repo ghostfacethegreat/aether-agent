@@ -1,0 +1,9 @@
+  Status
+  Provider   mock (local)
+  Model      mock-standard
+  Session    session_4b06fadf2811
+  Context    0 messages · 16 tools · 3 skills
+  Memory     0 entries
+  Workspace  /Users/caijohnson/aether-agent
+  Cost       Free. Runs in-process; no network.
+  No external limits. Intended for tests and demos.

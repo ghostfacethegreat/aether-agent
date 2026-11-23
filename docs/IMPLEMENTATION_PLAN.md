@@ -18,13 +18,13 @@ This plan is intentionally milestone-based. Each milestone ends with a working c
 
 **Goal:** a real turn loop with a deterministic provider and a usable terminal interface.
 
-- [ ] Package skeleton with stdlib-only dependencies and Python 3.11+ support.
-- [ ] Config load/save with defaults under `AETHER_HOME`.
-- [ ] Message types, turn state, bounded loop, tool-call normalization.
-- [ ] Built-in `mock` provider for tests/demos.
-- [ ] CLI dashboard, streaming output, slash commands, colored logs.
-- [ ] SQLite session persistence for messages.
-- [ ] Tests: agent loop, CLI parsing, persistence.
+- [x] Package skeleton with stdlib-only dependencies and Python 3.10+ support.
+- [x] Config load/save with defaults under `AETHER_HOME`.
+- [x] Message types, turn state, bounded loop, tool-call normalization.
+- [x] Built-in `mock` provider for tests/demos.
+- [x] CLI dashboard, streaming output, slash commands, colored logs.
+- [x] SQLite session persistence for messages.
+- [x] Tests: agent loop, CLI parsing, persistence.
 
 **Verification:** `python3 -m unittest discover -s tests -v`; CLI smoke test with mock provider.
 
@@ -32,69 +32,69 @@ This plan is intentionally milestone-based. Each milestone ends with a working c
 
 **Goal:** genuinely usable model choice without a mandatory paid account.
 
-- [ ] Provider catalog with cost/auth metadata.
-- [ ] OpenAI-compatible transport with streaming, retries, and error classification.
-- [ ] Local profiles: Ollama, LM Studio, llama.cpp.
-- [ ] Optional free-tier profiles: Groq, Cerebras, Hugging Face Router, Gemini, OpenRouter free models.
-- [ ] Optional paid profiles: OpenAI, Anthropic native, custom endpoint.
-- [ ] Runtime model/provider switching and ordered fallback.
-- [ ] Provider limit/cost display in `/providers` and `aether doctor`.
-- [ ] Tests: request/response normalization, SSE parsing, fallback, switching.
+- [x] Provider catalog with cost/auth metadata.
+- [x] OpenAI-compatible transport with streaming, retries, and error classification.
+- [x] Local profiles: Ollama, LM Studio, llama.cpp.
+- [x] Optional free-tier profiles: Groq, Cerebras, Hugging Face Router, Gemini, OpenRouter free models.
+- [x] Optional paid profiles: OpenAI, Anthropic native, custom endpoint.
+- [x] Runtime model/provider switching and ordered fallback.
+- [x] Provider limit/cost display in `aether providers` and `aether doctor`.
+- [x] Tests: request/response normalization, synthetic SSE parsing, fallback, switching.
 
 ## Milestone 4 — Memory, skills, and persistent context
 
 **Goal:** local-first learning and recall.
 
-- [ ] `MEMORY.md` / `USER.md` store with char budgets and frozen prompt snapshot.
-- [ ] SQLite FTS conversation search with substring fallback.
-- [ ] Memory tool actions: add, replace, delete, search, list, export, import.
-- [ ] Skill parser, discovery roots, progressive disclosure, usage tracking.
-- [ ] Built-in skills: `code-review`, `debug`, `web-research`.
-- [ ] Context budget manager with summarization/truncation.
-- [ ] Tests: memory CRUD/search/import/export, skill discovery/create/edit, context compression.
+- [x] `MEMORY.md` / `USER.md` store with char budgets and frozen prompt snapshot.
+- [x] SQLite FTS conversation search with substring fallback.
+- [x] Memory tool actions: add, replace, delete, search, list, export, import.
+- [x] Skill parser, discovery roots, progressive disclosure, usage tracking.
+- [x] Built-in skills: `code-review`, `debug`, `web-research`.
+- [x] Context budget manager with summarization/truncation.
+- [x] Tests: memory CRUD/search/import/export, skill discovery/create/edit, context compression.
 
 ## Milestone 5 — Tools, coding agent, and subagents
 
 **Goal:** reliable execution with explicit permissions.
 
-- [ ] Tool registry with JSON schemas, risk metadata, output caps.
-- [ ] File tools, terminal tool, git tool, Python runner.
-- [ ] Web fetch/search with URL validation and optional keyed backends.
-- [ ] Configurable browser command provider (disabled by default).
-- [ ] Task ledger and parallel subagents with isolated context and reduced toolsets.
-- [ ] Scheduler with local `cron/jobs.json`.
-- [ ] Tests: tool validation/execution, permissions, subagent aggregation, scheduler tick.
+- [x] Tool registry with JSON schemas, risk metadata, output caps.
+- [x] File tools, terminal tool, git tool, Python runner.
+- [x] Web fetch/search with URL validation and optional keyed backends.
+- [x] Configurable browser command provider (disabled by default).
+- [x] Task ledger and parallel subagents with isolated context and reduced toolsets.
+- [x] Scheduler with local `cron/jobs.json`.
+- [x] Tests: tool validation/execution, permissions, subagent aggregation, scheduler tick.
 
 ## Milestone 6 — Customization, permissions, integrations
 
 **Goal:** user-controlled behavior without disabling security indiscriminately.
 
-- [ ] Personality/system prompt config.
-- [ ] Tool allow/deny lists and path roots.
-- [ ] Approval callback with session/always/deny choices.
-- [ ] `local-dev` mode that relaxes non-destructive checks only.
-- [ ] Integration config validation and secret redaction in logs.
-- [ ] Tests: permission matrix, approval persistence, redaction, config validation.
+- [x] Personality/system prompt config.
+- [x] Tool allow/deny lists and path roots.
+- [x] Approval callback with session/always/deny choices.
+- [x] `local-dev` mode that relaxes non-destructive checks only.
+- [x] Integration config validation and secret redaction in logs.
+- [x] Tests: permission matrix, redaction, config validation.
 
 ## Milestone 7 — Testing, performance, bug fixing
 
 **Goal:** release-quality reliability on 8 GB Apple Silicon.
 
-- [ ] Expand regression suite across loop, providers, memory, skills, permissions, tools, CLI.
-- [ ] Benchmark cold start and RSS with `scripts/benchmark.py`.
-- [ ] Run `scripts/check.sh` (compile, tests, secret scan, CLI smoke).
-- [ ] Fix all discovered issues before release.
-- [ ] Record actual results in `docs/RELEASE_CHECKS.md`.
+- [x] Expand regression suite across loop, providers, memory, skills, permissions, tools, CLI.
+- [x] Benchmark cold start and RSS with `scripts/benchmark.py`.
+- [x] Run `scripts/check.sh` (compile, tests, secret scan, CLI smoke, benchmark).
+- [x] Fix all discovered issues before release.
+- [x] Record actual results in `docs/RELEASE_CHECKS.md`.
 
 ## Milestone 8 — Installer, documentation, branding, GitHub publication
 
 **Goal:** professional, honest public release.
 
-- [ ] One-command macOS installer, uninstaller, update, and diagnostics.
-- [ ] Locally test installer against a local git remote.
-- [ ] Branding assets (SVG logo/banner), README, provider/config guides, SECURITY, CONTRIBUTING, CHANGELOG.
-- [ ] Generate screenshots from a real mock-provider CLI run; label the provider clearly.
-- [ ] Full release checks: tests, secrets, license attribution, README links, repo contents.
+- [x] One-command macOS installer, uninstaller, update, and diagnostics.
+- [x] Locally test installer against a local git remote.
+- [x] Branding assets (SVG logo/banner), README, provider/config guides, SECURITY, CONTRIBUTING, CHANGELOG.
+- [x] Generate screenshots from a real mock-provider CLI run; label the provider clearly.
+- [x] Full local release checks: tests, secrets, license attribution, README links, repo contents.
 - [ ] Create `aether-agent` GitHub repo under the authenticated account if available.
 - [ ] Push source. Do not publish a hosted `curl | bash` command unless the hosted installer was verified.
 
@@ -109,3 +109,5 @@ For each milestone, the following will be recorded in the final response:
 5. Next milestone.
 
 Every checkpoint must be a commit with a concise message. No commit will contain secrets, `.env` files, fabricated results, or unverified claims.
+
+**Current checkpoint:** local implementation and release preparation are complete; commit, GitHub repository creation, push, and publication are deliberately not performed without explicit approval.

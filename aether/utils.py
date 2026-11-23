@@ -1,0 +1,102 @@
+import json
+import os
+import re
+import secrets
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+_SECRET_KEY = re.compile(r"(api[_-]?key|token|secret|password|authorization|cookie)", re.I)
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def estimate_tokens(text) -> int:
+    if not text:
+        return 0
+    if isinstance(text, (list, dict)):
+        text = json.dumps(text, ensure_ascii=False)
+    return max(1, int(len(str(text)) / 4) + 1)
+
+
+def message_tokens(messages) -> int:
+    return sum(estimate_tokens(message.get("content", "")) + 4 for message in messages)
+
+
+def redact(value) -> str:
+    text = str(value)
+    patterns = (
+        r"sk-[A-Za-z0-9_-]{12,}",
+        r"sk-or-[A-Za-z0-9_-]{12,}",
+        r"Bearer\s+[A-Za-z0-9._\-]+",
+        r"gh[pousr]_[A-Za-z0-9]{20,}",
+        r"AIza[0-9A-Za-z_\-]{30,}",
+    )
+    for pattern in patterns:
+        text = re.sub(pattern, "[REDACTED]", text, flags=re.I)
+    return text
+
+
+def redact_mapping(mapping) -> dict:
+    result = {}
+    for key, value in mapping.items():
+        if _SECRET_KEY.search(str(key)):
+            result[key] = "[REDACTED]"
+        elif isinstance(value, dict):
+            result[key] = redact_mapping(value)
+        else:
+            result[key] = redact(value)
+    return result
+
+
+def atomic_write(path: Path, text: str, mode: int | None = None) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_name, path)
+        if mode is not None:
+            os.chmod(path, mode)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+
+
+def atomic_json_write(path: Path, data, mode: int | None = None) -> None:
+    atomic_write(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n", mode=mode)
+
+
+def read_json(path: Path, default=None):
+    try:
+        with Path(path).open(encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, ValueError):
+        return default
+
+
+def truncate(text, limit=16000) -> str:
+    text = str(text)
+    if len(text) <= limit:
+        return text
+    return text[:limit] + f"\n... [truncated {len(text) - limit} chars]"
+
+
+def make_id(prefix="id") -> str:
+    return f"{prefix}_{secrets.token_hex(6)}"
+
+
+def parse_bool(value, default=False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}

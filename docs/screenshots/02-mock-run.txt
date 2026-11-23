@@ -1,0 +1,5 @@
+  · calling mock/mock-standard
+Aether mock provider is active. No network request was made.
+Use /provider ollama (or another configured provider) for real inference.  · response received (0 tool calls)
+
+  10 in / 33 out · mock/mock-standard
