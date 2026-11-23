@@ -1,9 +1,14 @@
+import os
+import time
 import unittest
+import urllib.request
 from pathlib import Path
+from unittest.mock import patch
 
 from aether.errors import ApprovalRequired, PermissionDenied, ToolError
 from aether.providers.base import ToolCall
-from aether.tools import PermissionPolicy, ToolExecutor, default_registry
+from aether.tools import PermissionPolicy, Tool, ToolExecutor, ToolRegistry, default_registry
+from aether.tools.builtins import _SafeRedirectHandler, _fetch_url
 
 from tests.base import TempHomeTest
 
@@ -71,6 +76,56 @@ class ToolTests(TempHomeTest):
         results = executor.execute_batch(calls)
         self.assertEqual(len(results), 2)
         self.assertTrue(all(execution.ok for _, execution in results))
+
+    def test_executor_enforces_tool_timeout(self):
+        config = self.config(tools={"timeout": 0.05})
+        policy = PermissionPolicy(config, workspace=self.workspace)
+        registry = ToolRegistry()
+        registry.register(Tool("slow", "Slow tool", {"type": "object"}, lambda args, context: time.sleep(2), "low"))
+        context = self.context()
+        context["config"] = config
+        executor = ToolExecutor(registry, policy, context)
+        _, execution = executor.execute_call(ToolCall("t1", "slow", {}))
+        self.assertFalse(execution.ok)
+        self.assertIn("timed out", execution.error)
+
+    def test_executor_redacts_model_facing_result(self):
+        with patch.dict(os.environ, {"AETHER_TEST_SERVICE_API_KEY": "abcdefgh123456"}):
+            policy = PermissionPolicy(self.config(), workspace=self.workspace)
+            registry = ToolRegistry()
+            registry.register(
+                Tool(
+                    "leak",
+                    "Leaks a secret",
+                    {"type": "object"},
+                    lambda args, context: "api_key=abcdefgh123456 token sk-abcdefghijklmnop",
+                    "low",
+                )
+            )
+            executor = ToolExecutor(registry, policy, self.context())
+            message, execution = executor.execute_call(ToolCall("t2", "leak", {}))
+            self.assertTrue(execution.ok)
+            self.assertNotIn("abcdefgh123456", message["content"])
+            self.assertNotIn("sk-abcdefghijklmnop", message["content"])
+            self.assertIn("[REDACTED]", message["content"])
+
+    def test_web_fetch_rejects_private_url(self):
+        with self.assertRaises(ToolError):
+            _fetch_url("http://127.0.0.1:8080")
+
+    def test_redirects_to_private_url_are_blocked(self):
+        handler = _SafeRedirectHandler()
+        request = urllib.request.Request("https://example.com")
+        with self.assertRaises(ToolError):
+            handler.redirect_request(request, None, 302, "Found", {}, "http://127.0.0.1/")
+
+    def test_strict_mode_checks_terminal_cwd_and_git_paths(self):
+        config = self.config(tool_permissions={"mode": "strict", "require_approval": []})
+        policy = PermissionPolicy(config, workspace=self.workspace)
+        terminal = policy.check("terminal", {"command": "pwd", "cwd": str(self.root / "outside")}, "execute")
+        self.assertFalse(terminal.allowed)
+        git_add = policy.check("git", {"subcommand": "add", "paths": ["../../outside.txt"]}, "execute")
+        self.assertFalse(git_add.allowed)
 
 
 if __name__ == "__main__":

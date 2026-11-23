@@ -1,4 +1,5 @@
 import json
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -40,6 +41,28 @@ class ToolExecutor:
     def set_context(self, context: dict) -> None:
         self.context = context
 
+    def _execute_tool(self, tool, name: str, args: dict):
+        config = self.context.get("config") or {}
+        timeout = tool.timeout if tool.timeout is not None else config.get("tools.timeout", 30)
+        if not timeout:
+            return self.registry.execute(name, args, self.context)
+        box = {}
+
+        def target():
+            try:
+                box["result"] = self.registry.execute(name, args, self.context)
+            except BaseException as exc:
+                box["error"] = exc
+
+        worker = threading.Thread(target=target, daemon=True)
+        worker.start()
+        worker.join(float(timeout))
+        if worker.is_alive():
+            raise ToolError(f"Tool '{name}' timed out after {float(timeout):g}s")
+        if "error" in box:
+            raise box["error"]
+        return box.get("result", "")
+
     def _run(self, name: str, args: dict) -> tuple[str, ToolExecution]:
         started = time.monotonic()
         try:
@@ -47,10 +70,10 @@ class ToolExecutor:
                 raise ToolError("Tool arguments must be a JSON object")
             tool = self.registry.get(name)
             self.policy.authorize(name, args, tool.risk)
-            result = self.registry.execute(name, args, self.context)
+            result = redact(self._execute_tool(tool, name, args))
             execution = ToolExecution(name, args, time.monotonic() - started, True, result=result)
         except AetherError as exc:
-            execution = ToolExecution(name, args, time.monotonic() - started, False, error=str(exc))
+            execution = ToolExecution(name, args, time.monotonic() - started, False, error=redact(str(exc)))
         if self.on_execute:
             self.on_execute(execution)
         if execution.ok:

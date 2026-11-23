@@ -27,15 +27,22 @@ def message_tokens(messages) -> int:
 
 def redact(value) -> str:
     text = str(value)
+    for name, secret in os.environ.items():
+        if _SECRET_KEY.search(name) and len(secret) >= 8:
+            text = text.replace(secret, "[REDACTED]")
     patterns = (
+        r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
         r"sk-[A-Za-z0-9_-]{12,}",
-        r"sk-or-[A-Za-z0-9_-]{12,}",
         r"Bearer\s+[A-Za-z0-9._\-]+",
         r"gh[pousr]_[A-Za-z0-9]{20,}",
+        r"github_pat_[A-Za-z0-9_]{20,}",
+        r"AKIA[0-9A-Z]{16}",
         r"AIza[0-9A-Za-z_\-]{30,}",
+        r"xox[baprs]-[A-Za-z0-9-]{10,}",
+        r"\b([A-Za-z_][A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|authorization|cookie)[A-Za-z0-9_]*)\s*([:=])\s*([\"']?)([^\s\"',}\]]{6,})\3",
     )
     for pattern in patterns:
-        text = re.sub(pattern, "[REDACTED]", text, flags=re.I)
+        text = re.sub(pattern, "[REDACTED]" if "PRIVATE KEY" not in pattern else "[REDACTED]", text, flags=re.I | re.S)
     return text
 
 

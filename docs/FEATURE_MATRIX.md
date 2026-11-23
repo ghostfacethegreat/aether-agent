@@ -21,7 +21,7 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | Streaming responses | SSE with interrupt/single-writer fence | Partial | urllib SSE parsers, delta callback, synthetic SSE accumulation test; live provider streams not exercised. |
 | Conversation context management | Prompt tiers, preflight compression, cache planning | Partial | Prompt is rebuilt each turn from current files; token estimate, summary/truncate strategy, and M2.1 role-alternation repair exist. No frozen snapshot or provider cache breakpoints yet. |
 | Reasoning / planning modes | Reasoning params, trust gates, planning prompts | Partial | `reasoning_effort` forwarding, `/plan` mode, `todo` tool. Model must support reasoning. |
-| Reliable tool calling | Schema repair, retries, role alternation repair | Partial | Required-key validation, unknown-tool error message, ordered parallel results, and M2.1 role-alternation repair. No full JSON Schema validation or executor-level timeout enforcement yet. |
+| Reliable tool calling | Schema repair, retries, role alternation repair | Partial | Required-key validation, unknown-tool error message, ordered parallel results, M2.1 role-alternation repair, and M2.2 executor-level timeouts. No full JSON Schema validation yet. |
 | Provider fallback and error recovery | Credential pools, cooldowns, fallback chain | Done | Ordered fallback with retryable classification and cooldown per provider. |
 | Cost and limit transparency | Catalog pricing, usage guards, account usage | Partial | Every provider has a cost annotation in `aether providers`; no per-turn dollar estimate or account-balance scraping. |
 
@@ -35,7 +35,7 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | File read/write/edit | Rich file tools with guards | Done | `read_file`, `write_file`, `edit_file`, `list_directory`. |
 | Terminal execution | Sandboxed/backed terminal tool | Done | `terminal` with timeout, output cap, approval for destructive commands. Not a sandbox. |
 | Git integration | Several git helpers | Done | `git status/diff/log/add/commit` through one tool; git actions require approval by default. |
-| Web research | Exa/Firecrawl/Parallel plus fetch | Partial | Key-free `web_fetch` and DuckDuckGo HTML `web_search`; optional paid keys supported but not required. |
+| Web research | Exa/Firecrawl/Parallel plus fetch | Partial | Key-free `web_fetch` and DuckDuckGo HTML `web_search`; optional paid keys supported but not required. M2.2 rejects private URL targets and unsafe redirects. |
 | Browser automation | Local CDP, cloud Browserbase, desktop control | Partial | Configurable `browser` command template; no bundled browser runtime. Disabled by default. |
 | Code generation / debugging | Full coding agent | Done | Tool-driven editing plus built-in `debug` and `code-review` skills. |
 | Task history and recovery | Durable sessions, delegation ledgers | Done | SQLite `tasks` table with `/tasks` and in-chat `/resume`; M2.1 preserves assistant tool calls and tool result IDs across reload. |

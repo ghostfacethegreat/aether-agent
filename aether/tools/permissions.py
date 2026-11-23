@@ -43,6 +43,15 @@ def _key(parts) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
+def _path_values(value) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value).strip()
+    return [text] if text else []
+
+
 class PermissionPolicy:
     def __init__(self, config, store=None, workspace=None, approve_callback=None):
         self.config = config
@@ -70,10 +79,7 @@ class PermissionPolicy:
         text = str(command or "")
         return any(re.search(pattern, text, re.I) for pattern in DESTRUCTIVE_PATTERNS)
 
-    def _path_decision(self, tool: str, args: dict) -> PermissionDecision:
-        raw = args.get("path") or args.get("file") or ""
-        if not raw:
-            return PermissionDecision(True)
+    def _single_path_decision(self, tool: str, raw: str) -> PermissionDecision:
         try:
             path = Path(str(raw)).expanduser()
             path = path if path.is_absolute() else (self.workspace / path)
@@ -89,6 +95,19 @@ class PermissionPolicy:
             if self.mode == "strict":
                 return PermissionDecision(False, f"Path outside allowed roots: {path}", False, _key([tool, str(path)]), risk)
             return PermissionDecision(True, f"Path outside workspace: {path}", True, _key([tool, str(path)]), risk)
+        return PermissionDecision(True)
+
+    def _path_decision(self, tool: str, args: dict) -> PermissionDecision:
+        raw_values = []
+        for key in ("path", "file", "cwd"):
+            raw_values.extend(_path_values(args.get(key)))
+        raw_values.extend(_path_values(args.get("paths")))
+        if not raw_values:
+            return PermissionDecision(True)
+        for raw in raw_values:
+            decision = self._single_path_decision(tool, raw)
+            if not decision.allowed or decision.needs_approval:
+                return decision
         return PermissionDecision(True)
 
     def check(self, tool: str, args: dict, risk: str = "low") -> PermissionDecision:

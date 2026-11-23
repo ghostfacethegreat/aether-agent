@@ -15,6 +15,14 @@
 - Fixed Anthropic replay conversion for nested OpenAI-style tool call fields.
 - Added regression tests for store round trip, resume history, context repair, and Anthropic tool-call replay.
 
+## Phase 2 Milestone 2.2
+
+- Enforced per-tool timeouts in the executor with tool-specific ceilings for terminal, Python, git, browser, and network work.
+- Rejected private, loopback, link-local, and credential-bearing URL targets, including redirects.
+- Redacted secrets from model-facing tool results as well as tool logs.
+- Extended path-root validation to terminal `cwd`, git `paths`, and other explicit path arguments.
+- Added regression tests for timeout denial, private URL/redirect rejection, secret redaction, and path escapes.
+
 ## 0.1.0 (unreleased alpha)
 
 - Audited public Hermes Agent architecture and provider/security patterns.

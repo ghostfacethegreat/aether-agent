@@ -1,6 +1,8 @@
+import ipaddress
 import json
 import os
 import shlex
+import socket
 import subprocess
 import urllib.error
 import urllib.parse
@@ -51,17 +53,67 @@ class _LinkParser(HTMLParser):
             self._anchor = None
 
 
-def _fetch_url(url: str, max_bytes=262144, timeout=15, headers=None) -> str:
-    parsed = urllib.parse.urlparse(url)
+def _is_public_address(value: str) -> bool:
+    address = ipaddress.ip_address(value)
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        address = address.ipv4_mapped
+    return not (
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_multicast
+        or address.is_reserved
+        or address.is_unspecified
+    )
+
+
+def _validate_url(url: str) -> None:
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except ValueError as exc:
+        raise ToolError(f"Invalid URL: {exc}") from exc
     if parsed.scheme not in ("http", "https"):
         raise ToolError("Only http and https URLs are supported")
     if parsed.username or parsed.password:
         raise ToolError("URLs with embedded credentials are not allowed")
+    host = parsed.hostname
+    if not host:
+        raise ToolError("URL must include a host")
+    try:
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError as exc:
+        raise ToolError(f"Invalid URL port: {exc}") from exc
+    lowered = host.lower().strip(".")
+    if lowered == "localhost" or lowered.endswith((".localhost", ".local", ".internal")):
+        raise ToolError("Refusing non-public URL host")
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except (OSError, UnicodeError) as exc:
+        raise ToolError(f"Could not resolve URL host: {exc}") from exc
+    for info in infos:
+        try:
+            public = _is_public_address(info[4][0])
+        except ValueError:
+            public = False
+        if not public:
+            raise ToolError("Refusing non-public URL target")
+
+
+class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _validate_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _fetch_url(url: str, max_bytes=262144, timeout=15, headers=None) -> str:
+    _validate_url(url)
     request = urllib.request.Request(
         url,
         headers={"User-Agent": "Aether/0.1 (research assistant)", "Accept": "text/html,text/plain,*/*", **(headers or {})},
     )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    opener = urllib.request.build_opener(_SafeRedirectHandler())
+    with opener.open(request, timeout=timeout) as response:
+        _validate_url(response.geturl())
         raw = response.read(max_bytes)
         charset = response.headers.get_content_charset() or "utf-8"
     return raw.decode(charset, "replace")
@@ -288,6 +340,7 @@ def browser(args, context):
         )
     url = str(args.get("url") or "")
     action = str(args.get("action") or "open")
+    _validate_url(url)
     rendered = command.replace("{url}", shlex.quote(url)).replace("{action}", shlex.quote(action))
     try:
         completed = subprocess.run(rendered, shell=True, capture_output=True, text=True, timeout=60)
@@ -458,6 +511,7 @@ TOOLS = [
         },
         terminal,
         "execute",
+        timeout=610,
     ),
     Tool(
         "git",
@@ -475,6 +529,7 @@ TOOLS = [
         },
         git,
         "execute",
+        timeout=90,
     ),
     Tool(
         "python",
@@ -482,6 +537,7 @@ TOOLS = [
         {"type": "object", "properties": {"code": {"type": "string"}, "timeout": {"type": "integer"}}, "required": ["code"]},
         python_run,
         "execute",
+        timeout=130,
     ),
     Tool(
         "web_fetch",
@@ -490,6 +546,7 @@ TOOLS = [
         web_fetch,
         "network",
         True,
+        timeout=30,
     ),
     Tool(
         "web_search",
@@ -498,6 +555,7 @@ TOOLS = [
         web_search,
         "network",
         True,
+        timeout=30,
     ),
     Tool(
         "browser",
@@ -509,6 +567,7 @@ TOOLS = [
         },
         browser,
         "network",
+        timeout=90,
     ),
     Tool(
         "memory",
@@ -568,6 +627,7 @@ TOOLS = [
         },
         delegate_task,
         "execute",
+        timeout=300,
     ),
     Tool(
         "todo",

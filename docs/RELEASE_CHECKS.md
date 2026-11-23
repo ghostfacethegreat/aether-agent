@@ -55,6 +55,14 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - Benchmark in that M2.1 run: 3 cold starts, median wall time 0.079s, peak child RSS 30.3 MiB.
 - Validated behavior: tool-call metadata round trip, resumed tool-call history, context repair, and Anthropic nested tool-call replay.
 
+## Phase 2 Milestone 2.2 checks
+
+- `python3 -m unittest tests.test_tools -v` — 12 targeted tests passed.
+- `scripts/check.sh` after M2.2 — passed: 47 tests, doctor, mock CLI smoke, secret scan, local Markdown links, and benchmark.
+- Benchmarks in M2.2 runs: 3 cold starts each, median wall time around 0.08s and peak child RSS around 30 MiB.
+- Validated behavior: executor-level timeout denial, model-facing secret redaction, private URL rejection, redirect-to-private rejection, and strict-mode path checks for terminal `cwd` and git `paths`.
+- Not validated here: live web fetches, live search providers, DNS rebinding, OS-level sandboxing, or browser command templates.
+
 ## Secrets
 
 - No `.env` file was created in the repository.

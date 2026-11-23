@@ -10,7 +10,7 @@ Aether runs on your machine with your permissions. It is a tool runtime, not a s
 
 ## Protections in 0.1.0
 
-- Secret redaction in logs and CLI error output.
+- Secret redaction in logs, CLI error output, and model-facing tool results.
 - Config and `.env` files are excluded from git by `.gitignore`.
 - Destructive shell pattern detection, including `rm -rf`, `sudo`, `mkfs`, forced git pushes, and pipe-to-shell.
 - Approval prompts for configured risky tools.
@@ -18,12 +18,14 @@ Aether runs on your machine with your permissions. It is a tool runtime, not a s
 - Sensitive path markers such as `.env`, `.ssh`, credentials, and private keys require approval.
 - Memory and skills are local Markdown files with no remote sync.
 - Built-in skills are filtered for a small set of injection-like patterns.
-- Web fetch rejects non-HTTP(S) URLs and embedded credentials.
+- Web fetch rejects non-HTTP(S) URLs, embedded credentials, private-network targets, and unsafe redirects.
+- Tool execution enforces per-tool wall-clock timeouts.
+- Terminal working directories, git paths, and other explicit path arguments are checked against allowed roots.
 
 ## Limitations
 
 - Python and shell tools can execute arbitrary code with user privileges.
-- Web fetch has no private-network block; avoid pointing it at internal services.
+- Web fetch validates hostnames and resolved addresses before connecting, but DNS rebinding and all web-content injection are outside its guarantees.
 - Browser automation is only as safe as the command template you configure.
 - Approval caching can persist decisions in the local database.
 - Free-tier provider limits and model IDs can change without notice.
