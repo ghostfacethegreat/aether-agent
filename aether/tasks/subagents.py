@@ -9,12 +9,11 @@ class SubagentManager:
         self.store = store
         self.max_workers = max(1, int(max_workers))
 
-    def _run_one(self, task, parent_context):
+    def _run_one(self, task, parent_context, task_id=""):
         goal = str(task.get("goal") or "").strip()
         if not goal:
             return {"ok": False, "error": "Task goal is required", "goal": goal}
-        task_id = ""
-        if self.store:
+        if self.store and not task_id:
             task_id = self.store.create_task(
                 title=goal[:120],
                 session_id=parent_context.get("session_id", ""),
@@ -56,6 +55,8 @@ class SubagentManager:
         task = self.store.get_task(task_id) if self.store else None
         if not task:
             return {"ok": False, "error": f"Task '{task_id}' not found"}
+        if task.get("status") in ("completed", "cancelled"):
+            return {"ok": False, "error": f"Task '{task_id}' is {task['status']} and cannot be resumed"}
         metadata = task.get("metadata")
         if isinstance(metadata, str):
             import json
@@ -64,4 +65,8 @@ class SubagentManager:
                 metadata = json.loads(metadata)
             except ValueError:
                 metadata = {}
-        return self._run_one({"goal": task.get("result") or task.get("title") or "", "context": (metadata or {}).get("context", "")}, parent_context)
+        return self._run_one(
+            {"goal": task.get("result") or task.get("title") or "", "context": (metadata or {}).get("context", "")},
+            parent_context,
+            task_id=str(task["id"]),
+        )

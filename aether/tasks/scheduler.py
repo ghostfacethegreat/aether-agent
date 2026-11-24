@@ -43,7 +43,19 @@ class Scheduler:
 
     def _load(self) -> list[dict]:
         data = read_json(self.path, [])
-        return data if isinstance(data, list) else []
+        if not isinstance(data, list):
+            return []
+        jobs = []
+        for item in data:
+            if not isinstance(item, dict) or not str(item.get("prompt") or "").strip() or not str(item.get("id") or ""):
+                continue
+            try:
+                parse_schedule(item.get("schedule", ""))
+            except SchedulerError:
+                item["enabled"] = False
+                item["last_error"] = "Invalid schedule"
+            jobs.append(item)
+        return jobs
 
     def _save(self) -> None:
         atomic_json_write(self.path, self.jobs)

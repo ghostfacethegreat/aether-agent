@@ -137,11 +137,23 @@ aether.cli.app  ---> aether.core.agent <-- aether.config
     |--> aether.memory.store (MEMORY.md / USER.md + SQLite FTS)
     |--> aether.skills.engine (SKILL.md progressive disclosure)
     |--> aether.tasks.subagents (ThreadPoolExecutor + task ledger)
+    |--> aether.orchestration (roles, shared state, dependency plans, task recovery)
     |--> aether.tasks.scheduler (>=30s interval jobs)
-    `--> aether.persistence.store (SQLite: sessions, messages, tasks, usage)
+     `--> aether.persistence.store (SQLite: sessions, messages, tasks, usage)
 ```
 
+### Multi-agent orchestration flow
+
+1. `Agent` constructs an `Orchestrator` with the parent config, store, shared spend budget, and cancellation event.
+2. The orchestrator resolves role settings from `orchestrator.roles` and builds a task graph from explicit roles or objective heuristics.
+3. Ready tasks run in a bounded `ThreadPoolExecutor`; `mode=sequential` forces one worker and `mode=parallel` uses `orchestrator.max_concurrency`.
+4. Each child agent receives a narrowed permission policy, inherited budget limit, cancellation event, role prompt, and only its role's tools. Children cannot call `orchestrate_task` or `delegate_task`.
+5. Structured child results are published to owner-protected task records in `SharedTaskState`; dependent agents receive those results as explicitly untrusted context.
+6. Retries, timeouts, cancellations, artifacts, usage, and tool logs are persisted through the existing SQLite task ledger.
+7. The final report consolidates summaries, sources, failures, token totals, and estimated cost.
+
 ### Data flow for one Aether turn
+
 
 1. CLI renders a compact dashboard and passes user text to `Agent.run_turn`.
 2. Turn context loads durable memory, skill index, and recent transcript.
@@ -190,4 +202,4 @@ Secrets are read from environment variables or `.env` at runtime. They are never
 
 The original audit above remains the Milestone 1 record at upstream commit `bb89ad1a`. Phase 2 refreshed the upstream checkout to `b98c388a880b1b6fd303c9c2821a3946651a0b4c` and compared it against Aether commit `bdbe2462dda3c4646086385d600b4e2ab23f4957`.
 
-The detailed 14-area comparison is in [PHASE2_FEATURE_COMPARISON.md](PHASE2_FEATURE_COMPARISON.md). The implementation order is in [PHASE2_ROADMAP.md](PHASE2_ROADMAP.md). M2.1 addressed durable tool-call replay and context role repair; M2.2 addressed tool timeout, URL, redaction, and path-scope hardening; M2.3 made scheduler ticks execute real local prompts with claims and an execution ledger. The next architecture corrections are provider cost enforcement and honest validation of local inference and updates.
+The detailed 14-area comparison is in [PHASE2_FEATURE_COMPARISON.md](PHASE2_FEATURE_COMPARISON.md). The implementation order is in [PHASE2_ROADMAP.md](PHASE2_ROADMAP.md). M2.1 addressed durable tool-call replay and context role repair; M2.2 addressed tool timeout, URL, redaction, and path-scope hardening; M2.3 made scheduler ticks execute real local prompts with claims and an execution ledger. Provider cost enforcement added cached-token pricing, billability gating, shared budgets, and honest cost reporting. Phase 3 added the dependency-aware orchestrator described above.

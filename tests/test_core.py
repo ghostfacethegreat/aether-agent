@@ -340,6 +340,35 @@ class CoreTests(TempHomeTest):
         self.assertEqual(result.exit_reason, "complete")
         self.assertEqual(state.usage["provider"], "mock")
         self.assertEqual(state.usage["model"], "mock-standard")
+    def test_false_paid_environment_does_not_confirm(self):
+        provider = _PaidProviderStub()
+        state = self._turn_state(provider, self.config())
+
+        with patch.dict("os.environ", {"AETHER_CONFIRM_PAID": "false"}):
+            result = run_turn_loop(state)
+
+        self.assertEqual(result.exit_reason, "provider_error")
+        self.assertIn("not confirmed", result.error)
+        self.assertEqual(provider.calls, 0)
+
+    def test_turn_usage_is_local_to_each_turn(self):
+        config = self.config(costs={"confirm_paid": False})
+        budget = new_spend_budget()
+        provider = _PaidProviderStub()
+        provider.response = ModelResponse(content="ok", usage={"prompt_tokens": 10, "completion_tokens": 5})
+
+        first = self._turn_state(provider, config)
+        first.spend_budget = budget
+        self.assertEqual(run_turn_loop(first).exit_reason, "complete")
+
+        second = self._turn_state(provider, config)
+        second.spend_budget = budget
+        self.assertEqual(run_turn_loop(second).exit_reason, "complete")
+
+        self.assertEqual(first.usage["prompt_tokens"], 10)
+        self.assertEqual(second.usage["prompt_tokens"], 10)
+        with budget["lock"]:
+            self.assertEqual(budget["usage"]["prompt_tokens"], 20)
 
 
 if __name__ == "__main__":

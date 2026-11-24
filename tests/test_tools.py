@@ -126,6 +126,32 @@ class ToolTests(TempHomeTest):
         self.assertFalse(terminal.allowed)
         git_add = policy.check("git", {"subcommand": "add", "paths": ["../../outside.txt"]}, "execute")
         self.assertFalse(git_add.allowed)
+    def test_once_approval_is_not_cached(self):
+        config = self.config(tool_permissions={"require_approval": ["read_file"]})
+        answers = iter(["once", "no"])
+        policy = PermissionPolicy(config, workspace=self.workspace, approve_callback=lambda *args: next(answers))
+        executor = ToolExecutor(self.registry, policy, self.context())
+
+        first, _ = executor.execute_call(ToolCall("once1", "read_file", {"path": "note.txt"}))
+        second, execution = executor.execute_call(ToolCall("once2", "read_file", {"path": "note.txt"}))
+
+        self.assertNotIn('"ok": false', first["content"])
+        self.assertFalse(execution.ok)
+        self.assertIn("denied", execution.error)
+        self.assertIn('"ok": false', second["content"])
+
+    def test_session_approval_is_scoped_to_exact_arguments(self):
+        (self.workspace / "other.txt").write_text("other\n", encoding="utf-8")
+        config = self.config(tool_permissions={"require_approval": ["read_file"]})
+        answers = iter(["session", "no"])
+        policy = PermissionPolicy(config, workspace=self.workspace, approve_callback=lambda *args: next(answers))
+        executor = ToolExecutor(self.registry, policy, self.context())
+
+        executor.execute_call(ToolCall("scope1", "read_file", {"path": "note.txt"}))
+        _, execution = executor.execute_call(ToolCall("scope2", "read_file", {"path": "other.txt"}))
+
+        self.assertFalse(execution.ok)
+        self.assertIn("denied", execution.error)
 
 
 if __name__ == "__main__":

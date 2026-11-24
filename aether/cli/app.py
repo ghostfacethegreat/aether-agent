@@ -14,6 +14,7 @@ from aether.errors import AetherError
 from aether.home import aether_home, env_path
 from aether.logging import get_logger, set_level
 from aether.memory import MemoryStore
+from aether.orchestration import ROLE_NAMES, Orchestrator, resolved_roles
 from aether.persistence import Store
 from aether.providers.catalog import PROVIDERS, provider_is_billable
 from aether.tasks import Scheduler
@@ -25,7 +26,7 @@ from . import render
 SLASH_COMMANDS = [
     "/help", "/quit", "/exit", "/new", "/clear", "/status", "/provider", "/model",
     "/plan", "/tools", "/memory", "/skills", "/sessions", "/resume", "/history",
-    "/tasks", "/schedule", "/cost", "/doctor", "/export",
+    "/tasks", "/agents", "/schedule", "/cost", "/doctor", "/export",
 ]
 
 
@@ -135,6 +136,23 @@ def build_parser():
     tasks_resume = tasks.add_parser("resume")
     tasks_resume.add_argument("id")
     tasks_resume.set_defaults(func=cmd_tasks)
+
+    p_agents = sub.add_parser("agents", help="Inspect and run specialized agents")
+    agents = p_agents.add_subparsers(dest="action", required=True)
+    agents_list = agents.add_parser("list")
+    agents_list.set_defaults(func=cmd_agents)
+    agents_status = agents.add_parser("status")
+    agents_status.set_defaults(func=cmd_agents)
+    agents_run = agents.add_parser("run")
+    agents_run.add_argument("role")
+    agents_run.add_argument("task", nargs="+")
+    agents_run.set_defaults(func=cmd_agents)
+    agents_cancel = agents.add_parser("cancel")
+    agents_cancel.add_argument("id")
+    agents_cancel.set_defaults(func=cmd_agents)
+    agents_resume = agents.add_parser("resume", help="Resume unfinished tasks from a stored run")
+    agents_resume.add_argument("id")
+    agents_resume.set_defaults(func=cmd_agents)
 
     p_schedule = sub.add_parser("schedule", help="Manage local scheduled jobs")
     sched = p_schedule.add_subparsers(dest="action", required=True)
@@ -287,6 +305,43 @@ def setup_completer():
     readline.set_completer(lambda text, state: [item for item in SLASH_COMMANDS if item.startswith(text)][state] if state < len([item for item in SLASH_COMMANDS if item.startswith(text)]) else None)
 
 
+def _role_rows(config):
+    roles = resolved_roles(config)
+    rows = []
+    for name in ROLE_NAMES:
+        spec = roles.get(name, {})
+        provider = spec.get("provider") or config.get("provider")
+        model = spec.get("model") or config.get("model")
+        tools = ", ".join(spec.get("allowed_tools", [])[:6])
+        rows.append((name, f"{provider}/{model}", str(spec.get("max_iterations", 4)), truncate(tools, 70)))
+    return rows
+
+
+def print_agents_status(orchestrator):
+    active = orchestrator.status()
+    if not active:
+        print("(no active agent runs)")
+    for run in active:
+        print(f"Run {run['id']} · {run['status']} · {run['mode']} · {truncate(run['objective'], 90)}")
+        rows = [
+            (
+                truncate(task["id"], 12),
+                task["role"],
+                task["status"],
+                str(task["attempts"]),
+                truncate(str(task["model"]) or "-", 24),
+                str(task["tokens"]),
+                task["cost"],
+                truncate(task["error"], 50),
+            )
+            for task in run["tasks"]
+        ]
+        print(render.table(["Task", "Role", "Status", "Tries", "Model", "Tokens", "Cost", "Error"], rows))
+    runs = orchestrator.list_runs()
+    if runs:
+        print(render.table(["Stored run", "Status", "Objective", "Updated"], [(row["id"], row["status"], truncate(row["objective"], 70), row["updated_at"]) for row in runs]))
+
+
 def _print_help():
     rows = [
         ("/help", "show this help"),
@@ -302,6 +357,7 @@ def _print_help():
         ("/sessions, /resume <id>", "list or resume sessions"),
         ("/history [query]", "search previous messages"),
         ("/tasks", "list delegated tasks"),
+        ("/agents [list|run|status|cancel]", "coordinate specialized agents"),
         ("/schedule list|add|remove", "manage scheduled jobs"),
         ("/cost", "show rough local cost and token totals"),
         ("/doctor", "run environment checks"),
@@ -397,6 +453,26 @@ def _agent_command(agent, parts):
     if action == "tasks":
         rows = [(row["id"], row["status"], row["title"][:70]) for row in agent.store.list_tasks()]
         print(render.table(["ID", "Status", "Title"], rows))
+        return False
+    if action == "agents":
+        orchestrator = agent.orchestrator
+        if orchestrator is None:
+            print(render.error_line("orchestration is disabled in config"))
+            return False
+        sub = args[0] if args else "status"
+        if sub == "list":
+            print(render.table(["Role", "Provider/Model", "Iterations", "Tools"], _role_rows(agent.config)))
+        elif sub == "status":
+            print_agents_status(orchestrator)
+        elif sub == "run" and len(args) >= 3:
+            run = orchestrator.run(" ".join(args[2:]), roles=[args[1]])
+            print(run.final_report)
+            if run.status != "completed":
+                print(render.error_line(f"run ended with status {run.status}"))
+        elif sub == "cancel" and len(args) > 1:
+            print(render.success_line("cancelled") if orchestrator.cancel(args[1]) else render.error_line("no matching task"))
+        else:
+            print(render.error_line("usage: /agents list|run <role> <task>|status|cancel <task-id>"))
         return False
     if action == "schedule":
         sub = args[0] if args else "list"
@@ -662,21 +738,57 @@ def cmd_tasks(args, config, home):
     return 1
 
 
+def cmd_agents(args, config, home, scheduler=None):
+    store = Store(home / "state.db")
+    orchestrator = Orchestrator(None, config, store=store)
+    if args.action == "list":
+        print(render.table(["Role", "Provider/Model", "Iterations", "Tools"], _role_rows(config)))
+        return 0
+    if args.action == "status":
+        print_agents_status(orchestrator)
+        return 0
+    if args.action == "cancel":
+        print(render.success_line("cancelled") if orchestrator.cancel(args.id) else render.error_line("no matching task"))
+        return 0
+    agent = make_agent(args, config, home, scheduler)
+    if agent.orchestrator is None:
+        print(render.error_line("orchestration is disabled in config"))
+        return 1
+    if args.action == "run":
+        run = agent.orchestrator.run(" ".join(args.task), roles=[args.role])
+        print(run.final_report)
+        return 0 if run.status == "completed" else 1
+    run = agent.orchestrator.resume(args.id)
+    if run is None:
+        print(render.error_line(f"run '{args.id}' not found"))
+        return 1
+    print(run.final_report)
+    return 0 if run.status == "completed" else 1
+
+
 def scheduled_runner(config, home):
     def run(prompt):
         provider = str(config.get("provider") or "unknown")
         model = str(config.get("model") or "")
-        allow_paid = parse_bool(config.get("scheduler.allow_paid"), False) or bool(os.environ.get("AETHER_CONFIRM_PAID"))
+        allow_paid = parse_bool(config.get("scheduler.allow_paid"), False) or parse_bool(os.environ.get("AETHER_CONFIRM_PAID"), False)
         if provider_is_billable(provider, model) and not allow_paid:
             raise RuntimeError(
                 f"Scheduled execution with billable provider '{provider}' is disabled by default; "
                 "set scheduler.allow_paid=true"
             )
-        run_config = config
-        if allow_paid:
-            run_config = Config(config.as_dict())
-            run_config.set("costs.confirm_paid", False)
-        agent = Agent(run_config, home=home, persist=False, approve_callback=None)
+        run_config = Config(config.as_dict())
+        run_config.set("costs.confirm_paid", not allow_paid)
+        run_config.set("orchestrator.allow_paid", False)
+        run_config.set("orchestrator.enabled", False)
+        run_config.set("tool_permissions.allow_tools", None)
+        agent = Agent(
+            run_config,
+            home=home,
+            persist=False,
+            approve_callback=None,
+            enable_subagents=False,
+            enable_orchestrator=False,
+        )
         result = agent.run_turn(prompt)
         if result.exit_reason in ("provider_error", "cost_limit"):
             raise RuntimeError(f"scheduled run stopped: {result.exit_reason}")
@@ -759,12 +871,12 @@ def main(argv=None):
         scheduler = None
         if getattr(args, "command", None) not in ("version", "update") and parse_bool(config.get("scheduler.enabled"), False):
             scheduler = Scheduler(config, home, runner=scheduled_runner(config, home))
-            if getattr(args, "func", None) in (cmd_chat, cmd_run):
+            if getattr(args, "func", None) in (cmd_chat, cmd_run, cmd_agents):
                 scheduler.start()
         try:
             if getattr(args, "func", None) is None:
                 return cmd_chat(args, config, home, scheduler)
-            if args.func in (cmd_chat, cmd_run):
+            if args.func in (cmd_chat, cmd_run, cmd_agents):
                 return args.func(args, config, home, scheduler)
             return args.func(args, config, home)
         finally:

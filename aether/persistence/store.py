@@ -245,8 +245,8 @@ class Store:
                 rows = db.execute(sql, params).fetchall()
         return [dict(row) for row in rows]
 
-    def create_task(self, title="", session_id="", parent_id="", metadata=None) -> str:
-        task_id = make_id("task")
+    def create_task(self, title="", session_id="", parent_id="", metadata=None, task_id=None) -> str:
+        task_id = task_id or make_id("task")
         now = utc_now()
         with self.connect() as db:
             db.execute(
@@ -268,14 +268,78 @@ class Store:
                     (status, str(result or ""), json.dumps(metadata, ensure_ascii=False), utc_now(), task_id),
                 )
 
+    def find_tasks_by_run_id(self, run_id: str) -> list[dict]:
+        wanted = str(run_id)
+        with self.connect() as db:
+            rows = db.execute("SELECT * FROM tasks ORDER BY updated_at DESC").fetchall()
+        result = []
+        for row in rows:
+            metadata = row["metadata"]
+            try:
+                parsed = json.loads(metadata or "{}")
+            except (TypeError, ValueError):
+                continue
+            if isinstance(parsed, dict) and str(parsed.get("run_id") or "") == wanted:
+                result.append(dict(row))
+        return result
+
+    def persist_orchestration(self, creates=None, updates=None, usages=None) -> None:
+        now = utc_now()
+        with self.connect() as db:
+            for item in creates or []:
+                db.execute(
+                    "INSERT OR IGNORE INTO tasks(id,session_id,parent_id,title,status,metadata,created_at,updated_at) "
+                    "VALUES(?,?,?,?,?,?,?,?)",
+                    (
+                        item["id"],
+                        item.get("session_id", ""),
+                        item.get("parent_id", ""),
+                        item.get("title", ""),
+                        item.get("status", "pending"),
+                        json.dumps(item.get("metadata") or {}, ensure_ascii=False),
+                        now,
+                        now,
+                    ),
+                )
+            for item in updates or []:
+                db.execute(
+                    "UPDATE tasks SET status=?,result=?,metadata=?,updated_at=? WHERE id=?",
+                    (
+                        item.get("status", "pending"),
+                        str(item.get("result") or ""),
+                        json.dumps(item.get("metadata") or {}, ensure_ascii=False),
+                        now,
+                        item["id"],
+                    ),
+                )
+            for item in usages or []:
+                db.execute(
+                    "INSERT INTO usage(session_id,provider,model,prompt_tokens,completion_tokens,estimated_cost,"
+                    "cost_known,priced_calls,unpriced_calls,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        item.get("session_id", ""),
+                        item.get("provider", ""),
+                        item.get("model", ""),
+                        int(item.get("prompt_tokens", 0)),
+                        int(item.get("completion_tokens", 0)),
+                        float(item.get("estimated_cost", 0.0)),
+                        int(bool(item.get("cost_known"))),
+                        int(item.get("priced_calls", 0)),
+                        int(item.get("unpriced_calls", 0)),
+                        now,
+                    ),
+                )
+
     def list_tasks(self, limit=50, status=None) -> list[dict]:
         sql = "SELECT * FROM tasks"
         params = []
         if status:
             sql += " WHERE status=?"
             params.append(status)
-        sql += " ORDER BY updated_at DESC LIMIT ?"
-        params.append(limit)
+        sql += " ORDER BY updated_at DESC"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
         with self.connect() as db:
             rows = db.execute(sql, params).fetchall()
         return [dict(row) for row in rows]

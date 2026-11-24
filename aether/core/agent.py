@@ -1,3 +1,4 @@
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -6,6 +7,8 @@ from aether.core.context import ContextManager
 from aether.core.loop import TurnState, new_spend_budget, run_turn_loop
 from aether.home import aether_home, state_db_path, workspace_root
 from aether.memory import MemoryStore
+from aether.orchestration import Orchestrator
+from aether.orchestration.roles import FORCED_APPROVAL_TOOLS, FORCED_DENY_TOOLS
 from aether.persistence import Store
 from aether.providers import ProviderManager
 from aether.providers.catalog import provider_spec
@@ -26,6 +29,7 @@ class TurnResult:
     usage: dict = field(default_factory=dict)
     tool_log: list = field(default_factory=list)
     exit_reason: str = "complete"
+    error: str = ""
     messages: list = field(default_factory=list)
 
 
@@ -44,6 +48,8 @@ class Agent:
         enable_subagents=True,
         scheduler=None,
         spend_budget: dict | None = None,
+        cancel_event: threading.Event | None = None,
+        enable_orchestrator=True,
     ):
         self.home = Path(home or aether_home())
         self.config = config or Config()
@@ -75,7 +81,15 @@ class Agent:
         )
         self.executor = ToolExecutor(self.registry, self.policy, parallel=bool(self.config.get("tools.parallel_safe", True)))
         self.scheduler = scheduler
+        self.approve_callback = approve_callback
+        self.cancel_event = cancel_event or threading.Event()
+        self.enable_subagents = enable_subagents
         self.subagents = SubagentManager(self._child_agent, self.store, max_workers=3) if enable_subagents else None
+        self.orchestrator = (
+            Orchestrator(self, config, store=self.store, cancel_event=self.cancel_event)
+            if enable_subagents and enable_orchestrator and bool(self.config.get("orchestrator.enabled", True))
+            else None
+        )
         self.plan = ""
         self.current_state: TurnState | None = None
         self.session_id = session_id or (self.store.create_session(provider=self.provider_manager.active_name, model=self.provider_manager.model) if persist else make_id("session"))
@@ -110,6 +124,8 @@ class Agent:
                 "provider_manager": self.provider_manager,
                 "scheduler": self.scheduler,
                 "subagents": self.subagents,
+                "orchestrator": self.orchestrator,
+                "cancel_event": self.cancel_event,
                 "session_id": self.session_id,
                 "set_plan": self.set_plan,
             }
@@ -120,9 +136,12 @@ class Agent:
         child_config.set("provider", self.provider_manager.active_name)
         child_config.set("model", self.provider_manager.model)
         child_config.set("max_iterations", min(4, int(self.config.get("max_iterations", 12))))
+        required = set(self.config.get("tool_permissions.require_approval", []) or [])
+        required.update(FORCED_APPROVAL_TOOLS)
         child_config.set("tool_permissions.mode", "strict")
         child_config.set("tool_permissions.allow_tools", CHILD_TOOLS)
-        child_config.set("tool_permissions.require_approval", [])
+        child_config.set("tool_permissions.deny_tools", sorted(FORCED_DENY_TOOLS))
+        child_config.set("tool_permissions.require_approval", sorted(required))
         child = Agent(
             child_config,
             home=self.home,
@@ -131,8 +150,55 @@ class Agent:
             persist=False,
             enable_subagents=False,
             spend_budget=self.spend_budget,
+            cancel_event=self.cancel_event,
+            approve_callback=self.approve_callback,
         )
         child.policy.workspace = self.workspace
+        child.executor.context["child_agent"] = True
+        return child
+
+    def _orchestration_child(self, role_spec: dict, task: dict, parent_context: dict, cancel_event: threading.Event):
+        child_config = Config(self.config.as_dict())
+        provider = str(role_spec.get("provider") or self.provider_manager.active_name)
+        model = str(role_spec.get("model") or self.provider_manager.model)
+        child_config.set("provider", provider)
+        child_config.set("model", model)
+        child_config.set("personality", role_spec.get("system_prompt", ""))
+        child_config.set("system_prompt", "")
+        child_config.set("max_iterations", int(role_spec.get("max_iterations", 4)))
+        parent_allowed_raw = self.config.get("tool_permissions.allow_tools", None)
+        role_allowed = set(role_spec.get("allowed_tools", CHILD_TOOLS) or [])
+        if parent_allowed_raw is None:
+            allowed = sorted(role_allowed)
+        else:
+            allowed = sorted(role_allowed & set(parent_allowed_raw or []))
+        denied = set(self.config.get("tool_permissions.deny_tools", []) or [])
+        denied.update(role_spec.get("deny_tools", []) or [])
+        denied.update(FORCED_DENY_TOOLS)
+        allowed = [name for name in allowed if name not in denied]
+        required = set(self.config.get("tool_permissions.require_approval", []) or [])
+        required.update(role_spec.get("require_approval", []) or [])
+        required.update(FORCED_APPROVAL_TOOLS)
+        child_config.set("tool_permissions.mode", "strict")
+        child_config.set("tool_permissions.allow_tools", allowed)
+        child_config.set("tool_permissions.deny_tools", sorted(denied))
+        child_config.set("tool_permissions.require_approval", sorted(required))
+        child_config.set("tool_permissions.allowed_roots", self.config.get("tool_permissions.allowed_roots", []) or [])
+        child_config.set("tool_permissions.allow_destructive", False)
+        child = Agent(
+            child_config,
+            home=self.home,
+            store=self.store,
+            allowed_tools=allowed,
+            approve_callback=self.approve_callback,
+            persist=False,
+            enable_subagents=False,
+            enable_orchestrator=False,
+            spend_budget=self.spend_budget,
+            cancel_event=cancel_event,
+        )
+        child.policy.workspace = self.workspace
+        child.executor.context["child_agent"] = True
         return child
 
     def set_plan(self, text: str) -> None:
@@ -173,6 +239,8 @@ class Agent:
         if not text:
             raise ValueError("User input cannot be empty")
         self._refresh_executor_context()
+        if self.cancel_event.is_set():
+            return TurnResult(text="Stopped: task was cancelled.", session_id=self.session_id, provider="", model="", exit_reason="cancelled")
         system_prompt = self.context_manager.system_prompt(
             memory_context=self.memory.context() if self.config.get("memory.enabled", True) else "",
             skills_context=self.skills.context(int(self.config.get("skills.max_prompt_chars", 3000))),
@@ -181,8 +249,6 @@ class Agent:
         messages = [{"role": "system", "content": system_prompt}] + [dict(item) for item in self.history]
         user_message = {"role": "user", "content": text}
         messages.append(user_message)
-        with self.spend_budget["lock"]:
-            start_usage = dict(self.spend_budget["usage"])
         state = TurnState(
             messages=messages,
             system_prompt=system_prompt,
@@ -199,14 +265,10 @@ class Agent:
             new_messages=[user_message],
             plan=self.plan,
             spend_budget=self.spend_budget,
+            cancel_event=self.cancel_event,
         )
         self.current_state = state
         run_turn_loop(state)
-        with self.spend_budget["lock"]:
-            end_usage = dict(self.spend_budget["usage"])
-        for key in ("prompt_tokens", "completion_tokens", "estimated_cost", "priced_calls", "unpriced_calls"):
-            state.usage[key] = end_usage.get(key, 0) - start_usage.get(key, 0)
-        state.usage["cost_known"] = bool(end_usage.get("cost_known")) and not end_usage.get("unpriced_calls")
         self.plan = state.plan
         self.history = [item for item in state.messages if item.get("role") != "system"][-80:]
         usage = state.usage
@@ -235,6 +297,7 @@ class Agent:
             usage=state.usage,
             tool_log=state.tool_log,
             exit_reason=state.exit_reason,
+            error=str(state.error or ""),
             messages=state.messages,
         )
 

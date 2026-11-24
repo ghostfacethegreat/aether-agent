@@ -1,5 +1,22 @@
 # Changelog
 
+## Phase 4 security and reliability audit
+
+- Linked parent cancellation into orchestrated runs, propagated task cancellation into child turns and tool execution, and made timeout/cancel paths stop child work between provider/tool operations.
+- Made retries skip attempts that already executed tools, tightened per-turn usage attribution, persisted orchestration child usage, and enforced cost caps with locked monotonic limits.
+- Hardened approval caching so `once` applies to one action, scoped approvals to canonical argument keys, and made nested agents inherit mandatory deny/approval rules.
+- Restricted child skill mutations, delimited untrusted dependency data, parsed paid-provider confirmations strictly, and disabled orchestration inside scheduled runs.
+- Made stored-run cancellation update child task rows, persisted orchestration runs atomically, removed the fixed task lookup limit, and prevented duplicate subagent resume records.
+- Added regression coverage for all audit fixes.
+
+## Phase 3 multi-agent orchestration
+
+- Added a central `Orchestrator` with role-based plans, dependency ordering, sequential/parallel execution, retries, cancellation, timeouts, and persistent run/task recovery.
+- Added specialized `researcher`, `developer`, `debugger`, and `reviewer` roles with structured result parsing and owner-protected shared task state.
+- Added shared spend budgets, nested budget tightening, paid-child gating, strict child permissions, and child denials for orchestration/delegation tools.
+- Added the `orchestrate_task` tool and `aether agents` / `/agents` commands for listing roles, running tasks, viewing status, cancelling tasks, and resuming stored runs.
+- Added mock-provider regression tests for orchestration lifecycle, concurrency, isolation, communication, budgets, cancellation, timeouts, permissions, recovery, and failure handling.
+
 ## Phase 2 audit (documentation checkpoint)
 
 - Refreshed the Hermes Agent comparison baseline to commit `b98c388a880b1b6fd303c9c2821a3946651a0b4c`.

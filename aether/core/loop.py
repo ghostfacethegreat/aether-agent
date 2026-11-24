@@ -5,7 +5,20 @@ from dataclasses import dataclass, field
 
 from aether.errors import AetherError, ProviderError
 from aether.providers.catalog import provider_is_billable, rough_cost
-from aether.utils import message_tokens, redact, utc_now
+from aether.utils import message_tokens, parse_bool, redact, utc_now
+
+
+def new_usage() -> dict:
+    return {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "reasoning_chars": 0,
+        "estimated_cost": 0.0,
+        "priced_calls": 0,
+        "unpriced_calls": 0,
+        "cost_known": False,
+        "preflight_estimate_usd": 0.0,
+    }
 
 
 def new_spend_budget(limit: float | None = None) -> dict:
@@ -14,14 +27,7 @@ def new_spend_budget(limit: float | None = None) -> dict:
         "reserved": 0.0,
         "limit": limit,
         "lock": threading.Lock(),
-        "usage": {
-            "prompt_tokens": 0,
-            "completion_tokens": 0,
-            "reasoning_chars": 0,
-            "estimated_cost": 0.0,
-            "priced_calls": 0,
-            "unpriced_calls": 0,
-        },
+        "usage": new_usage(),
     }
 
 
@@ -41,12 +47,13 @@ class TurnState:
     on_status: object = None
     new_messages: list = field(default_factory=list)
     tool_log: list = field(default_factory=list)
-    usage: dict = field(default_factory=dict)
+    usage: dict = field(default_factory=new_usage)
     final_text: str = ""
     exit_reason: str = ""
     error: str = ""
     plan: str = ""
     spend_budget: dict = field(default_factory=lambda: new_spend_budget())
+    cancel_event: threading.Event = field(default_factory=threading.Event)
 
     def status(self, kind: str, **payload) -> None:
         if self.on_status:
@@ -74,8 +81,9 @@ def _options(state: TurnState) -> dict:
 
 
 def _paid_not_confirmed(state: TurnState) -> bool:
-    if os.environ.get("AETHER_CONFIRM_PAID"):
-        return False
+    env = os.environ.get("AETHER_CONFIRM_PAID")
+    if env is not None:
+        return not parse_bool(env, False)
     raw = state.config.get("costs.confirm_paid")
     if raw is None:
         return True
@@ -92,22 +100,30 @@ def _paid_not_confirmed(state: TurnState) -> bool:
 def _cost_limit(state: TurnState) -> float | None:
     raw = state.config.get("costs.max_estimated_usd_per_turn")
     try:
-        limit = None if raw is None else float(raw)
+        configured = None if raw is None else float(raw)
     except (TypeError, ValueError) as exc:
         raise AetherError("costs.max_estimated_usd_per_turn must be a number") from exc
-    state.spend_budget["limit"] = limit
-    return limit
+    inherited = state.spend_budget.get("limit")
+    if configured is None:
+        limit = inherited
+    elif inherited is None:
+        limit = configured
+    else:
+        limit = min(configured, inherited)
+    with state.spend_budget["lock"]:
+        current = state.spend_budget.get("limit")
+        state.spend_budget["limit"] = limit if current is None else (min(current, limit) if limit is not None else current)
+    return state.spend_budget["limit"]
 
 
 def _over_cost_limit(state: TurnState) -> bool:
     limit = _cost_limit(state)
-    return limit is not None and float(state.spend_budget["spent"]) > limit
+    return limit is not None and float(state.spend_budget["spent"]) >= limit
 
 
 def _sync_usage(state: TurnState) -> None:
-    with state.spend_budget["lock"]:
-        shared = state.spend_budget["usage"]
-        state.usage.update({key: value for key, value in shared.items() if key != "lock"})
+    for key, value in new_usage().items():
+        state.usage.setdefault(key, value)
     state.usage["cost_known"] = state.usage.get("unpriced_calls", 0) == 0 and state.usage.get("priced_calls", 0) > 0
 
 
@@ -119,10 +135,11 @@ def _preflight_cost(state: TurnState, provider) -> tuple[float | None, float]:
             retryable=False,
         )
     limit = _cost_limit(state)
+    prompt_tokens = message_tokens(state.messages) + message_tokens([{"content": state.tools}])
     estimate = rough_cost(
         provider.name,
         provider.model,
-        {"prompt_tokens": message_tokens(state.messages), "completion_tokens": int(_options(state).get("max_tokens") or 0)},
+        {"prompt_tokens": int(prompt_tokens * 1.25), "completion_tokens": int(_options(state).get("max_tokens") or 0)},
     )
     if estimate is None:
         if limit is not None:
@@ -146,12 +163,20 @@ def _preflight_cost(state: TurnState, provider) -> tuple[float | None, float]:
     return estimate, reservation
 
 
+def _release_reservation(state: TurnState, reservation: float) -> None:
+    if reservation <= 0:
+        return
+    with state.spend_budget["lock"]:
+        state.spend_budget["reserved"] = max(0.0, state.spend_budget["reserved"] - reservation)
+
+
 def _call_provider(state: TurnState, iteration: int):
     errors = []
     for provider in state.provider_candidates:
         state.status("provider_call", provider=provider.name, model=provider.model, iteration=iteration)
-        _, reservation = _preflight_cost(state, provider)
+        reservation = 0.0
         try:
+            _, reservation = _preflight_cost(state, provider)
             response = provider.chat(
                 state.messages,
                 tools=state.tools,
@@ -163,12 +188,16 @@ def _call_provider(state: TurnState, iteration: int):
             state.usage["model"] = provider.model
             return response, provider, reservation
         except ProviderError as exc:
+            _release_reservation(state, reservation)
             message = redact(str(exc))
             errors.append(f"{provider.name}: {message}")
             state.status("provider_error", provider=provider.name, error=message, retryable=exc.retryable)
             state.provider_manager.mark_failed(provider.name, 30 if exc.retryable else 300)
             if state.on_delta:
                 state.on_delta("\n[provider switched after error]\n", "status")
+        except Exception:
+            _release_reservation(state, reservation)
+            raise
     raise AetherError("All providers failed. " + " | ".join(errors))
 
 
@@ -187,6 +216,8 @@ def _accumulate_usage(state: TurnState, response, provider, reservation: float =
         budget = state.spend_budget
         budget["reserved"] = max(0.0, budget["reserved"] - reservation)
         shared = budget["usage"]
+        for key, value in new_usage().items():
+            shared.setdefault(key, value)
         shared["prompt_tokens"] += prompt
         shared["completion_tokens"] += completion
         shared["reasoning_chars"] += reasoning
@@ -194,13 +225,32 @@ def _accumulate_usage(state: TurnState, response, provider, reservation: float =
             shared["unpriced_calls"] += 1
         else:
             shared["priced_calls"] += 1
-            shared["estimated_cost"] = round(shared["estimated_cost"] + cost, 6)
+            shared["estimated_cost"] = round(float(shared["estimated_cost"]) + cost, 6)
             budget["spent"] = shared["estimated_cost"]
+    for key, value in (("prompt_tokens", prompt), ("completion_tokens", completion), ("reasoning_chars", reasoning)):
+        state.usage[key] = int(state.usage.get(key, 0)) + value
+    if cost is None:
+        state.usage["unpriced_calls"] = int(state.usage.get("unpriced_calls", 0)) + 1
+    else:
+        state.usage["priced_calls"] = int(state.usage.get("priced_calls", 0)) + 1
+        state.usage["estimated_cost"] = round(float(state.usage.get("estimated_cost", 0.0)) + cost, 6)
     _sync_usage(state)
+
+
+def _mark_cancelled(state: TurnState) -> TurnState:
+    _sync_usage(state)
+    state.exit_reason = "cancelled"
+    state.final_text = "Stopped: task was cancelled."
+    assistant = {"role": "assistant", "content": state.final_text}
+    state.messages.append(assistant)
+    state.new_messages.append(assistant)
+    return state
 
 
 def run_turn_loop(state: TurnState) -> TurnState:
     for iteration in range(1, max(1, int(state.max_iterations)) + 1):
+        if state.cancel_event.is_set():
+            return _mark_cancelled(state)
         state.messages, fit = state.context_manager.fit(state.messages)
         if fit.get("changed"):
             state.status("context_compressed", **fit)
@@ -214,6 +264,8 @@ def run_turn_loop(state: TurnState) -> TurnState:
             return state
         _accumulate_usage(state, response, provider, reservation)
         state.status("model_response", provider=provider.name, tool_calls=len(response.tool_calls), finish_reason=response.finish_reason)
+        if state.cancel_event.is_set():
+            return _mark_cancelled(state)
         if _over_cost_limit(state):
             _sync_usage(state)
             state.status("cost_limit", estimated_cost=state.usage.get("estimated_cost", 0.0), limit=_cost_limit(state))
@@ -240,6 +292,8 @@ def run_turn_loop(state: TurnState) -> TurnState:
                 state.messages.append(message)
                 state.new_messages.append(message)
                 state.tool_log.append(execution.as_dict())
+            if state.cancel_event.is_set():
+                return _mark_cancelled(state)
             continue
 
         final_text = str(response.content or "").strip()

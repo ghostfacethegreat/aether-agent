@@ -2,8 +2,10 @@ import ipaddress
 import json
 import os
 import shlex
+import signal
 import socket
 import subprocess
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -28,6 +30,59 @@ def _text(result) -> str:
     if isinstance(result, (dict, list)):
         return json.dumps(result, ensure_ascii=False, indent=2)
     return str(result)
+
+
+def _kill_process_group(process) -> None:
+    try:
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGTERM)
+        else:
+            process.terminate()
+    except (OSError, ProcessLookupError):
+        pass
+    try:
+        process.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        try:
+            if os.name == "posix":
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
+        except (OSError, ProcessLookupError):
+            pass
+
+
+def _run_process(command, cwd, timeout, context=None, env=None):
+    cancel_event = (context or {}).get("cancel_event")
+    process = subprocess.Popen(
+        command,
+        shell=isinstance(command, str),
+        cwd=str(cwd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+        start_new_session=True,
+    )
+    deadline = time.monotonic() + max(0.01, float(timeout))
+    try:
+        while True:
+            if cancel_event is not None and cancel_event.is_set():
+                _kill_process_group(process)
+                raise ToolError("Command cancelled")
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                _kill_process_group(process)
+                raise subprocess.TimeoutExpired(command, timeout)
+            try:
+                stdout, stderr = process.communicate(timeout=min(0.2, remaining))
+                return subprocess.CompletedProcess(command, process.returncode, stdout or "", stderr or "")
+            except subprocess.TimeoutExpired:
+                continue
+    except BaseException:
+        if process.poll() is None:
+            _kill_process_group(process)
+        raise
 
 
 class _LinkParser(HTMLParser):
@@ -217,13 +272,11 @@ def terminal(args, context):
     if not cwd.is_dir():
         raise ToolError(f"Working directory does not exist: {cwd}")
     try:
-        completed = subprocess.run(
+        completed = _run_process(
             command,
-            shell=True,
-            cwd=str(cwd),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
+            cwd,
+            timeout,
+            context=context,
             env={**os.environ, "PYTHONUNBUFFERED": "1"},
         )
     except subprocess.TimeoutExpired:
@@ -252,7 +305,7 @@ def git(args, context):
     elif subcommand == "log":
         command.extend(["--oneline", "-n", str(min(100, int(args.get("limit", 20))))])
     try:
-        completed = subprocess.run(command, capture_output=True, text=True, timeout=60)
+        completed = _run_process(command, _workspace(context), 60, context=context)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ToolError(f"git {subcommand} failed: {exc}") from exc
     return _text(
@@ -271,13 +324,7 @@ def python_run(args, context):
         raise ToolError("python requires code")
     timeout = min(120, int(args.get("timeout") or context["config"].get("tools.timeout", 30)))
     try:
-        completed = subprocess.run(
-            ["python3", "-c", code],
-            cwd=str(_workspace(context)),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        completed = _run_process(["python3", "-c", code], _workspace(context), timeout, context=context)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ToolError(f"python execution failed: {exc}") from exc
     return _text(
@@ -395,6 +442,8 @@ def skill_tool(args, context):
     if action == "view":
         skill = engine.view(str(args.get("name") or ""))
         return f"# {skill.name}\n\n{skill.body}"
+    if action in ("create", "edit") and context.get("child_agent"):
+        raise ToolError("Child agents cannot create or edit persistent skills")
     if action == "create":
         path = engine.create(
             str(args.get("name") or ""),
@@ -416,6 +465,20 @@ def delegate_task(args, context):
     if tasks is None:
         tasks = [{"goal": args.get("goal") or "", "context": args.get("context") or ""}]
     return _text(manager.run(tasks, context))
+
+
+def orchestrate_task(args, context):
+    orchestrator = context.get("orchestrator")
+    if orchestrator is None:
+        raise ToolError("Multi-agent orchestration is not available in this context")
+    objective = str(args.get("objective") or "").strip()
+    if not objective:
+        raise ToolError("orchestrate_task requires an objective")
+    roles = args.get("roles") or None
+    if roles is not None and not isinstance(roles, list):
+        raise ToolError("roles must be a list")
+    run = orchestrator.run(objective=objective, roles=roles, mode=args.get("mode") or None)
+    return {"run_id": run.id, "status": run.status, "report": run.final_report}
 
 
 def todo_tool(args, context):
@@ -605,6 +668,22 @@ TOOLS = [
         },
         skill_tool,
         "write",
+    ),
+    Tool(
+        "orchestrate_task",
+        "Break a complex objective into specialized research, development, debugging, and review agents.",
+        {
+            "type": "object",
+            "properties": {
+                "objective": {"type": "string"},
+                "roles": {"type": "array", "items": {"type": "string"}, "description": "Optional explicit role sequence"},
+                "mode": {"type": "string", "enum": ["sequential", "parallel"]},
+            },
+            "required": ["objective"],
+        },
+        orchestrate_task,
+        "execute",
+        timeout=600,
     ),
     Tool(
         "delegate_task",
