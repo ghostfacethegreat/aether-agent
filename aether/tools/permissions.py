@@ -1,4 +1,5 @@
 import hashlib
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,6 +44,11 @@ def _key(parts) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
+def _args_key(tool: str, args: dict) -> str:
+    canonical = json.dumps({"tool": tool, "args": args or {}}, sort_keys=True, separators=(",", ":"), default=str)
+    return _key([canonical])
+
+
 def _path_values(value) -> list[str]:
     if value is None:
         return []
@@ -79,22 +85,22 @@ class PermissionPolicy:
         text = str(command or "")
         return any(re.search(pattern, text, re.I) for pattern in DESTRUCTIVE_PATTERNS)
 
-    def _single_path_decision(self, tool: str, raw: str) -> PermissionDecision:
+    def _single_path_decision(self, tool: str, raw: str, args: dict | None = None) -> PermissionDecision:
         try:
             path = Path(str(raw)).expanduser()
             path = path if path.is_absolute() else (self.workspace / path)
             path = path.resolve()
         except OSError:
-            return PermissionDecision(False, "Path could not be resolved", False, _key([tool, raw]), "write")
+            return PermissionDecision(False, "Path could not be resolved", False, _args_key(tool, args or {"path": raw}), "write")
         roots = self._roots()
         inside = any(path == root or root in path.parents for root in roots)
         risk = "write" if tool in ("write_file", "edit_file") else "read"
         if self._is_sensitive(path):
-            return PermissionDecision(True, "Sensitive path requires approval", True, _key([tool, str(path)]), "sensitive")
+            return PermissionDecision(True, "Sensitive path requires approval", True, _args_key(tool, args or {"path": str(path)}), "sensitive")
         if not inside:
             if self.mode == "strict":
-                return PermissionDecision(False, f"Path outside allowed roots: {path}", False, _key([tool, str(path)]), risk)
-            return PermissionDecision(True, f"Path outside workspace: {path}", True, _key([tool, str(path)]), risk)
+                return PermissionDecision(False, f"Path outside allowed roots: {path}", False, _args_key(tool, args or {"path": str(path)}), risk)
+            return PermissionDecision(True, f"Path outside workspace: {path}", True, _args_key(tool, args or {"path": str(path)}), risk)
         return PermissionDecision(True)
 
     def _path_decision(self, tool: str, args: dict) -> PermissionDecision:
@@ -105,20 +111,21 @@ class PermissionPolicy:
         if not raw_values:
             return PermissionDecision(True)
         for raw in raw_values:
-            decision = self._single_path_decision(tool, raw)
+            decision = self._single_path_decision(tool, raw, args)
             if not decision.allowed or decision.needs_approval:
                 return decision
         return PermissionDecision(True)
 
     def check(self, tool: str, args: dict, risk: str = "low") -> PermissionDecision:
         denied = set(self.config.get("tool_permissions.deny_tools", []) or [])
-        allowed = set(self.config.get("tool_permissions.allow_tools", []) or [])
+        allowed_raw = self.config.get("tool_permissions.allow_tools", None)
+        allowed = None if allowed_raw is None else set(allowed_raw or [])
         if tool in denied:
-            return PermissionDecision(False, f"Tool '{tool}' is denied by configuration", False, _key([tool]), risk)
-        if allowed and tool not in allowed:
-            return PermissionDecision(False, f"Tool '{tool}' is not in the configured allow list", False, _key([tool]), risk)
+            return PermissionDecision(False, f"Tool '{tool}' is denied by configuration", False, _args_key(tool, args), risk)
+        if allowed is not None and tool not in allowed:
+            return PermissionDecision(False, f"Tool '{tool}' is not in the configured allow list", False, _args_key(tool, args), risk)
 
-        key = _key([tool, args.get("command") or args.get("path") or ""])
+        key = _args_key(tool, args)
         if risk == "destructive" or (tool == "terminal" and self.is_destructive(args.get("command", ""))):
             if self.mode == "strict" and not parse_bool(self.config.get("tool_permissions.allow_destructive"), False):
                 return PermissionDecision(False, "Destructive operation denied by strict mode", False, key, "destructive")
@@ -160,7 +167,8 @@ class PermissionPolicy:
         answer = str(self.approve_callback(subject, decision.reason, decision.rule_key)).strip().lower()
         if answer not in ("once", "session", "always", "y", "yes", "a", "s"):
             raise PermissionDenied(f"User denied {tool}: {decision.reason}")
-        self.session_approvals.add(decision.rule_key)
+        if answer in ("session", "always", "s", "a"):
+            self.session_approvals.add(decision.rule_key)
         if answer in ("always", "a") and self.store and self.config.get("tool_permissions.approval_cache") == "always":
             self.store.set_approval(decision.rule_key, "always")
 

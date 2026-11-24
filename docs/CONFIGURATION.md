@@ -29,7 +29,7 @@ Use `aether config get <dotted.key>`, `aether config set <dotted.key> <json-or-s
 {
   "tool_permissions": {
     "mode": "standard",
-    "allow_tools": [],
+    "allow_tools": null,
     "deny_tools": [],
     "allowed_roots": [],
     "require_approval": ["terminal", "write_file", "edit_file", "python", "git", "browser"],
@@ -45,7 +45,7 @@ Modes:
 - `strict`: deny destructive operations; require approval for execute/network tools; paths outside allowed roots are denied.
 - `local-dev`: intended for trusted local workspaces only.
 
-Use `allow_tools` as an allow-list for unattended runs. Set `approval_cache` to `always` only if you accept persistent approval decisions in the local database.
+Use `allow_tools` as an allow-list for unattended runs. `null` means unrestricted; an explicit `[]` denies every tool, including nested agents. Set `approval_cache` to `always` only if you accept persistent approval decisions in the local database. Approval choices are scoped to the exact tool arguments; `once` is not cached, and `session` is cached only for that exact action.
 
 ## Memory and skills
 

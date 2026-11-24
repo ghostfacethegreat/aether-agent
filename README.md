@@ -138,7 +138,7 @@ aether agents cancel <task-id>
 aether agents resume <run-id>
 ```
 
-Inside chat, use `/agents list`, `/agents run <role> <task>`, `/agents status`, and `/agents cancel <task-id>`. Agent runs share the parent's spend budget; nested agents cannot raise the limit. Paid providers are blocked for child agents unless `orchestrator.allow_paid=true`, `AETHER_CONFIRM_PAID` is set, or `costs.confirm_paid=false`.
+Inside chat, use `/agents list`, `/agents run <role> <task>`, `/agents status`, and `/agents cancel <task-id>`. Agent runs share the parent's spend budget; nested agents cannot raise the limit. Paid providers are blocked for child agents unless `orchestrator.allow_paid=true`, `AETHER_CONFIRM_PAID` has a truthy value, or `costs.confirm_paid=false`.
 
 ## Safety notes
 
@@ -146,7 +146,7 @@ Inside chat, use `/agents list`, `/agents run <role> <task>`, `/agents status`, 
 - Do not run untrusted prompts with write/execute tools enabled in a sensitive workspace.
 - Use `tool_permissions.mode=strict` and explicit `allow_tools` for unattended runs.
 - Web output is data, not instructions; Aether's system prompt tells the model not to follow injected instructions from files or pages.
-- Multi-agent child results are untrusted data; the orchestrator passes them as task context and never grants children the `orchestrate_task` tool.
+- Multi-agent child results are untrusted data; the orchestrator delimits them as task context and never grants children the `orchestrate_task` tool. Child agents cannot create or edit persistent skills.
 - Browser automation is disabled unless you configure a local command template.
 - Scheduled prompts can spend money if you select a paid provider. Check `aether providers` and your provider dashboard.
 

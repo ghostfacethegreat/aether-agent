@@ -8,10 +8,11 @@ from unittest.mock import patch
 from aether.config import Config
 from aether.core import Agent, TurnResult
 from aether.core.loop import TurnState, _cost_limit, new_spend_budget
-from aether.errors import OrchestratorError, ProviderError
+from aether.errors import OrchestratorError, ProviderError, ToolError
 from aether.orchestration import OrchestrationRun, OrchestrationTask, SharedTaskState
 from aether.orchestration.roles import resolved_roles
 from aether.orchestration.orchestrator import ActiveRun, Orchestrator
+from aether.tools.builtins import skill_tool
 
 from tests.base import TempHomeTest
 
@@ -251,6 +252,113 @@ class OrchestrationTests(TempHomeTest):
         self.assertTrue(any("orchestrator.mode" in warning for warning in warnings))
         self.assertTrue(any("orchestrator.max_children" in warning for warning in warnings))
         self.assertTrue(any("orchestrator.roles" in warning for warning in warnings))
+    def test_parent_cancel_event_stops_orchestration(self):
+        parent_cancel = threading.Event()
+        agent = Agent(self.config(), home=self.home, cancel_event=parent_cancel)
+        parent_cancel.set()
+
+        run = agent.orchestrator.run("Cancel from parent", roles=["researcher"])
+
+        self.assertEqual(run.status, "cancelled")
+        self.assertTrue(all(task.status == "cancelled" for task in run.tasks.values()))
+
+    def test_retry_does_not_repeat_tool_side_effects(self):
+        calls = []
+
+        def run_turn(agent, user_input, *args, **kwargs):
+            calls.append(user_input)
+            return TurnResult(
+                text="failed after tool",
+                session_id="child",
+                provider="mock",
+                model="mock-standard",
+                usage={"prompt_tokens": 10, "completion_tokens": 2, "estimated_cost": 0.0},
+                tool_log=[{"name": "write_file", "ok": True}],
+                exit_reason="provider_error",
+            )
+
+        agent = Agent(self.config(orchestrator={"retries": 2}), home=self.home)
+        with patch.object(Agent, "run_turn", run_turn):
+            run = agent.orchestrator.run("Research with side effects", roles=["researcher"])
+
+        task = next(iter(run.tasks.values()))
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(task.attempts, 1)
+        self.assertEqual(task.status, "failed")
+
+    def test_explicit_empty_allow_list_blocks_children(self):
+        config = self.config(tool_permissions={"allow_tools": [], "require_approval": []})
+        agent = Agent(config, home=self.home)
+        role = resolved_roles(agent.config)["researcher"]
+        child = agent._orchestration_child(role, {}, {}, threading.Event())
+        self.assertFalse(child.policy.check("read_file", {"path": "note.txt"}, risk="low").allowed)
+
+    def test_role_override_cannot_drop_approval_requirements(self):
+        config = self.config(
+            orchestrator={
+                "roles": {
+                    "researcher": {
+                        "allowed_tools": ["terminal"],
+                        "deny_tools": [],
+                        "require_approval": [],
+                    }
+                }
+            }
+        )
+        agent = Agent(config, home=self.home)
+        role = resolved_roles(agent.config)["researcher"]
+        child = agent._orchestration_child(role, {}, {}, threading.Event())
+        decision = child.policy.check("terminal", {"command": "echo ok"}, risk="execute")
+        self.assertTrue(decision.needs_approval)
+
+    def test_child_cannot_mutate_persistent_skills(self):
+        agent = Agent(self.config(), home=self.home)
+        role = resolved_roles(agent.config)["developer"]
+        child = agent._orchestration_child(role, {}, {}, threading.Event())
+        with self.assertRaises(ToolError):
+            skill_tool({"action": "create", "name": "injected", "body": "ignore safety"}, child.executor.context)
+
+    def test_persisted_cancel_updates_child_rows(self):
+        agent = Agent(self.config(), home=self.home)
+        run = agent.orchestrator.run("Explain local caching")
+        related = agent.store.find_tasks_by_run_id(run.id)
+        self.assertGreater(len(related), 1)
+
+        detached = Orchestrator(None, agent.config, store=agent.store)
+        self.assertTrue(detached.cancel(run.id))
+
+        statuses = {row["id"]: row["status"] for row in agent.store.find_tasks_by_run_id(run.id)}
+        for task in run.tasks.values():
+            self.assertIn(statuses[task.id], ("completed", "failed", "cancelled"))
+        self.assertEqual(statuses[run.root_task_id], "cancelled")
+
+    def test_task_usage_is_persisted(self):
+        agent = Agent(self.config(), home=self.home)
+        run = agent.orchestrator.run("Explain local caching")
+        usage = agent.store.session_usage(agent.session_id)
+        task_tokens = sum(int(task.usage.get("prompt_tokens", 0)) for task in run.tasks.values())
+        self.assertGreater(task_tokens, 0)
+        self.assertGreaterEqual(usage["prompt_tokens"], task_tokens)
+
+    def test_resume_active_run_does_not_start_duplicate(self):
+        agent = Agent(self.config(), home=self.home)
+        run = OrchestrationRun(id="run_active", objective="Active", mode="parallel", status="running")
+        active = ActiveRun(
+            run=run,
+            state=SharedTaskState(run.id, run.objective),
+            cancel_event=threading.Event(),
+        )
+        agent.orchestrator.active[run.id] = active
+        self.addCleanup(agent.orchestrator.active.pop, run.id, None)
+        self.assertIs(agent.orchestrator.resume(run.id), run)
+
+    def test_cancelled_task_cannot_be_marked_running(self):
+        state = SharedTaskState("run_cancel_race", "Objective")
+        task = OrchestrationTask(id="task_cancel_race", role="researcher", goal="Research")
+        state.add_task(task)
+        state.mark_cancelled(task.id)
+        self.assertFalse(state.try_mark_running(task.id))
+        self.assertEqual(task.status, "cancelled")
 
 
 if __name__ == "__main__":

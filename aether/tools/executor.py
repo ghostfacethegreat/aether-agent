@@ -44,19 +44,30 @@ class ToolExecutor:
     def _execute_tool(self, tool, name: str, args: dict):
         config = self.context.get("config") or {}
         timeout = tool.timeout if tool.timeout is not None else config.get("tools.timeout", 30)
+        cancel_event = self.context.get("cancel_event")
+        if cancel_event is not None and cancel_event.is_set():
+            raise ToolError(f"Tool '{name}' cancelled")
         if not timeout:
-            return self.registry.execute(name, args, self.context)
+            result = self.registry.execute(name, args, self.context)
+            if cancel_event is not None and cancel_event.is_set():
+                raise ToolError(f"Tool '{name}' cancelled")
+            return result
         box = {}
 
         def target():
             try:
-                box["result"] = self.registry.execute(name, args, self.context)
+                result = self.registry.execute(name, args, self.context)
+                if cancel_event is not None and cancel_event.is_set():
+                    return
+                box["result"] = result
             except BaseException as exc:
                 box["error"] = exc
 
         worker = threading.Thread(target=target, daemon=True)
         worker.start()
         worker.join(float(timeout))
+        if cancel_event is not None and cancel_event.is_set():
+            raise ToolError(f"Tool '{name}' cancelled")
         if worker.is_alive():
             raise ToolError(f"Tool '{name}' timed out after {float(timeout):g}s")
         if "error" in box:

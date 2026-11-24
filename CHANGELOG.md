@@ -1,5 +1,14 @@
 # Changelog
 
+## Phase 4 security and reliability audit
+
+- Linked parent cancellation into orchestrated runs, propagated task cancellation into child turns and tool execution, and made timeout/cancel paths stop child work between provider/tool operations.
+- Made retries skip attempts that already executed tools, tightened per-turn usage attribution, persisted orchestration child usage, and enforced cost caps with locked monotonic limits.
+- Hardened approval caching so `once` applies to one action, scoped approvals to canonical argument keys, and made nested agents inherit mandatory deny/approval rules.
+- Restricted child skill mutations, delimited untrusted dependency data, parsed paid-provider confirmations strictly, and disabled orchestration inside scheduled runs.
+- Made stored-run cancellation update child task rows, persisted orchestration runs atomically, removed the fixed task lookup limit, and prevented duplicate subagent resume records.
+- Added regression coverage for all audit fixes.
+
 ## Phase 3 multi-agent orchestration
 
 - Added a central `Orchestrator` with role-based plans, dependency ordering, sequential/parallel execution, retries, cancellation, timeouts, and persistent run/task recovery.

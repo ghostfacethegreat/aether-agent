@@ -25,7 +25,7 @@ DEFAULTS = {
     "fallback_providers": [],
     "tool_permissions": {
         "mode": "standard",
-        "allow_tools": [],
+        "allow_tools": None,
         "deny_tools": [],
         "allowed_roots": [],
         "require_approval": ["terminal", "write_file", "edit_file", "python", "git", "browser"],

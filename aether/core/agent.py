@@ -8,6 +8,7 @@ from aether.core.loop import TurnState, new_spend_budget, run_turn_loop
 from aether.home import aether_home, state_db_path, workspace_root
 from aether.memory import MemoryStore
 from aether.orchestration import Orchestrator
+from aether.orchestration.roles import FORCED_APPROVAL_TOOLS, FORCED_DENY_TOOLS
 from aether.persistence import Store
 from aether.providers import ProviderManager
 from aether.providers.catalog import provider_spec
@@ -135,9 +136,12 @@ class Agent:
         child_config.set("provider", self.provider_manager.active_name)
         child_config.set("model", self.provider_manager.model)
         child_config.set("max_iterations", min(4, int(self.config.get("max_iterations", 12))))
+        required = set(self.config.get("tool_permissions.require_approval", []) or [])
+        required.update(FORCED_APPROVAL_TOOLS)
         child_config.set("tool_permissions.mode", "strict")
         child_config.set("tool_permissions.allow_tools", CHILD_TOOLS)
-        child_config.set("tool_permissions.require_approval", [])
+        child_config.set("tool_permissions.deny_tools", sorted(FORCED_DENY_TOOLS))
+        child_config.set("tool_permissions.require_approval", sorted(required))
         child = Agent(
             child_config,
             home=self.home,
@@ -150,6 +154,7 @@ class Agent:
             approve_callback=self.approve_callback,
         )
         child.policy.workspace = self.workspace
+        child.executor.context["child_agent"] = True
         return child
 
     def _orchestration_child(self, role_spec: dict, task: dict, parent_context: dict, cancel_event: threading.Event):
@@ -161,15 +166,19 @@ class Agent:
         child_config.set("personality", role_spec.get("system_prompt", ""))
         child_config.set("system_prompt", "")
         child_config.set("max_iterations", int(role_spec.get("max_iterations", 4)))
-        parent_allowed = set(self.config.get("tool_permissions.allow_tools", []) or [])
+        parent_allowed_raw = self.config.get("tool_permissions.allow_tools", None)
         role_allowed = set(role_spec.get("allowed_tools", CHILD_TOOLS) or [])
-        allowed = sorted(role_allowed & parent_allowed) if parent_allowed else sorted(role_allowed)
-        allowed = [name for name in allowed if name not in ("orchestrate_task", "delegate_task")]
+        if parent_allowed_raw is None:
+            allowed = sorted(role_allowed)
+        else:
+            allowed = sorted(role_allowed & set(parent_allowed_raw or []))
         denied = set(self.config.get("tool_permissions.deny_tools", []) or [])
         denied.update(role_spec.get("deny_tools", []) or [])
-        denied.update(("orchestrate_task", "delegate_task"))
+        denied.update(FORCED_DENY_TOOLS)
+        allowed = [name for name in allowed if name not in denied]
         required = set(self.config.get("tool_permissions.require_approval", []) or [])
         required.update(role_spec.get("require_approval", []) or [])
+        required.update(FORCED_APPROVAL_TOOLS)
         child_config.set("tool_permissions.mode", "strict")
         child_config.set("tool_permissions.allow_tools", allowed)
         child_config.set("tool_permissions.deny_tools", sorted(denied))
@@ -189,6 +198,7 @@ class Agent:
             cancel_event=cancel_event,
         )
         child.policy.workspace = self.workspace
+        child.executor.context["child_agent"] = True
         return child
 
     def set_plan(self, text: str) -> None:
@@ -239,8 +249,6 @@ class Agent:
         messages = [{"role": "system", "content": system_prompt}] + [dict(item) for item in self.history]
         user_message = {"role": "user", "content": text}
         messages.append(user_message)
-        with self.spend_budget["lock"]:
-            start_usage = dict(self.spend_budget["usage"])
         state = TurnState(
             messages=messages,
             system_prompt=system_prompt,
@@ -261,11 +269,6 @@ class Agent:
         )
         self.current_state = state
         run_turn_loop(state)
-        with self.spend_budget["lock"]:
-            end_usage = dict(self.spend_budget["usage"])
-        for key in ("prompt_tokens", "completion_tokens", "estimated_cost", "priced_calls", "unpriced_calls"):
-            state.usage[key] = end_usage.get(key, 0) - start_usage.get(key, 0)
-        state.usage["cost_known"] = state.usage["priced_calls"] > 0 and state.usage["unpriced_calls"] == 0
         self.plan = state.plan
         self.history = [item for item in state.messages if item.get("role") != "system"][-80:]
         usage = state.usage

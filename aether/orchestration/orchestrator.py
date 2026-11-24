@@ -7,20 +7,41 @@ from dataclasses import dataclass, field
 
 from aether.errors import ApprovalRequired, ConfigError, OrchestratorError, PermissionDenied, ProviderError
 from aether.providers.catalog import provider_is_billable
-from aether.utils import make_id, redact, truncate, utc_now
+from aether.utils import make_id, parse_bool, redact, truncate, utc_now
 
 from .roles import UNTRUSTED_DATA_NOTICE, resolved_roles
 from .state import OrchestrationRun, OrchestrationTask, SharedTaskState, parse_structured_result
+
+
+class _LinkedCancelEvent:
+    def __init__(self, parent=None):
+        self._event = threading.Event()
+        self._parent = parent
+
+    def is_set(self) -> bool:
+        return self._event.is_set() or bool(self._parent is not None and self._parent.is_set())
+
+    def set(self) -> None:
+        self._event.set()
+
+    def clear(self) -> None:
+        self._event.clear()
+
+    def wait(self, timeout=None) -> bool:
+        if self.is_set():
+            return True
+        return self._event.wait(timeout)
 
 
 @dataclass
 class ActiveRun:
     run: OrchestrationRun
     state: SharedTaskState
-    cancel_event: threading.Event
+    cancel_event: _LinkedCancelEvent
     task_events: dict[str, threading.Event] = field(default_factory=dict)
     futures: dict = field(default_factory=dict)
     started: dict[str, float] = field(default_factory=dict)
+    lock: threading.RLock = field(default_factory=threading.RLock)
 
 
 class Orchestrator:
@@ -49,7 +70,7 @@ class Orchestrator:
             return
         allowed = (
             bool(self._setting("allow_paid", False))
-            or bool(os.environ.get("AETHER_CONFIRM_PAID"))
+            or parse_bool(os.environ.get("AETHER_CONFIRM_PAID"), False)
             or self.config.get("costs.confirm_paid") is False
             or str(self.config.get("costs.confirm_paid", "")).strip().lower() in ("0", "false", "no", "off")
         )
@@ -155,52 +176,71 @@ class Orchestrator:
     def _persist_run(self, active: ActiveRun) -> None:
         if self.store is None:
             return
-        run = active.run
-        if not run.root_task_id:
-            run.root_task_id = self.store.create_task(
-                title=run.objective[:120],
-                session_id=str(getattr(self.parent, "session_id", "") or ""),
-                metadata={"kind": "orchestrator_run", "run_id": run.id, "run": run.to_dict()},
-            )
-        for task in active.state.tasks.values():
-            if self.store.get_task(task.id) is None:
-                self.store.create_task(
-                    title=task.goal[:120],
-                    session_id=str(getattr(self.parent, "session_id", "") or ""),
-                    parent_id=run.root_task_id,
-                    task_id=task.id,
-                    metadata={
-                        "kind": "orchestrator_task",
-                        "run_id": run.id,
-                        "role": task.role,
-                        "dependencies": task.dependencies,
-                    },
+        with self.lock:
+            run = active.run
+            session_id = str(getattr(self.parent, "session_id", "") or "")
+            creates = []
+            updates = []
+            usages = []
+            if not run.root_task_id:
+                run.root_task_id = make_id("task")
+                creates.append(
+                    {
+                        "id": run.root_task_id,
+                        "session_id": session_id,
+                        "title": run.objective[:120],
+                        "metadata": {"kind": "orchestrator_run", "run_id": run.id, "run": run.to_dict()},
+                    }
                 )
-            self.store.update_task(
-                task.id,
-                task.status,
-                json.dumps(task.result or {"error": task.error}, ensure_ascii=False),
-                metadata={
+            with active.state.lock:
+                tasks = list(active.state.tasks.values())
+                run.tasks = active.state.tasks
+            for task in tasks:
+                metadata = {
                     "kind": "orchestrator_task",
                     "run_id": run.id,
                     "role": task.role,
                     "dependencies": task.dependencies,
                     "attempts": task.attempts,
                     "task": task.to_dict(),
-                },
+                }
+                if self.store.get_task(task.id) is None:
+                    creates.append(
+                        {
+                            "id": task.id,
+                            "session_id": session_id,
+                            "parent_id": run.root_task_id,
+                            "title": task.goal[:120],
+                            "metadata": metadata,
+                        }
+                    )
+                updates.append(
+                    {
+                        "id": task.id,
+                        "status": task.status,
+                        "result": json.dumps(task.result or {"error": task.error}, ensure_ascii=False),
+                        "metadata": metadata,
+                    }
+                )
+                if task.usage and not task.usage_persisted:
+                    usages.append({"session_id": session_id, **task.usage})
+                    task.usage_persisted = True
+            updates.append(
+                {
+                    "id": run.root_task_id,
+                    "status": run.status,
+                    "result": run.final_report,
+                    "metadata": {"kind": "orchestrator_run", "run_id": run.id, "run": run.to_dict()},
+                }
             )
-        self.store.update_task(
-            run.root_task_id,
-            run.status,
-            run.final_report,
-            metadata={"kind": "orchestrator_run", "run_id": run.id, "run": run.to_dict()},
-        )
+            self.store.persist_orchestration(creates, updates, usages)
 
     def _execute_task(self, active: ActiveRun, task: OrchestrationTask, task_event: threading.Event) -> dict:
         if task_event.is_set() or active.cancel_event.is_set():
             return {"ok": False, "output": {}, "summary": "cancelled", "error": "cancelled", "exit_reason": "cancelled", "retryable": False}
         state = active.state
-        state.mark_running(task.id)
+        if not state.try_mark_running(task.id):
+            return {"ok": False, "output": {}, "summary": "cancelled", "error": "task is no longer runnable", "exit_reason": "cancelled", "retryable": False}
         self._persist_run(active)
         role_settings = resolved_roles(self.config).get(task.role, {})
         tool_log = []
@@ -210,15 +250,16 @@ class Orchestrator:
             child.executor.on_execute = lambda execution: tool_log.append(execution.as_dict())
             result = child.run_turn(self._prompt(active, task, role_settings))
             output = parse_structured_result(result.text)
+            combined_log = list(tool_log) + list(getattr(result, "tool_log", []) or [])
             return {
                 "ok": result.exit_reason in ("complete", "max_iterations") and not task_event.is_set(),
                 "output": output,
                 "summary": str(output.get("summary") or result.text),
                 "usage": dict(result.usage),
-                "tool_log": tool_log,
+                "tool_log": combined_log,
                 "error": result.error,
                 "exit_reason": result.exit_reason,
-                "retryable": result.exit_reason == "provider_error",
+                "retryable": result.exit_reason == "provider_error" and not combined_log,
             }
         except Exception as exc:
             return {
@@ -227,16 +268,23 @@ class Orchestrator:
                 "summary": "",
                 "error": redact(f"{type(exc).__name__}: {exc}"),
                 "exit_reason": "error",
-                "retryable": self._retryable_error(exc),
+                "tool_log": tool_log,
+                "retryable": self._retryable_error(exc) and not tool_log,
             }
 
     def _complete_task(self, active: ActiveRun, task_id: str, payload: dict) -> bool:
         task = active.state.get(task_id)
         if task is None or task.status in ("cancelled", "timed_out"):
             return False
+        active.state.add_attempt(task_id, payload)
         retries = self._int_setting("retries", 1)
         if not payload.get("ok"):
-            if payload.get("retryable") and task.attempts <= retries and not active.cancel_event.is_set():
+            if (
+                payload.get("retryable")
+                and not payload.get("tool_log")
+                and task.attempts <= retries
+                and not active.cancel_event.is_set()
+            ):
                 active.state.mark_waiting(task_id, str(payload.get("error") or "task failed"), True)
                 self._persist_run(active)
                 return True
@@ -249,27 +297,46 @@ class Orchestrator:
 
     def _submit(self, active: ActiveRun, task: OrchestrationTask, executor: ThreadPoolExecutor) -> None:
         event = threading.Event()
-        active.task_events[task.id] = event
+        with active.lock:
+            active.task_events[task.id] = event
         future = executor.submit(self._execute_task, active, task, event)
-        active.futures[future] = task.id
-        active.started[task.id] = time.monotonic()
+        with active.lock:
+            active.futures[future] = task.id
+            active.started[task.id] = time.monotonic()
 
     def _enforce_timeouts(self, active: ActiveRun) -> None:
         timeout = self._int_setting("task_timeout_seconds", 120)
         if not timeout:
             return
         now = time.monotonic()
-        expired = [task_id for task_id, started in active.started.items() if now - started > timeout and task_id in {item for item in active.futures.values()}]
+        with active.lock:
+            running = set(active.futures.values())
+            expired = [
+                task_id
+                for task_id, started in active.started.items()
+                if now - started > timeout and task_id in running
+            ]
+            events = {task_id: active.task_events.get(task_id) for task_id in expired}
+            futures = list(active.futures.items())
         for task_id in expired:
             active.state.mark_timed_out(task_id)
-            event = active.task_events.get(task_id)
+            event = events.get(task_id)
             if event:
                 event.set()
-            for future, pending_id in list(active.futures.items()):
+            for future, pending_id in futures:
                 if pending_id == task_id:
-                    active.futures.pop(future, None)
                     future.cancel()
+        if expired:
             self._persist_run(active)
+
+    def _abort_running(self, active: ActiveRun) -> None:
+        with active.lock:
+            futures = list(active.futures.items())
+            events = list(active.task_events.values())
+        for event in events:
+            event.set()
+        for future, _ in futures:
+            future.cancel()
 
     def _execute_plan(self, active: ActiveRun, mode: str) -> None:
         max_workers = 1 if mode == "sequential" else max(1, self._int_setting("max_concurrency", 3))
@@ -278,8 +345,10 @@ class Orchestrator:
         try:
             while pending or active.futures:
                 if active.cancel_event.is_set():
+                    self._abort_running(active)
                     for task in pending:
                         active.state.mark_cancelled(task.id)
+                    if pending:
                         self._persist_run(active)
                     pending.clear()
                 ready = []
@@ -292,20 +361,25 @@ class Orchestrator:
                         self._persist_run(active)
                         pending.remove(task)
                         continue
-                    if len(active.futures) < max_workers:
+                    with active.lock:
+                        slots = len(active.futures) < max_workers
+                    if slots:
                         ready.append(task)
                 for task in ready:
                     self._submit(active, task, executor)
                     pending.remove(task)
-                if not active.futures:
+                with active.lock:
+                    futures = list(active.futures)
+                if not futures:
                     if pending:
                         for task in pending:
                             active.state.mark_failed(task.id, "task could not satisfy dependencies", False)
                         self._persist_run(active)
                     break
-                done, _ = wait(list(active.futures), timeout=0.2, return_when=FIRST_COMPLETED)
+                done, _ = wait(futures, timeout=0.2, return_when=FIRST_COMPLETED)
                 for future in done:
-                    task_id = active.futures.pop(future, None)
+                    with active.lock:
+                        task_id = active.futures.pop(future, None)
                     if not task_id:
                         continue
                     try:
@@ -318,10 +392,15 @@ class Orchestrator:
                             pending.append(task)
                 self._enforce_timeouts(active)
         finally:
+            self._abort_running(active)
             executor.shutdown(wait=False, cancel_futures=True)
-            for future, task_id in list(active.futures.items()):
-                future.cancel()
-                active.futures.pop(future, None)
+            with active.lock:
+                pending_futures = list(active.futures)
+            if pending_futures:
+                wait(pending_futures, timeout=2)
+            with active.lock:
+                active.futures.clear()
+                active.started.clear()
 
     def _consolidate(self, run: OrchestrationRun, state: SharedTaskState) -> str:
         lines = ["# Aether multi-agent report", "", f"Objective: {run.objective}", ""]
@@ -364,7 +443,7 @@ class Orchestrator:
             state.add_task(task)
         run = OrchestrationRun(id=run_id, objective=objective, mode=mode, status="running")
         run.tasks = state.tasks
-        active = ActiveRun(run=run, state=state, cancel_event=threading.Event())
+        active = ActiveRun(run=run, state=state, cancel_event=_LinkedCancelEvent(self.parent_cancel))
         with self.lock:
             self.active[run_id] = active
         try:
@@ -381,6 +460,13 @@ class Orchestrator:
             run.updated_at = utc_now()
             self._persist_run(active)
             return run
+        except BaseException:
+            state.finalize_unfinished("failed", "orchestration interrupted")
+            run.status = "partial"
+            run.final_report = self._consolidate(run, state)
+            run.updated_at = utc_now()
+            self._persist_run(active)
+            raise
         finally:
             with self.lock:
                 self.active.pop(run_id, None)
@@ -398,7 +484,7 @@ class Orchestrator:
     def list_runs(self) -> list[dict]:
         rows = []
         if self.store:
-            for row in self.store.list_tasks(limit=200):
+            for row in self.store.list_tasks(limit=None):
                 metadata = self._parse_metadata(row)
                 if metadata.get("kind") == "orchestrator_run":
                     rows.append({"id": metadata.get("run_id") or row["id"], "objective": row["title"], "status": row["status"], "updated_at": row["updated_at"]})
@@ -415,38 +501,50 @@ class Orchestrator:
                 return active.run
         if not self.store:
             return None
-        for row in self.store.list_tasks(limit=200):
+        for row in self.store.list_tasks(limit=None):
             metadata = self._parse_metadata(row)
             if metadata.get("kind") == "orchestrator_run" and metadata.get("run_id") == run_id:
                 data = metadata.get("run") if isinstance(metadata.get("run"), dict) else {}
                 data.setdefault("id", run_id)
                 data.setdefault("root_task_id", row["id"])
                 run = OrchestrationRun.from_dict(data)
-                for task_row in self.store.list_tasks(limit=200):
+                if row["status"] != "running":
+                    run.status = row["status"]
+                for task_row in self.store.find_tasks_by_run_id(run_id):
                     task_metadata = self._parse_metadata(task_row)
-                    if task_metadata.get("run_id") == run_id and task_metadata.get("kind") == "orchestrator_task":
-                        task_data = task_metadata.get("task") if isinstance(task_metadata.get("task"), dict) else {"id": task_row["id"]}
-                        task_data.setdefault("id", task_row["id"])
-                        run.tasks[task_data["id"]] = OrchestrationTask.from_dict(task_data)
+                    if task_metadata.get("kind") != "orchestrator_task":
+                        continue
+                    task_data = task_metadata.get("task") if isinstance(task_metadata.get("task"), dict) else {"id": task_row["id"]}
+                    task_data.setdefault("id", task_row["id"])
+                    task = OrchestrationTask.from_dict(task_data)
+                    if task_row["status"] not in ("pending", "running", "retrying"):
+                        task.status = task_row["status"]
+                    run.tasks[task.id] = task
                 return run
         return None
 
     def resume(self, run_id: str) -> OrchestrationRun | None:
+        with self.lock:
+            active = self.active.get(run_id)
+            if active:
+                return active.run
         run = self.load(run_id)
         if run is None:
             return None
         state = SharedTaskState(run.id, run.objective)
         state.tasks = run.tasks
         for task in run.tasks.values():
-            if task.status in ("running", "timed_out", "cancelled"):
+            if task.status in ("running", "timed_out"):
                 task.status = "pending"
                 task.error = ""
                 task.finished_at = ""
             state.add_task(task)
-        active = ActiveRun(run=run, state=state, cancel_event=threading.Event())
+        run.status = "running"
+        active = ActiveRun(run=run, state=state, cancel_event=_LinkedCancelEvent(self.parent_cancel))
         with self.lock:
             self.active[run.id] = active
         try:
+            self._persist_run(active)
             self._execute_plan(active, run.mode)
             statuses = {task.status for task in run.tasks.values()}
             run.status = "completed" if statuses == {"completed"} else "cancelled" if "cancelled" in statuses else "partial"
@@ -454,6 +552,13 @@ class Orchestrator:
             run.updated_at = utc_now()
             self._persist_run(active)
             return run
+        except BaseException:
+            state.finalize_unfinished("failed", "orchestration interrupted")
+            run.status = "partial"
+            run.final_report = self._consolidate(run, state)
+            run.updated_at = utc_now()
+            self._persist_run(active)
+            raise
         finally:
             with self.lock:
                 self.active.pop(run.id, None)
@@ -487,51 +592,79 @@ class Orchestrator:
                 cancelled = True
                 active.run.status = "cancelled"
                 active.run.updated_at = utc_now()
+                with active.lock:
+                    events = {key: value for key, value in active.task_events.items() if key in task_ids}
+                    futures = list(active.futures.items())
                 for current_id in task_ids:
                     active.state.mark_cancelled(current_id)
-                    event = active.task_events.get(current_id)
+                    event = events.get(current_id)
                     if event:
                         event.set()
-                    for future, pending_id in list(active.futures.items()):
+                    for future, pending_id in futures:
                         if pending_id == current_id:
                             future.cancel()
-                            active.futures.pop(future, None)
                 self._persist_run(active)
         if not cancelled and self.store:
             requested_id = str(task_id)
             row = self.store.get_task(requested_id)
             if not row:
-                for candidate in self.store.list_tasks(limit=200):
+                for candidate in self.store.find_tasks_by_run_id(requested_id):
                     metadata = self._parse_metadata(candidate)
                     run_data = metadata.get("run") if isinstance(metadata.get("run"), dict) else {}
                     if str(metadata.get("run_id") or run_data.get("id") or "") == requested_id:
                         row = candidate
                         break
             if row:
-                stored_id = str(row["id"])
+                requested = str(requested_id)
                 metadata = self._parse_metadata(row)
-                if metadata.get("kind") == "orchestrator_run":
-                    data = metadata.get("run") if isinstance(metadata.get("run"), dict) else {}
-                    run = OrchestrationRun.from_dict(data)
-                    run.id = str(metadata.get("run_id") or run.id or requested_id)
-                    run.root_task_id = stored_id
-                    run.status = "cancelled"
-                    run.updated_at = utc_now()
-                    for task in run.tasks.values():
-                        if task.status not in ("completed", "failed"):
-                            task.status = "cancelled"
-                            task.error = "cancelled"
-                            task.finished_at = run.updated_at
-                    self.store.update_task(
-                        stored_id,
-                        "cancelled",
-                        "cancelled",
-                        metadata={"kind": "orchestrator_run", "run_id": run.id, "run": run.to_dict()},
+                run_id = str(metadata.get("run_id") or requested)
+                related = self.store.find_tasks_by_run_id(run_id)
+                root_row = next((item for item in related if self._parse_metadata(item).get("kind") == "orchestrator_run"), None)
+                if root_row is None and metadata.get("kind") == "orchestrator_run":
+                    root_row = row
+                if root_row is None:
+                    root_row = row
+                root_metadata = self._parse_metadata(root_row)
+                data = root_metadata.get("run") if isinstance(root_metadata.get("run"), dict) else {}
+                run = OrchestrationRun.from_dict(data)
+                run.id = str(root_metadata.get("run_id") or run.id or requested)
+                run.root_task_id = str(root_row["id"])
+                run.status = "cancelled"
+                run.updated_at = utc_now()
+                for task in run.tasks.values():
+                    if task.status not in ("completed", "failed"):
+                        task.status = "cancelled"
+                        task.error = "cancelled"
+                        task.finished_at = run.updated_at
+                updates = [
+                    {
+                        "id": run.root_task_id,
+                        "status": "cancelled",
+                        "result": "cancelled",
+                        "metadata": {"kind": "orchestrator_run", "run_id": run.id, "run": run.to_dict()},
+                    }
+                ]
+                for task_row in related:
+                    task_metadata = self._parse_metadata(task_row)
+                    if task_metadata.get("kind") != "orchestrator_task":
+                        continue
+                    task_data = task_metadata.get("task") if isinstance(task_metadata.get("task"), dict) else {"id": task_row["id"]}
+                    task_data.setdefault("id", task_row["id"])
+                    task = OrchestrationTask.from_dict(task_data)
+                    if task.status not in ("completed", "failed"):
+                        task.status = "cancelled"
+                        task.error = "cancelled"
+                        task.finished_at = run.updated_at
+                    task_metadata["task"] = task.to_dict()
+                    task_metadata["status"] = "cancelled"
+                    updates.append(
+                        {
+                            "id": str(task_row["id"]),
+                            "status": "cancelled" if task.status == "cancelled" else task_row["status"],
+                            "result": task_row["result"],
+                            "metadata": task_metadata,
+                        }
                     )
-                elif metadata:
-                    metadata["status"] = "cancelled"
-                    self.store.update_task(stored_id, "cancelled", "cancelled", metadata=metadata)
-                else:
-                    self.store.update_task(stored_id, "cancelled", "cancelled")
+                self.store.persist_orchestration(updates=updates)
                 cancelled = True
         return cancelled

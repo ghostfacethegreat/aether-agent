@@ -770,17 +770,25 @@ def scheduled_runner(config, home):
     def run(prompt):
         provider = str(config.get("provider") or "unknown")
         model = str(config.get("model") or "")
-        allow_paid = parse_bool(config.get("scheduler.allow_paid"), False) or bool(os.environ.get("AETHER_CONFIRM_PAID"))
+        allow_paid = parse_bool(config.get("scheduler.allow_paid"), False) or parse_bool(os.environ.get("AETHER_CONFIRM_PAID"), False)
         if provider_is_billable(provider, model) and not allow_paid:
             raise RuntimeError(
                 f"Scheduled execution with billable provider '{provider}' is disabled by default; "
                 "set scheduler.allow_paid=true"
             )
-        run_config = config
-        if allow_paid:
-            run_config = Config(config.as_dict())
-            run_config.set("costs.confirm_paid", False)
-        agent = Agent(run_config, home=home, persist=False, approve_callback=None)
+        run_config = Config(config.as_dict())
+        run_config.set("costs.confirm_paid", not allow_paid)
+        run_config.set("orchestrator.allow_paid", False)
+        run_config.set("orchestrator.enabled", False)
+        run_config.set("tool_permissions.allow_tools", None)
+        agent = Agent(
+            run_config,
+            home=home,
+            persist=False,
+            approve_callback=None,
+            enable_subagents=False,
+            enable_orchestrator=False,
+        )
         result = agent.run_turn(prompt)
         if result.exit_reason in ("provider_error", "cost_limit"):
             raise RuntimeError(f"scheduled run stopped: {result.exit_reason}")

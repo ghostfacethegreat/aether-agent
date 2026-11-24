@@ -1,9 +1,11 @@
+import os
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from aether.cli.app import scheduled_runner
 from aether.errors import SchedulerError
+from aether.persistence import Store
 from aether.tasks import Scheduler, SubagentManager, parse_schedule
 
 from tests.base import TempHomeTest
@@ -113,7 +115,17 @@ class TaskTests(TempHomeTest):
 
         run_config = agent_class.call_args.args[0]
         self.assertFalse(run_config.get("costs.confirm_paid"))
+        self.assertFalse(run_config.get("orchestrator.enabled"))
         self.assertTrue(config.get("costs.confirm_paid"))
+        self.assertFalse(agent_class.call_args.kwargs["enable_orchestrator"])
+        self.assertFalse(agent_class.call_args.kwargs["enable_subagents"])
+
+    def test_scheduled_runner_ignores_false_paid_environment(self):
+        config = self.config(provider="openai", model="gpt-4o-mini", scheduler={"allow_paid": False})
+        runner = scheduled_runner(config, self.home)
+        with patch.dict(os.environ, {"AETHER_CONFIRM_PAID": "false"}):
+            with self.assertRaises(RuntimeError):
+                runner("check status")
 
     def test_scheduled_runner_treats_cost_limit_as_failure(self):
         config = self.config(provider="mock", model="mock-standard")
@@ -133,6 +145,19 @@ class TaskTests(TempHomeTest):
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0]["result"], "handled: task one")
         self.assertTrue(all(item["ok"] for item in results))
+    def test_subagent_resume_does_not_create_duplicate_task(self):
+        store = Store(self.home / "state.db")
+        task_id = store.create_task("resume me", session_id="s1")
+        store.update_task(task_id, "failed", "boom")
+        manager = SubagentManager(lambda parent, task: FakeAgent(), store=store)
+
+        result = manager.resume(task_id, {"session_id": "s1"})
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["task_id"], task_id)
+        self.assertEqual(store.get_task(task_id)["status"], "completed")
+        rows = [row for row in store.list_tasks(limit=None) if row["id"] == task_id]
+        self.assertEqual(len(rows), 1)
 
 
 if __name__ == "__main__":

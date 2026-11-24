@@ -64,6 +64,9 @@ DEFAULT_ROLES = {
 }
 
 ROLE_NAMES = tuple(DEFAULT_ROLES)
+FORCED_DENY_TOOLS = {"orchestrate_task", "delegate_task", "browser"}
+FORCED_APPROVAL_TOOLS = {"terminal", "write_file", "edit_file", "python", "git", "browser", "scheduler"}
+FORCED_READ_ONLY_SKILLS = {"researcher", "reviewer", "debugger"}
 
 
 def resolved_roles(config) -> dict[str, dict]:
@@ -76,4 +79,13 @@ def resolved_roles(config) -> dict[str, dict]:
             continue
         current = roles.setdefault(name, {"provider": "", "model": "", "system_prompt": "", "allowed_tools": [], "deny_tools": [], "require_approval": [], "max_iterations": 4})
         current.update(deepcopy(override))
+    for name, current in roles.items():
+        deny = set(current.get("deny_tools") or []) | FORCED_DENY_TOOLS
+        approval = set(current.get("require_approval") or []) | FORCED_APPROVAL_TOOLS
+        allowed = [tool for tool in (current.get("allowed_tools") or []) if tool not in deny]
+        if name in FORCED_READ_ONLY_SKILLS:
+            allowed = [tool for tool in allowed if tool != "skill"]
+        current["deny_tools"] = sorted(deny)
+        current["require_approval"] = sorted(approval)
+        current["allowed_tools"] = allowed
     return roles
