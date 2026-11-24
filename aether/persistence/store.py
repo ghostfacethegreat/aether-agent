@@ -164,6 +164,24 @@ CREATE TABLE IF NOT EXISTS learning_events (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_learning_events_skill ON learning_events(skill_name, created_at);
+CREATE TABLE IF NOT EXISTS model_performance (
+    id TEXT PRIMARY KEY,
+    category TEXT NOT NULL DEFAULT '',
+    provider TEXT NOT NULL DEFAULT '',
+    model TEXT NOT NULL DEFAULT '',
+    success INTEGER NOT NULL DEFAULT 0,
+    verified INTEGER NOT NULL DEFAULT 0,
+    sources TEXT NOT NULL DEFAULT '[]',
+    tokens INTEGER NOT NULL DEFAULT 0,
+    estimated_cost REAL NOT NULL DEFAULT 0,
+    cost_known INTEGER NOT NULL DEFAULT 0,
+    duration_ms REAL NOT NULL DEFAULT 0,
+    recovery_attempts INTEGER NOT NULL DEFAULT 0,
+    experience_id TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_model_performance_route ON model_performance(category, provider, model, created_at);
+CREATE INDEX IF NOT EXISTS idx_model_performance_experience ON model_performance(experience_id);
 """
 
 MESSAGE_FIELDS = ("name", "tool_call_id", "tool_calls")
@@ -1049,6 +1067,94 @@ class Store:
             item["payload"] = self._decode_learning_json(item.get("payload"), {})
             result.append(item)
         return result
+
+    def save_model_performance(self, item: dict) -> None:
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO model_performance(id,category,provider,model,success,verified,sources,tokens,estimated_cost,"
+                "cost_known,duration_ms,recovery_attempts,experience_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    str(item.get("id") or make_id("model-perf")),
+                    str(item.get("category") or ""),
+                    str(item.get("provider") or ""),
+                    str(item.get("model") or ""),
+                    int(bool(item.get("success"))),
+                    int(bool(item.get("verified"))),
+                    self._encode_learning_json(item.get("sources") or []),
+                    int(item.get("tokens") or 0),
+                    float(item.get("cost") or 0.0),
+                    int(bool(item.get("cost_known"))),
+                    float(item.get("duration_ms") or 0.0),
+                    int(item.get("recovery_attempts") or 0),
+                    str(item.get("experience_id") or ""),
+                    str(item.get("created_at") or utc_now()),
+                ),
+            )
+
+    def list_model_performance(
+        self,
+        category: str | None = None,
+        provider: str | None = None,
+        model: str | None = None,
+        verified_only: bool = False,
+        limit: int | None = 50,
+    ) -> list[dict]:
+        sql = "SELECT * FROM model_performance WHERE 1=1"
+        params = []
+        if category:
+            sql += " AND category=?"
+            params.append(category)
+        if provider:
+            sql += " AND provider=?"
+            params.append(provider)
+        if model:
+            sql += " AND model=?"
+            params.append(model)
+        if verified_only:
+            sql += " AND verified=1"
+        sql += " ORDER BY created_at DESC"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        with self.connect() as db:
+            rows = db.execute(sql, params).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["sources"] = self._decode_learning_json(item.get("sources"), [])
+            result.append(item)
+        return result
+
+    def reset_model_performance(self, category: str | None = None, provider: str | None = None, model: str | None = None) -> int:
+        sql = "DELETE FROM model_performance WHERE 1=1"
+        params = []
+        if category:
+            sql += " AND category=?"
+            params.append(category)
+        if provider:
+            sql += " AND provider=?"
+            params.append(provider)
+        if model:
+            sql += " AND model=?"
+            params.append(model)
+        with self.connect() as db:
+            cursor = db.execute(sql, params)
+        return int(cursor.rowcount or 0)
+
+    def mark_model_performance_verified(self, experience_id: str, verdict: str) -> int:
+        if not experience_id or str(verdict).lower() != "verified":
+            return 0
+        with self.connect() as db:
+            rows = db.execute("SELECT id,sources FROM model_performance WHERE experience_id=?", (experience_id,)).fetchall()
+            for row in rows:
+                sources = self._decode_learning_json(row["sources"], [])
+                if "user" not in sources:
+                    sources.append("user")
+                db.execute(
+                    "UPDATE model_performance SET verified=1,sources=? WHERE id=?",
+                    (self._encode_learning_json(sources), row["id"]),
+                )
+            return len(rows)
 
     def export_session(self, session_id: str) -> dict:
         session = self.get_session(session_id)

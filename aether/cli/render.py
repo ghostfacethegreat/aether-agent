@@ -68,6 +68,17 @@ def status_line(payload):
         return paint(f"  · calling {payload.get('provider')}/{payload.get('model')}", "dim")
     if kind == "provider_error":
         return paint(f"  ! {payload.get('provider')}: {payload.get('error')}", "red")
+    if kind == "routing_decision":
+        decision = payload.get("decision") or {}
+        return paint(f"  · routed to {decision.get('provider')}/{decision.get('model')}", "dim")
+    if kind == "routing_limitation":
+        return paint("  ! no suitable configured model for this task", "yellow")
+    if kind == "routing_fallback":
+        return paint(f"  · fallback {payload.get('from')} → {payload.get('to')}", "yellow")
+    if kind == "context_overflow":
+        return paint(f"  ! context overflow on {payload.get('provider')}; recovering", "yellow")
+    if kind == "context_recovered":
+        return paint(f"  · context recovered ({payload.get('restored_tool_results')} tool results restored)", "yellow")
     if kind == "context_compressed":
         return paint(f"  · context compressed ({payload.get('removed')} messages)", "yellow")
     if kind == "model_response":

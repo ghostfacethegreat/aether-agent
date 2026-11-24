@@ -18,6 +18,7 @@ from aether.memory import LAYERS, LayeredMemory, MemoryStore
 from aether.orchestration import ROLE_NAMES, Orchestrator, resolved_roles
 from aether.persistence import Store
 from aether.providers.catalog import PROVIDERS, provider_is_billable
+from aether.routing import classify_task
 from aether.tasks import Scheduler
 from aether.utils import parse_bool, read_json, redact, redact_mapping, truncate, atomic_json_write
 
@@ -27,7 +28,7 @@ from . import render
 SLASH_COMMANDS = [
     "/help", "/quit", "/exit", "/new", "/clear", "/status", "/provider", "/model",
     "/plan", "/tools", "/memory", "/skills", "/sessions", "/resume", "/history",
-    "/tasks", "/agents", "/schedule", "/cost", "/doctor", "/export", "/feedback",
+    "/tasks", "/agents", "/schedule", "/models", "/cost", "/doctor", "/export", "/feedback",
 ]
 
 
@@ -51,6 +52,27 @@ def build_parser():
 
     p_providers = sub.add_parser("providers", help="List providers with honest cost and limit notes")
     p_providers.set_defaults(func=cmd_providers)
+
+    p_models = sub.add_parser("models", help="Inspect and explain model routing without calling a model")
+    models = p_models.add_subparsers(dest="action", required=True)
+    for name in ("list", "health", "performance"):
+        models.add_parser(name).set_defaults(func=cmd_models)
+    inspect = models.add_parser("inspect")
+    inspect.add_argument("provider", nargs="?")
+    inspect.add_argument("model", nargs="?")
+    inspect.set_defaults(func=cmd_models)
+    capabilities = models.add_parser("capabilities")
+    capabilities.add_argument("provider", nargs="?")
+    capabilities.add_argument("model", nargs="?")
+    capabilities.set_defaults(func=cmd_models)
+    for name in ("routing", "explain"):
+        item = models.add_parser(name)
+        item.add_argument("prompt", nargs="+")
+        item.set_defaults(func=cmd_models)
+    benchmark = models.add_parser("benchmark")
+    benchmark.add_argument("--samples", type=int, default=5)
+    benchmark.add_argument("--confirm-billable", action="store_true", help="Acknowledge any configured live benchmark costs")
+    benchmark.set_defaults(func=cmd_models)
 
     p_status = sub.add_parser("status", help="Show active provider and session status")
     p_status.set_defaults(func=cmd_status)
@@ -367,6 +389,8 @@ def make_agent(args, config, home, scheduler=None):
         session_id=args.session,
         approve_callback=make_approver(),
         scheduler=scheduler,
+        provider_name=getattr(args, "provider", None),
+        model=getattr(args, "model", None),
     )
 
 
@@ -481,12 +505,101 @@ def _print_help():
         ("/history [query]", "search previous messages"),
         ("/tasks", "list delegated tasks"),
         ("/agents [list|run|status|cancel]", "coordinate specialized agents"),
+        ("/models [list|inspect|capabilities|routing|explain|performance|health]", "inspect model routing without a model call"),
         ("/schedule list|add|remove", "manage scheduled jobs"),
         ("/cost", "show rough local cost and token totals"),
         ("/doctor", "run environment checks"),
         ("/export <path>", "export current session JSON"),
     ]
     print(render.table(["Command", "Meaning"], rows))
+
+
+def _model_command(agent, action: str, args: list[str]) -> None:
+    registry = agent.model_router.registry
+    manager = agent.provider_manager
+    if action in ("list", "capabilities"):
+        entries = registry.configured_entries(manager, role=agent.role or None)
+        if args:
+            provider = str(args[0] or "")
+            model = str(args[1] or "") if len(args) > 1 else ""
+            entries = [(provider, model)] if model else [(entry_provider, entry_model) for entry_provider, entry_model in entries if entry_provider == provider]
+        rows = []
+        for provider, model in entries:
+            caps = registry.for_model(provider, model)
+            window = caps.fact("context_window")
+            price = caps.fact("input_pricing")
+            rows.append(
+                (
+                    f"{provider}/{model}",
+                    f"{window.value or 'unknown'} ({window.evidence})",
+                    "yes" if caps.local else "no",
+                    "yes" if caps.fact("credentials_configured").value else "no",
+                    f"${price.value:.6f}" if isinstance(price.value, (int, float)) else "unknown",
+                    truncate("; ".join(caps.restrictions), 60),
+                )
+            )
+        print(render.table(["Model", "Context", "Local", "Ready", "Input price", "Notes"], rows) if rows else "(no configured models)")
+        return
+    if action == "inspect":
+        provider = str(args[0] or manager.active_name)
+        model = str(args[1] or manager.model)
+        caps = registry.for_model(provider, model)
+        payload = caps.to_dict()
+        payload["health"] = (manager.health() or {}).get(provider, {"status": "unknown", "reason": ""})
+        print(json.dumps(payload, indent=2, ensure_ascii=False, default=str))
+        return
+    if action in ("routing", "explain"):
+        text = " ".join(args)
+        requirements = classify_task(
+            text,
+            agent.config,
+            agent.execution_plan,
+            role=agent.role,
+            explicit_provider=agent.explicit_provider,
+            explicit_model=agent.explicit_model,
+            avoid_models=list(agent.config.get("routing.avoid_models", []) or []),
+        )
+        decision = agent.model_router.route(requirements, manager, role=agent.role)
+        if action == "explain":
+            print(agent.model_router.explain(decision))
+        else:
+            print(json.dumps(decision.to_dict(), indent=2, ensure_ascii=False, default=str))
+        return
+    if action == "performance":
+        rows = agent.store.list_model_performance(limit=None) or []
+        print(
+            render.table(
+                ["Category", "Model", "Success", "Verified", "Samples", "Sources", "Cost known"],
+                [
+                    (
+                        row["category"],
+                        f"{row['provider']}/{row['model']}",
+                        "yes" if row["success"] else "no",
+                        "yes" if row["verified"] else "no",
+                        str(row["tokens"]),
+                        ",".join(row.get("sources") or []),
+                        "yes" if row["cost_known"] else "no",
+                    )
+                    for row in rows
+                ],
+            )
+            if rows
+            else "(no recorded model performance)"
+        )
+        return
+    if action == "health":
+        health = manager.health() or {}
+        print(
+            render.table(
+                ["Provider", "Status", "Retry in", "Reason"],
+                [(name, item.get("status", ""), str(item.get("retry_after_seconds", 0)), truncate(str(item.get("reason") or ""), 80)) for name, item in health.items()],
+            )
+            if health
+            else "(no provider health records)"
+        )
+        print(render.paint("Health is local state only; this command does not poll providers.", "dim"))
+        return
+    print(render.error_line("usage: /models list|inspect|capabilities|routing|explain|performance|health"))
 
 
 def _agent_command(agent, parts):
@@ -503,6 +616,9 @@ def _agent_command(agent, parts):
         return False
     if action == "status":
         print(render.dashboard(agent.status_summary()))
+        return False
+    if action == "models":
+        _model_command(agent, args[0] if args else "list", args[1:])
         return False
     if action == "provider" and args:
         provider = agent.switch_provider(args[0], args[1] if len(args) > 1 else None)
@@ -761,6 +877,24 @@ def cmd_setup(args, config, home):
     print("  aether doctor")
     print("  aether run 'Say hello'")
     print("  ollama pull llama3.2:3b   # only if you choose local Ollama")
+    return 0
+
+
+def cmd_models(args, config, home):
+    if args.action == "benchmark":
+        from benchmarks.model_routing.runner import run_benchmark
+
+        result = run_benchmark(config, samples=max(1, int(args.samples or 1)))
+        result["billable_live_calls"] = False
+        result["notice"] = "Offline deterministic benchmark; no model or network calls were made."
+        if getattr(args, "confirm_billable", False):
+            result["notice"] += " --confirm-billable acknowledged but no live calls are performed."
+        print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+        return 0
+    agent = make_agent(args, config, home)
+    raw = getattr(args, "prompt", None) or [getattr(args, "provider", ""), getattr(args, "model", "")]
+    values = [str(item) for item in raw if item]
+    _model_command(agent, args.action, values)
     return 0
 
 

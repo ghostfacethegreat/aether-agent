@@ -62,6 +62,24 @@ DEFAULTS = {
         "regression_limit": 6,
     },
     "costs": {"confirm_paid": True, "max_estimated_usd_per_turn": None},
+    "routing": {
+        "enabled": True,
+        "explain": True,
+        "strategy": "capability",
+        "prefer_local": True,
+        "strict_capabilities": False,
+        "context_safety_margin": 0.1,
+        "max_candidates": 5,
+        "learned_min_samples": 3,
+        "learned_weight": 12.0,
+        "role": "",
+        "avoid_models": [],
+        "default_role_spend_share": 0.25,
+        "category_keywords": {},
+        "overrides": {},
+        "roles": {},
+    },
+    "models": {"metadata": {}},
     "integrations": {
         "web_search": {"provider": "duckduckgo", "api_key_env": "", "base_url": ""},
         "web_fetch": {"max_bytes": 262144},
@@ -191,6 +209,26 @@ class Config:
         confidence = self.get("learning.min_confidence")
         if not isinstance(confidence, (int, float)) or not 0.0 <= float(confidence) <= 1.0:
             warnings.append("learning.min_confidence must be between 0 and 1.")
+        strategy = self.get("routing.strategy")
+        if strategy not in ("capability", "cost", "fixed"):
+            warnings.append("routing.strategy must be capability, cost, or fixed.")
+        margin = self.get("routing.context_safety_margin")
+        if not isinstance(margin, (int, float)) or not 0.0 <= float(margin) <= 0.5:
+            warnings.append("routing.context_safety_margin must be between 0 and 0.5.")
+        for key in ("routing.max_candidates", "routing.learned_min_samples"):
+            value = self.get(key)
+            if not isinstance(value, int) or value < 0:
+                warnings.append(f"{key} must be a non-negative integer.")
+        weight = self.get("routing.learned_weight")
+        if not isinstance(weight, (int, float)) or float(weight) < 0:
+            warnings.append("routing.learned_weight must be non-negative.")
+        for key in ("routing.category_keywords", "routing.overrides", "routing.roles", "models.metadata"):
+            value = self.get(key)
+            if not isinstance(value, dict):
+                warnings.append(f"{key} must be an object.")
+        avoid = self.get("routing.avoid_models")
+        if not isinstance(avoid, list):
+            warnings.append("routing.avoid_models must be a list.")
         return warnings
 
 

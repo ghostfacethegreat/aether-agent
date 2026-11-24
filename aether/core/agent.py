@@ -1,4 +1,7 @@
+import json
+import re
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -15,10 +18,11 @@ from aether.orchestration.roles import FORCED_APPROVAL_TOOLS, FORCED_DENY_TOOLS
 from aether.persistence import Store
 from aether.providers import ProviderManager
 from aether.providers.catalog import provider_spec
+from aether.routing import ModelRouter, RoutingDecision, TaskRequirements, classify_task
 from aether.skills import SkillEngine
 from aether.tasks import SubagentManager
 from aether.tools import PermissionPolicy, ToolExecutor, default_registry
-from aether.utils import make_id, truncate
+from aether.utils import make_id, truncate, utc_now
 
 CHILD_TOOLS = ["list_directory", "read_file", "web_fetch", "web_search", "session_search", "skill", "todo"]
 
@@ -35,6 +39,9 @@ class TurnResult:
     error: str = ""
     messages: list = field(default_factory=list)
     execution_plan: dict | None = None
+    routing: dict | None = None
+    context_recovery: list = field(default_factory=list)
+    verification: dict = field(default_factory=dict)
 
 
 class Agent:
@@ -54,6 +61,8 @@ class Agent:
         spend_budget: dict | None = None,
         cancel_event: threading.Event | None = None,
         enable_orchestrator=True,
+        role: str | None = None,
+        turn_limit: float | None = None,
     ):
         self.home = Path(home or aether_home())
         self.config = config or Config()
@@ -63,6 +72,10 @@ class Agent:
         except (TypeError, ValueError):
             budget_limit = None
         self.spend_budget = spend_budget if spend_budget is not None else new_spend_budget(budget_limit)
+        self.explicit_provider = str(provider_name or "")
+        self.explicit_model = str(model or "")
+        self.role = str(role or self.config.get("routing.role", "") or "")
+        self.turn_limit = turn_limit
         if provider_name:
             self.config.set("provider", provider_name)
         if model:
@@ -81,6 +94,7 @@ class Agent:
         self.skills = SkillEngine(self.home, enabled=bool(self.config.get("skills.enabled", True)))
         self.context_manager = ContextManager(self.config)
         self.provider_manager = ProviderManager(self.config)
+        self.model_router = ModelRouter(self.config, store=self.store)
         self.registry = default_registry(int(self.config.get("tools.max_result_chars", 16000)))
         if allowed_tools is not None:
             self.registry.tools = {name: tool for name, tool in self.registry.tools.items() if name in allowed_tools}
@@ -206,6 +220,48 @@ class Agent:
         self._save_execution_plan(f"turn exit {state.exit_reason}")
         return self.execution_plan.to_dict()
 
+    @staticmethod
+    def _tool_exit_code(record: dict) -> int | None:
+        result = record.get("result")
+        data = None
+        if isinstance(result, dict):
+            data = result
+        else:
+            text = str(result or "")
+            try:
+                data = json.loads(text)
+            except (TypeError, ValueError):
+                match = re.search(r'"exit_code"\s*:\s*(-?\d+)', text)
+                return int(match.group(1)) if match else None
+        if not isinstance(data, dict) or "exit_code" not in data:
+            return None
+        try:
+            return int(data.get("exit_code"))
+        except (TypeError, ValueError):
+            return None
+
+    def _verification_from_state(self, state) -> dict:
+        sources = []
+        for record in state.tool_log:
+            if not bool(record.get("ok")) or self._tool_exit_code(record) != 0:
+                continue
+            arguments = record.get("arguments") if isinstance(record.get("arguments"), dict) else {}
+            command = " ".join(str(arguments.get(key) or "") for key in ("command", "code", "script", "path"))
+            text = f"{record.get('name', '')} {command}".lower()
+            if "unittest" in text or "pytest" in text:
+                sources.append("tests")
+            if "scripts/check.sh" in text:
+                sources.append("check")
+            if "compileall" in text or "aether doctor" in text:
+                sources.append("verification")
+        unique = sorted(set(sources))
+        return {
+            "status": "verified" if unique else "unverified",
+            "verified": bool(unique),
+            "sources": unique,
+            "model_claim": state.final_text,
+        }
+
     def _refresh_executor_context(self) -> None:
         self.executor.set_context(
             {
@@ -253,6 +309,7 @@ class Agent:
             spend_budget=self.spend_budget,
             cancel_event=self.cancel_event,
             approve_callback=self.approve_callback,
+            role=self.role or "general",
         )
         child.policy.workspace = self.workspace
         child.layered_memory.enabled = False
@@ -289,6 +346,19 @@ class Agent:
         child_config.set("tool_permissions.require_approval", sorted(required))
         child_config.set("tool_permissions.allowed_roots", self.config.get("tool_permissions.allowed_roots", []) or [])
         child_config.set("tool_permissions.allow_destructive", False)
+        role_name = str(role_spec.get("role") or "")
+        child_config.set("routing.role", role_name)
+        child_config.set("routing.avoid_models", list(self.config.get("routing.avoid_models", []) or []))
+        parent_limit = self.spend_budget.get("limit")
+        turn_limit = None
+        if parent_limit is not None:
+            share = role_spec.get("spend_share", self.config.get("routing.default_role_spend_share", 0.25))
+            try:
+                share_value = max(0.0, min(1.0, float(share)))
+            except (TypeError, ValueError):
+                share_value = 0.25
+            remaining = float(parent_limit) - float(self.spend_budget.get("spent", 0.0)) - float(self.spend_budget.get("reserved", 0.0))
+            turn_limit = round(max(0.0, min(float(parent_limit) * share_value, remaining)), 6)
         child = Agent(
             child_config,
             home=self.home,
@@ -300,6 +370,10 @@ class Agent:
             enable_orchestrator=False,
             spend_budget=self.spend_budget,
             cancel_event=cancel_event,
+            role=role_name,
+            provider_name=str(role_spec.get("provider") or "") or None,
+            model=str(role_spec.get("model") or "") or None,
+            turn_limit=turn_limit,
         )
         child.policy.workspace = self.workspace
         child.layered_memory.enabled = False
@@ -364,6 +438,15 @@ class Agent:
         plan_context = self.plan
         if self.execution_plan is not None and self.execution_plan.status == "paused":
             plan_context = self.execution_plan.resume_context()
+        requirements = classify_task(
+            text,
+            self.config,
+            self.execution_plan,
+            role=self.role,
+            explicit_provider=self.explicit_provider,
+            explicit_model=self.explicit_model,
+            avoid_models=list(self.config.get("routing.avoid_models", []) or []),
+        )
         memory_enabled = bool(self.config.get("memory.enabled", True))
         legacy_context = self.memory.context(include_user=bool(self.config.get("memory.inject_user_profile", True))) if memory_enabled else ""
         layered_context = (
@@ -384,11 +467,68 @@ class Agent:
         messages = [{"role": "system", "content": system_prompt}] + [dict(item) for item in self.history]
         user_message = {"role": "user", "content": text}
         messages.append(user_message)
+        requirements.context_tokens = max(requirements.context_tokens, ContextManager.count(messages))
+        requirements.expected_tokens = requirements.context_tokens + int(self.config.get("max_tokens", 2048) or 2048)
+        if self.config.get("routing.enabled", True):
+            routing_decision = self.model_router.route(requirements, self.provider_manager, role=self.role)
+        else:
+            routing_decision = RoutingDecision(
+                provider=self.provider_manager.active_name,
+                model=self.provider_manager.model,
+                eligible=True,
+                score=0.0,
+                reasons=["model routing is disabled; using the configured model"],
+                requirements=requirements.to_dict(),
+            )
+        if not routing_decision.eligible:
+            explanation = ModelRouter.explain(routing_decision)
+            if on_status:
+                limitation_requirements = requirements.to_dict()
+                limitation_requirements.pop("text", None)
+                on_status(
+                    {
+                        "kind": "routing_limitation",
+                        "at": utc_now(),
+                        "requirements": limitation_requirements,
+                        "explanation": explanation,
+                    }
+                )
+            return TurnResult(
+                text=explanation,
+                session_id=self.session_id,
+                provider="",
+                model="",
+                exit_reason="routing_error",
+                error=explanation,
+                messages=messages,
+                routing=routing_decision.to_dict(),
+            )
+        if on_status and self.config.get("routing.explain", True):
+            decision_payload = routing_decision.to_dict()
+            requirements_payload = dict(decision_payload.get("requirements") or {})
+            requirements_payload.pop("text", None)
+            decision_payload["requirements"] = requirements_payload
+            on_status(
+                {
+                    "kind": "routing_decision",
+                    "at": utc_now(),
+                    "decision": decision_payload,
+                    "explanation": ModelRouter.explain(routing_decision),
+                }
+            )
+        route_entries = [(routing_decision.provider, routing_decision.model)]
+        for alternative in routing_decision.alternatives:
+            if "/" in alternative:
+                provider, model = alternative.split("/", 1)
+                route_entries.append((provider, model))
+        if not self.explicit_provider and not self.explicit_model:
+            for provider in self.provider_manager.candidates():
+                route_entries.append((provider.name, provider.model))
         state = TurnState(
             messages=messages,
             system_prompt=system_prompt,
             tools=self.registry.definitions(),
-            provider_candidates=self.provider_manager.candidates(),
+            provider_candidates=self.provider_manager.candidates_for(route_entries),
             provider_manager=self.provider_manager,
             context_manager=self.context_manager,
             executor=self.executor,
@@ -402,10 +542,18 @@ class Agent:
             execution_plan=self.execution_plan,
             spend_budget=self.spend_budget,
             cancel_event=self.cancel_event,
+            turn_limit=self.turn_limit,
+            routing_decision=routing_decision.to_dict(),
+            task_requirements=requirements.to_dict(),
+            verification={"status": "unverified", "sources": [], "model_claim": ""},
         )
         self.current_state = state
         run_turn_loop(state)
         plan_payload = self._finalize_execution_plan(state)
+        verification = self._verification_from_state(state)
+        state.verification = verification
+        usage = state.usage
+        experience = {}
         if self.persist and self.config.get("memory.enabled", True):
             self.layered_memory.record_episode(text, state.final_text, state.exit_reason, state.tool_log, self.session_id)
         if self.persist and self.config.get("learning.enabled", True):
@@ -416,7 +564,7 @@ class Agent:
             agents = ["parent"]
             if any("orchestrat" in str(item).lower() for item in route):
                 agents.append("orchestrator")
-            self.learning.record_experience(
+            experience = self.learning.record_experience(
                 text,
                 plan=plan,
                 classification={
@@ -426,20 +574,36 @@ class Agent:
                 },
                 plan_id=str(plan.get("id") or ""),
                 agents=agents,
-                models=[f"{state.usage.get('provider') or self.provider_manager.active_name}/{state.usage.get('model') or self.provider_manager.model}"],
+                models=[f"{usage.get('provider') or self.provider_manager.active_name}/{usage.get('model') or self.provider_manager.model}"],
                 tools=state.tool_log,
                 errors=errors,
                 solution=state.final_text,
-                verification={"status": "unverified", "sources": [], "model_claim": state.final_text},
+                verification=verification,
                 outcome=state.exit_reason,
                 status=state.exit_reason,
                 provenance="agent-turn",
                 session_id=self.session_id,
             )
+        if self.persist and self.config.get("routing.enabled", True) and usage.get("provider"):
+            used_decision = RoutingDecision(
+                provider=str(usage.get("provider") or ""),
+                model=str(usage.get("model") or ""),
+                eligible=True,
+                requirements=dict(state.task_requirements),
+            )
+            self.model_router.record_performance(
+                TaskRequirements.from_dict(state.task_requirements),
+                used_decision,
+                success=state.exit_reason == "complete",
+                usage=usage,
+                duration_ms=(time.monotonic() - float(state.started_at)) * 1000.0,
+                recovery_attempts=len(state.context_recovery),
+                verification=verification,
+                experience_id=str(experience.get("id") or ""),
+            )
         self.plan = self.execution_plan.render() if self.execution_plan else state.plan
         state.plan = self.plan
         self.history = [item for item in state.messages if item.get("role") != "system"][-80:]
-        usage = state.usage
         if self.persist and self.store.get_session(self.session_id):
             self.store.append_messages(self.session_id, state.new_messages)
             if len(self.history) == 1:
@@ -468,6 +632,9 @@ class Agent:
             error=str(state.error or ""),
             messages=state.messages,
             execution_plan=plan_payload,
+            routing=state.routing_decision or None,
+            context_recovery=list(state.context_recovery),
+            verification=dict(state.verification),
         )
 
     def status_summary(self) -> dict:
@@ -487,6 +654,12 @@ class Agent:
             "learning": {
                 "pending_proposals": len(self.learning.pending()),
                 "tracked_skills": len(self.learning.metrics()),
+            },
+            "routing": {
+                "enabled": bool(self.config.get("routing.enabled", True)),
+                "strategy": str(self.config.get("routing.strategy", "capability")),
+                "role": self.role or "",
+                "health": self.provider_manager.health(),
             },
             "workspace": str(self.workspace),
             "home": str(self.home),

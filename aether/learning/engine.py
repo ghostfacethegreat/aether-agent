@@ -261,6 +261,8 @@ class LearningEngine:
             verification["status"] = "neutral"
         experience.verification = verification
         self.store.save_experience(experience.to_dict())
+        if hasattr(self.store, "mark_model_performance_verified"):
+            self.store.mark_model_performance_verified(experience.id, verdict)
         self._event("", "user_feedback", {"experience_id": experience.id, "verdict": verdict})
         return experience.to_dict()
 

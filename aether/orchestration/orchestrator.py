@@ -242,7 +242,8 @@ class Orchestrator:
         if not state.try_mark_running(task.id):
             return {"ok": False, "output": {}, "summary": "cancelled", "error": "task is no longer runnable", "exit_reason": "cancelled", "retryable": False}
         self._persist_run(active)
-        role_settings = resolved_roles(self.config).get(task.role, {})
+        role_settings = dict(resolved_roles(self.config).get(task.role, {}))
+        role_settings.setdefault("role", task.role)
         tool_log = []
         try:
             self._authorize_paid(role_settings)
