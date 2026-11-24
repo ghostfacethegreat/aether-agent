@@ -72,6 +72,7 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 - Full verification: 121 tests passed; `scripts/check.sh`, `scripts/test_install.sh`, and `git diff --check` passed.
 - Failure fixed: repair tasks are now prioritized by `ExecutionPlan.next_task()` after `test_revision_records_invalidating_evidence` exposed the ordering bug.
 - Startup benchmark after the code checkpoint: 3 cold starts, `0.095s` median wall time, `32.1 MiB` peak child RSS; no task-quality benchmark was run.
+- Phase B checkpoint commit: `9aef0fb873f6e54bc78f7b587e3fe8709dc07c55`.
 - Detailed commands and limitations are in [RELEASE_CHECKS.md](RELEASE_CHECKS.md) and [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
 ## Phase C — layered memory

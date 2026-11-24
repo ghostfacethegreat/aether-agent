@@ -16,6 +16,7 @@ This is the resume log for the intelligence-first `Aether 0.2+` program. It reco
 | Worktree at branch creation | clean |
 | Pushed commits from this program | none |
 | Phase B verification | 121 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
+| Phase B checkpoint | `9aef0fb873f6e54bc78f7b587e3fe8709dc07c55` |
 
 The two unpushed documentation commits are deliberately preserved. Do not reset, discard, force-push, push, merge, tag, or release until the release gates in [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) pass.
 

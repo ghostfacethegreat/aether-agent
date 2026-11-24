@@ -88,6 +88,7 @@ These are actual locally recorded checks. They are not a claim that a public rel
 ## Phase B adaptive planning checkpoint
 
 - Branch: `feat/aether-020-intelligence-foundation`; base commit `d077948e085cb17038b2da245d31e6bf86491120`.
+- Phase B checkpoint commit: `9aef0fb873f6e54bc78f7b587e3fe8709dc07c55`.
 - Added deterministic planning, plan/checkpoint persistence, plan tool/CLI/slash commands, and turn-loop/agent integration.
 - `python3 -W ignore::ResourceWarning -m unittest tests.test_planning tests.test_core tests.test_persistence tests.test_cli` — 48 focused tests passed.
 - `python3 -m unittest discover -s tests -v` — 121 tests passed in `0.632s` in a recorded verbose run.
