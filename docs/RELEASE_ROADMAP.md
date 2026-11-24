@@ -17,7 +17,7 @@ This roadmap tracks the intelligence-first path from the current `0.1.0` alpha c
 | Version | Theme | Status |
 |---|---|---|
 | `0.1.0` | local-first provider-agnostic CLI alpha | published baseline |
-| `0.2.0` | intelligence foundation | in development; Phases A-C verified, Phase D next |
+| `0.2.0` | intelligence foundation | in development; Phases A-D verified, Phase E next |
 | `0.3.0` | autonomous software development | pending |
 | `0.4.0` | messaging, voice, and improved automation | pending |
 | `0.5.0` | desktop and website applications | pending |
@@ -33,7 +33,7 @@ Goal: make Aether understand objectives, plan, execute, remember, learn, route m
 | A | intelligence audit, Hermes comparison, benchmark contract | complete |
 | B | adaptive planning and execution state | complete and locally verified |
 | C | layered memory | complete and locally verified |
-| D | learning loop and skill quality | pending |
+| D | learning loop and skill quality | complete and locally verified |
 | E | model capability routing | pending |
 | F | coding workflow | pending |
 | G | research and evidence | pending |

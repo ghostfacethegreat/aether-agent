@@ -116,6 +116,21 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - No lint/typecheck claim: no configured lint/typecheck command was found or run.
 - No task-quality benchmark was run; no Hermes parity or superiority claim is made.
 
+## Phase D evidence-based learning checkpoint
+
+- Branch: `feat/aether-020-intelligence-foundation`; base commit `537b983`.
+- Phase D implementation checkpoint: `0dc4118af627cb2c5de4daac0a8ed4e3512705cf`.
+- Added sanitized experience records, explicit feedback, evidence rules, discovery, deterministic validation, approval/rejection, version history, metrics, rollback, learning events, and bounded labeled prompt context.
+- Added `aether skills discover|proposals|validate|approve|reject|history|versions|rollback|result`, `aether learning pending|metrics|feedback`, `/skills` learning actions, and `/feedback`.
+- `python3 -W ignore::ResourceWarning -m unittest tests.test_learning -v` — 21 focused tests passed in `0.554s`.
+- The first focused run exposed five issues: test config helper shadowing, unseeded proposal helpers, missing plan-ID inference, premature `usage` access in `Agent.run_turn()`, and un-dotted approved skill version headers. All were fixed before the recorded focused pass.
+- `python3 -W ignore::ResourceWarning -m unittest discover -s tests -v` — 153 tests passed in `1.849s`.
+- `bash scripts/check.sh && bash scripts/test_install.sh` — all checks passed; 3 cold starts, median wall time `0.109s`, peak child RSS `34.1 MiB`; local git-remote install test passed.
+- `git diff --check` — passed before the implementation commit.
+- Full verbose test output emitted `ResourceWarning` notices for unclosed SQLite connections; no test or check failed.
+- No lint/typecheck claim: no configured lint/typecheck command was found or run.
+- No task-quality benchmark was run; no Hermes parity or superiority claim is made.
+
 ## Secrets
 
 - No `.env` file was created in the repository.

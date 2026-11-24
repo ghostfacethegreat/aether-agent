@@ -19,14 +19,19 @@ CLI (aether.cli.app)
         +-- ProviderManager (aether.providers)
         |     +-- catalog / cost pricing
         |     +-- mock, OpenAI-compatible, Anthropic transports
-        +-- Turn loop (aether.core.loop)
-        |     +-- cost preflight / shared budget
-        |     +-- cancellation / fallbacks / iteration bound
-        +-- Tool registry + executor + permissions
+         +-- Turn loop (aether.core.loop)
+         |     +-- cost preflight / shared budget
+         |     +-- cancellation / fallbacks / iteration bound
+         +-- LearningEngine (aether.learning)
+         |     +-- experience records / evidence rules
+         |     +-- proposals / validation / versions / rollback
+         +-- Tool registry + executor + permissions
+
         |     +-- file, terminal, git, Python, web, memory, skills, tasks
         +-- MemoryStore (Markdown)
         +-- SkillEngine (SKILL.md)
-        +-- Store (SQLite: sessions, messages, tasks, usage, approvals)
+         +-- Store (SQLite: sessions, messages, tasks, usage, approvals, plans, memory layers, learning records)
+
         +-- SubagentManager
         +-- Orchestrator
               +-- roles
@@ -48,8 +53,9 @@ CLI (aether.cli.app)
 | Providers | [../aether/providers/](../aether/providers/) | catalog, registry, transports, cost functions | Add a task capability registry and advisory routing while retaining provider names, fallback APIs, and cost controls. |
 | Tools | [../aether/tools/](../aether/tools/) | registry, executor, permissions, built-ins | Add capability descriptions, optional schema deferral, preflight, result verification, error classification, and usage analytics without weakening approvals. |
 | Memory | [../aether/memory/store.py](../aether/memory/store.py) | Markdown memory files and prompt context | Add layered memory and retrieval as additive methods/options; preserve `MEMORY.md` and `USER.md`. |
-| Skills | [../aether/skills/engine.py](../aether/skills/engine.py) | `SKILL.md` discovery, validation, usage tracking | Add evidence rules, quality review, versions, rollback, curator states, and audit history without invalidating existing skills. |
-| Persistence | [../aether/persistence/store.py](../aether/persistence/store.py) | SQLite schema and data access | Add additive columns/tables for plans, states, experiences, learning history, and benchmark runs; never destructively rewrite existing state. |
+| Skills | [../aether/skills/engine.py](../aether/skills/engine.py) | `SKILL.md` discovery, validation, usage tracking, explicit install | Evidence rules, proposals, versions, rollback, and audit history are now additive; preserve existing skill files and child-write isolation. |
+| Learning | [../aether/learning/](../aether/learning/) | new in Phase D | Keep verified evidence separate from model claims, validate before install, require explicit approval, and keep learning context labeled as data. |
+| Persistence | [../aether/persistence/store.py](../aether/persistence/store.py) | SQLite schema and data access | Additive tables now cover plans, memory layers, experiences, proposals, versions, metrics, and learning events; never destructively rewrite existing state. |
 | Orchestration | [../aether/orchestration/](../aether/orchestration/) | roles, task graph, shared state, run persistence | Expand the role catalog, add team selection and conflict handling, and integrate the independent verifier. |
 | Subagents | [../aether/tasks/subagents.py](../aether/tasks/subagents.py) | parallel isolated children | Preserve delegation behavior; add output contracts and explicit delegation rationale while enforcing resource limits. |
 | Scheduler | [../aether/tasks/scheduler.py](../aether/tasks/scheduler.py) | in-process due jobs and ledger | Preserve strict paid-provider and no-orchestration restrictions; add durable goal/resume support separately. |
@@ -112,6 +118,8 @@ These are non-negotiable extension constraints:
 - Role merges are monotone: users may add restrictions, not remove forced ones.
 - Dependency results, repository files, tool output, web pages, plans, and other agents' reports remain untrusted data.
 - Untrusted content cannot write trusted memory, persistent instructions, or approved skills without the existing user-controlled paths and approvals.
+- Learning evidence is data, not instruction; model claims and successful tool calls are not completion proof.
+- Skill approval and rollback require explicit confirmation by default; auto-approval is opt-in and does not grant tools or spending authority.
 - Spend budgets use locked monotonic caps; children cannot raise limits.
 - Paid providers require explicit confirmation where configured; scheduled runs remain paid-blocked by default.
 - Explicit `tool_permissions.allow_tools: null` means unrestricted; explicit `[]` means no tools.
@@ -132,7 +140,9 @@ Add working, episodic, semantic, procedural, and user-model layers. Keep Markdow
 
 ### 3. Learning loop
 
-Record experience from real outcomes. Promote repeated successful procedures into candidate skills only with evidence from tests, observations, or explicit user confirmation. Preserve prior skill versions, support rollback, require approval for persistent instruction changes, and expose a searchable learning history.
+Record experience from real outcomes. Promote repeated successful procedures into candidate skills only with evidence from deterministic checks, observations, or explicit user confirmation. Preserve prior skill versions, support rollback, require approval for persistent instruction changes, and expose a searchable learning history.
+
+Phase D implements this pipeline in `aether/learning/` with additive SQLite tables, bounded labeled context, deterministic validation, explicit install/rollback, and child isolation. [PHASE_D_LEARNING.md](PHASE_D_LEARNING.md) records the evidence rules, commands, verification, and remaining limitations.
 
 ### 4. Capability-aware routing
 

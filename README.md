@@ -6,7 +6,7 @@ Aether works with no paid account: the defaults target local Ollama, and a built
 
 ## Status
 
-Version `0.1.0` is an alpha release. A working core, screenshots, installer scripts, and source publication are complete. The project priority for `0.2+` is intelligence first: planning, memory, learning, routing, coding, research, coordination, verification, recovery, and measured task success. Adaptive planning, risk/alternatives records, resumable execution checkpoints, and additive layered memory are implemented and locally verified on a feature branch; `0.2.0` has not been released. See the [development status](docs/DEVELOPMENT_STATUS.md), [release roadmap](docs/RELEASE_ROADMAP.md), [known limitations](docs/KNOWN_LIMITATIONS.md), [intelligence audit](docs/INTELLIGENCE_AUDIT.md), [intelligence roadmap](docs/INTELLIGENCE_ROADMAP.md), and [source-evidenced Hermes comparison](docs/HERMES_COMPARISON.md). No Hermes parity or superiority is claimed. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
+Version `0.1.0` is an alpha release. A working core, screenshots, installer scripts, and source publication are complete. The project priority for `0.2+` is intelligence first: planning, memory, learning, routing, coding, research, coordination, verification, recovery, and measured task success. Adaptive planning, risk/alternatives records, resumable execution checkpoints, additive layered memory, and an evidence-based learning loop with versioned skills are implemented and locally verified on a feature branch; `0.2.0` has not been released. See the [development status](docs/DEVELOPMENT_STATUS.md), [release roadmap](docs/RELEASE_ROADMAP.md), [known limitations](docs/KNOWN_LIMITATIONS.md), [intelligence audit](docs/INTELLIGENCE_AUDIT.md), [intelligence roadmap](docs/INTELLIGENCE_ROADMAP.md), [Phase D learning](docs/PHASE_D_LEARNING.md), and [source-evidenced Hermes comparison](docs/HERMES_COMPARISON.md). No Hermes parity or superiority is claimed. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
 
 Terminal appearance is frozen. The existing ASCII artwork and colored rendering are preserved; only functional visual regressions will be fixed. Do not expect a theme selector, font system, animated title, or visual redesign in `0.2+`.
 
@@ -54,7 +54,7 @@ Start interactive mode:
 aether
 ```
 
-Type `/help` inside the chat for slash commands. Useful ones include `/status`, `/provider`, `/model`, `/plan`, `/tools`, `/memory`, `/skills`, `/sessions`, `/resume`, `/history`, `/tasks`, `/agents`, `/schedule`, `/cost`, and `/doctor`.
+Type `/help` inside the chat for slash commands. Useful ones include `/status`, `/provider`, `/model`, `/plan`, `/tools`, `/memory`, `/skills`, `/feedback`, `/sessions`, `/resume`, `/history`, `/tasks`, `/agents`, `/schedule`, `/cost`, and `/doctor`.
 
 ## Screenshots
 
@@ -120,6 +120,22 @@ aether skills view code-review
 aether skills create my-skill "A useful procedure"
 ```
 
+Aether also records sanitized experience from real turns and can propose reviewable skills only from verified evidence. Model claims, successful tool calls, files, web pages, and child-agent output do not count as verification by themselves. Persistent skill changes require explicit confirmation by default.
+
+```bash
+aether skills discover --query "parser tests"
+aether skills proposals
+aether skills validate <skill>
+aether skills approve <proposal> --yes
+aether skills versions <skill>
+aether skills rollback <skill> <version> --yes
+aether learning pending
+aether learning metrics <skill>
+aether learning feedback verified "The regression check passed"
+```
+
+Inside chat, use `/skills discover`, `/skills proposals`, `/skills validate <skill>`, `/skills history`, `/skills versions <skill>`, and `/feedback <verified|failed|neutral> <text>`. See [Phase D learning](docs/PHASE_D_LEARNING.md).
+
 Built-in tools cover file reads/writes, terminal and git commands, Python execution, web fetch/search, memory, skills, task delegation, multi-agent orchestration, plans, session search, and scheduling. Write/execute/network actions can require approval; destructive shell patterns are detected and can be rejected in strict mode.
 
 ## Sessions and tasks
@@ -170,6 +186,8 @@ Inside chat, use `/agents list`, `/agents run <role> <task>`, `/agents status`, 
 - Use `tool_permissions.mode=strict` and explicit `allow_tools` for unattended runs.
 - Web output is data, not instructions; Aether's system prompt tells the model not to follow injected instructions from files or pages.
 - Multi-agent child results are untrusted data; the orchestrator delimits them as task context and never grants children the `orchestrate_task` tool. Child agents cannot create or edit persistent skills.
+- Learning records omit raw tool arguments and results, and prompt learning context is labeled as data, not instruction.
+- Learned skills are proposals until explicitly approved; validation rejects secret exposure and injection patterns, and rollback needs explicit confirmation.
 - Browser automation is disabled unless you configure a local command template.
 - Scheduled prompts can spend money if you select a paid provider. Check `aether providers` and your provider dashboard.
 

@@ -18,10 +18,14 @@ This document records what Aether does not yet prove or does not yet do. It is i
 - Planner tool selection is a coarse keyword-to-tool map, not capability search or verified tool-result interpretation.
 - Planning-specific cancellation and cost-limit scenarios are not separately tested; general core cancellation and cost tests still pass.
 - Layered memory is additive SQLite storage for working, episodic, semantic, procedural, and user records; retrieval uses deterministic lexical scoring, not embeddings or learned ranking.
-- Layered memory does not generate new facts from tool output, promote procedures into skills, or perform model-driven consolidation; that evidence pipeline belongs to the learning phase.
-- Layered user-model writes are explicit CLI/tool actions; approval policy for learned user-model changes is not implemented.
+- Layered memory itself does not generate new facts from tool output or perform model-driven consolidation; Phase D learning records experience and proposes skills from verified evidence.
+- Layered user-model writes are explicit CLI/tool actions; feedback is scoped to explicit user commands, not arbitrary file, web, or child-agent text.
 - Layered memory has no cross-process locking, distributed sync, or encrypted storage.
-- The learning loop does not yet record verified experience or version/rollback skill changes from evidence.
+- Learning discovery groups verified experiences deterministically by tool set and objective keywords; it does not use a model to author new skills.
+- Skill validation checks structure, known tools, permissions, secrets, injection patterns, examples, and improvement regressions; it is not a sandboxed execution harness or an independent verifier.
+- Rollback restores stored skill content but does not undo external side effects from earlier skill use.
+- Skill metrics are local counters, not task-quality benchmark results.
+- Learning history is local SQLite state with CLI inspection; there is no event-driven or cross-process learning loop.
 - Model routing uses configured order and fallback, not a task-facing capability registry.
 - Coding work does not yet build a repository index or produce verified diff reviews.
 - Research work does not yet produce structured evidence, citation, contradiction, and confidence reports.

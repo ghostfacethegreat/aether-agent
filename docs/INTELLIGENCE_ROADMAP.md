@@ -24,7 +24,7 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 | A | Intelligence audit and benchmark contract | evidence, gap register, comparison, benchmark rules | complete at `d077948` |
 | B | Adaptive planning and execution state | inspectable plans, complexity routing, recoverable checkpoints | complete and locally verified |
 | C | Layered memory | working, episodic, semantic, procedural, and user layers | complete and locally verified |
-| D | Learning loop and skill quality | experience records, skill review, versions, rollback, curator | pending |
+| D | Learning loop and skill quality | experience records, skill review, versions, rollback, curator | complete and locally verified |
 | E | Model capability routing | task-aware provider/model selection with existing cost controls | pending |
 | F | Coding workflow | repository indexing, progressive retrieval, patches, tests, diff review | pending |
 | G | Research and evidence | query planning, sources, citations, contradictions, confidence | pending |
@@ -122,6 +122,20 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 **Verification:** evidence-rule tests, candidate-skill tests, version/rollback tests, untrusted-content tests, approval tests, learning-history search tests.
 
 **Exit state:** skills can improve from observed outcomes without unverified self-claims becoming trusted instructions.
+
+### Phase D result
+
+- Implementation checkpoint: `0dc4118af627cb2c5de4daac0a8ed4e3512705cf`.
+- Added `aether/learning/models.py` and `aether/learning/engine.py`, with additive SQLite tables for experiences, proposals, versions, metrics, and learning events.
+- Experience records omit raw tool arguments and results, redact text, and require deterministic or explicit user evidence for verified outcomes.
+- Discovery proposes skills only from repeated verified experiences; validation checks structure, tools, permissions, secrets, injection patterns, examples, and improvement regressions.
+- Approval, rejection, rollback, and installation remain explicit by default. Child agents cannot persist learning records or skills.
+- Added CLI commands for `skills discover|proposals|validate|approve|reject|history|versions|rollback|result` and `learning pending|metrics|feedback`, plus `/skills` learning actions and `/feedback`.
+- Focused verification: 21 tests passed in `tests.test_learning`.
+- Full verification: 153 tests passed; `scripts/check.sh`, `scripts/test_install.sh`, and `git diff --check` passed.
+- Failures fixed: config helper shadowing in tests, missing verified seeds in proposal helpers, missing plan-ID inference, premature `usage` access in `Agent.run_turn()`, and un-dotted approved skill version headers.
+- Startup benchmarks after Phase D: 3 cold starts, `0.109s` median wall time, and `34.1 MiB` peak child RSS; no task-quality benchmark was run.
+- Details and limitations are in [PHASE_D_LEARNING.md](PHASE_D_LEARNING.md), [RELEASE_CHECKS.md](RELEASE_CHECKS.md), and [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
 ## Phase E — model capability routing
 

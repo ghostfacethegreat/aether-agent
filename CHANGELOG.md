@@ -1,5 +1,15 @@
 # Changelog
 
+## Phase D evidence-based learning
+
+- Added sanitized experience records from real turns, with explicit feedback and deterministic evidence rules that do not treat model claims or successful tool calls as completion proof.
+- Added evidence-based skill discovery, proposal storage, deterministic validation, explicit approval/rejection, skill installation, version history, rollback, metrics, and learning events.
+- Added additive SQLite tables for experiences, proposals, versions, metrics, and learning events without rewriting existing state.
+- Added bounded, labeled learning context to prompts and disabled persistent learning writes in child agents.
+- Added `aether skills discover|proposals|validate|approve|reject|history|versions|rollback|result`, `aether learning pending|metrics|feedback`, `/skills` learning actions, and `/feedback`.
+- Added deterministic tests for evidence rules, discovery, validation, security checks, approval, persistence, improvement, rollback, agent turns, child isolation, CLI, and slash commands; all local checks pass.
+- Documented the learning contract in `docs/PHASE_D_LEARNING.md`.
+
 ## Phase C layered memory
 
 - Added additive SQLite-backed working, episodic, semantic, procedural, and user memory layers.

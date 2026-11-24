@@ -19,7 +19,8 @@ This is the resume log for the intelligence-first `Aether 0.2+` program. It reco
 | Phase B checkpoint | `9aef0fb873f6e54bc78f7b587e3fe8709dc07c55` |
 | Phase C verification | 132 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
 | Phase C checkpoint | `833cad8f4bbdea74241c4d18f3719c77755ad7c1` |
-| Phase C checkpoint | `833cad8f4bbdea74241c4d18f3719c77755ad7c1` |
+| Phase D verification | 153 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
+| Phase D implementation checkpoint | `0dc4118af627cb2c5de4daac0a8ed4e3512705cf` |
 
 The unpushed commits from this program are deliberately preserved. Do not reset, discard, force-push, push, merge, tag, or release until the release gates in [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) pass.
 
@@ -83,9 +84,28 @@ Failures found: `test_working_memory_is_session_scoped_and_expires` exposed that
 
 Startup benchmarks recorded 3 cold starts, `0.110s` median wall time, and `33.6 MiB` peak child RSS during the implementation run, then `0.095s` and `32.4 MiB` during the final documentation run. These are startup measurements, not task-quality results.
 
+### Phase D — evidence-based learning
+
+- Added `aether/learning/` with sanitized experience records, explicit feedback, evidence-based discovery, deterministic validation, proposal approval/rejection, versioning, rollback, metrics, history, and bounded labeled prompt context.
+- Added additive SQLite storage for experiences, proposals, versions, metrics, and learning events while preserving existing tables and rows.
+- Wired learning into agent turns, layered memory episodes, context assembly, CLI/slash commands, and status output. Child agents remain isolated from persistent learning writes.
+- Kept persistent skill changes explicitly authorized by default; `learning.allow_auto_approve` is opt-in and does not alter tool permissions, approvals, or budgets.
+- Added `docs/PHASE_D_LEARNING.md` with the evidence rules, interfaces, security rules, verification record, and limitations.
+
+| Command | Result |
+|---|---|
+| `python3 -W ignore::ResourceWarning -m unittest tests.test_learning -v` | 21 focused tests passed in `0.554s` |
+| `python3 -W ignore::ResourceWarning -m unittest discover -s tests -v` | 153 tests passed in `1.849s` |
+| `bash scripts/check.sh && bash scripts/test_install.sh` | all checks passed; local git-remote install test passed |
+| `git diff --check` | passed before the implementation commit |
+
+Failures found: the learning test setup shadowed the config helper; proposal helpers did not seed verified experiences; plan IDs were not inferred from plan payloads; `Agent.run_turn()` referenced `usage` before assignment; approved skills wrote an un-dotted version string. These were fixed before the full verification run.
+
+The combined check/install run recorded 3 cold starts, `0.109s` median wall time, and `34.1 MiB` peak child RSS. These are startup measurements, not task-quality results.
+
 ## Active work
 
-Phase D — learning loop and skill quality — is next and not started.
+Phase E — model capability routing — is next and not started.
 
 ## Per-phase record
 
