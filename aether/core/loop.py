@@ -52,6 +52,7 @@ class TurnState:
     exit_reason: str = ""
     error: str = ""
     plan: str = ""
+    execution_plan: object = None
     spend_budget: dict = field(default_factory=lambda: new_spend_budget())
     cancel_event: threading.Event = field(default_factory=threading.Event)
 
@@ -291,7 +292,12 @@ def run_turn_loop(state: TurnState) -> TurnState:
             for message, execution in results:
                 state.messages.append(message)
                 state.new_messages.append(message)
-                state.tool_log.append(execution.as_dict())
+                record = execution.as_dict()
+                state.tool_log.append(record)
+                if state.execution_plan is not None and hasattr(state.execution_plan, "apply_tool_result"):
+                    state.execution_plan.apply_tool_result(execution.name, execution.ok, record.get("result") or record.get("error") or "")
+            if state.execution_plan is not None and hasattr(state.execution_plan, "summary"):
+                state.status("plan_checkpoint", **state.execution_plan.summary())
             if state.cancel_event.is_set():
                 return _mark_cancelled(state)
             continue

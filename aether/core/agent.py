@@ -5,6 +5,8 @@ from pathlib import Path
 from aether.config import Config
 from aether.core.context import ContextManager
 from aether.core.loop import TurnState, new_spend_budget, run_turn_loop
+from aether.core.planning import ExecutionPlan, ExecutionStateMachine, build_plan, is_resume_request
+from aether.core.state import ExecutionCheckpoint, make_checkpoint, restore_plan
 from aether.home import aether_home, state_db_path, workspace_root
 from aether.memory import MemoryStore
 from aether.orchestration import Orchestrator
@@ -31,6 +33,7 @@ class TurnResult:
     exit_reason: str = "complete"
     error: str = ""
     messages: list = field(default_factory=list)
+    execution_plan: dict | None = None
 
 
 class Agent:
@@ -91,9 +94,11 @@ class Agent:
             else None
         )
         self.plan = ""
+        self.execution_plan: ExecutionPlan | None = None
         self.current_state: TurnState | None = None
         self.session_id = session_id or (self.store.create_session(provider=self.provider_manager.active_name, model=self.provider_manager.model) if persist else make_id("session"))
         self.history = self._load_history()
+        self._restore_execution_plan()
         self._refresh_executor_context()
 
     def _load_history(self) -> list[dict]:
@@ -110,6 +115,80 @@ class Agent:
                 item["metadata"] = row["metadata"]
             result.append(item)
         return result
+
+    def _planning_enabled(self) -> bool:
+        return bool(self.config.get("planning.enabled", True))
+
+    def _restore_execution_plan(self) -> None:
+        if not self.persist or not self._planning_enabled():
+            return
+        for row in self.store.list_execution_plans(session_id=self.session_id, limit=20):
+            plan = ExecutionPlan.from_dict(row.get("plan") or {})
+            if plan.status not in ("running", "paused", "failed"):
+                continue
+            checkpoint_row = self.store.get_latest_execution_checkpoint(plan.id)
+            if checkpoint_row:
+                plan = restore_plan(ExecutionCheckpoint.from_dict(checkpoint_row))
+            self.execution_plan = plan
+            self.plan = plan.render()
+            return
+
+    def _checkpoint_plan(self, note: str = "") -> str:
+        if self.execution_plan is None or not self.persist or not self._planning_enabled() or not self.config.get("planning.persist_checkpoints", True):
+            return ""
+        rows = self.store.list_execution_checkpoints(self.execution_plan.id, limit=None) or []
+        sequence = max((int(row.get("sequence") or 0) for row in rows), default=0) + 1
+        checkpoint = make_checkpoint(self.execution_plan, note, sequence)
+        self.store.save_execution_checkpoint(checkpoint)
+        return checkpoint.id
+
+    def _save_execution_plan(self, note: str = "") -> None:
+        if self.execution_plan is None:
+            return
+        self.plan = self.execution_plan.render()
+        if self.persist and self._planning_enabled():
+            self.store.save_execution_plan(self.execution_plan)
+            self._checkpoint_plan(note)
+
+    def _sync_execution_plan(self, text: str) -> None:
+        if not self._planning_enabled():
+            self.execution_plan = None
+            self.plan = ""
+            return
+        objective = str(text or "").strip()
+        resume = is_resume_request(objective)
+        if resume and self.execution_plan is not None and self.execution_plan.status in ("running", "paused", "failed"):
+            if self.execution_plan.status != "running":
+                ExecutionStateMachine.transition(self.execution_plan, "running", "resume requested")
+            self._save_execution_plan("resume requested")
+            return
+        if self.execution_plan is None or self.execution_plan.status in ("completed", "cancelled"):
+            self.execution_plan = build_plan(objective, self.session_id, self.config)
+            self.execution_plan.start()
+            self._save_execution_plan("plan created")
+            return
+        if self.execution_plan.objective != objective:
+            self.execution_plan.revise("new_user_input", objective)
+            self._save_execution_plan("plan revised from new input")
+            return
+        if self.execution_plan.status in ("paused", "failed"):
+            ExecutionStateMachine.transition(self.execution_plan, "running", "continuing objective")
+            self._save_execution_plan("plan resumed")
+
+    def _finalize_execution_plan(self, state) -> dict | None:
+        if self.execution_plan is None:
+            return None
+        for tool_log in state.tool_log:
+            self.execution_plan.apply_tool_result(
+                str(tool_log.get("name") or ""),
+                bool(tool_log.get("ok")),
+                str(tool_log.get("result") or tool_log.get("error") or ""),
+            )
+        if any(not bool(item.get("ok")) for item in state.tool_log):
+            self.execution_plan.revise("tool_failure", "at least one tool call failed")
+        self.execution_plan.finalize(state.exit_reason, state.tool_log)
+        self._save_execution_plan(f"turn exit {state.exit_reason}")
+        return self.execution_plan.to_dict()
 
     def _refresh_executor_context(self) -> None:
         self.executor.set_context(
@@ -128,11 +207,14 @@ class Agent:
                 "cancel_event": self.cancel_event,
                 "session_id": self.session_id,
                 "set_plan": self.set_plan,
+                "execution_plan": self.execution_plan,
+                "checkpoint_plan": self._checkpoint_plan,
             }
         )
 
     def _child_agent(self, parent_context, task):
         child_config = Config(self.config.as_dict())
+        child_config.set("planning.enabled", False)
         child_config.set("provider", self.provider_manager.active_name)
         child_config.set("model", self.provider_manager.model)
         child_config.set("max_iterations", min(4, int(self.config.get("max_iterations", 12))))
@@ -163,6 +245,7 @@ class Agent:
         model = str(role_spec.get("model") or self.provider_manager.model)
         child_config.set("provider", provider)
         child_config.set("model", model)
+        child_config.set("planning.enabled", False)
         child_config.set("personality", role_spec.get("system_prompt", ""))
         child_config.set("system_prompt", "")
         child_config.set("max_iterations", int(role_spec.get("max_iterations", 4)))
@@ -224,6 +307,7 @@ class Agent:
     def clear_history(self) -> None:
         self.history = []
         self.plan = ""
+        self.execution_plan = None
         if self.persist:
             session = self.store.get_session(self.session_id)
             if session:
@@ -238,13 +322,27 @@ class Agent:
         text = str(user_input or "").strip()
         if not text:
             raise ValueError("User input cannot be empty")
+        self._sync_execution_plan(text)
         self._refresh_executor_context()
         if self.cancel_event.is_set():
-            return TurnResult(text="Stopped: task was cancelled.", session_id=self.session_id, provider="", model="", exit_reason="cancelled")
+            if self.execution_plan is not None:
+                self.execution_plan.cancel("cancelled before turn start")
+                self._save_execution_plan("cancelled before turn start")
+            return TurnResult(
+                text="Stopped: task was cancelled.",
+                session_id=self.session_id,
+                provider="",
+                model="",
+                exit_reason="cancelled",
+                execution_plan=self.execution_plan.to_dict() if self.execution_plan else None,
+            )
+        plan_context = self.plan
+        if self.execution_plan is not None and self.execution_plan.status == "paused":
+            plan_context = self.execution_plan.resume_context()
         system_prompt = self.context_manager.system_prompt(
             memory_context=self.memory.context() if self.config.get("memory.enabled", True) else "",
             skills_context=self.skills.context(int(self.config.get("skills.max_prompt_chars", 3000))),
-            plan=self.plan,
+            plan=plan_context,
         )
         messages = [{"role": "system", "content": system_prompt}] + [dict(item) for item in self.history]
         user_message = {"role": "user", "content": text}
@@ -264,12 +362,15 @@ class Agent:
             on_status=on_status,
             new_messages=[user_message],
             plan=self.plan,
+            execution_plan=self.execution_plan,
             spend_budget=self.spend_budget,
             cancel_event=self.cancel_event,
         )
         self.current_state = state
         run_turn_loop(state)
-        self.plan = state.plan
+        plan_payload = self._finalize_execution_plan(state)
+        self.plan = self.execution_plan.render() if self.execution_plan else state.plan
+        state.plan = self.plan
         self.history = [item for item in state.messages if item.get("role") != "system"][-80:]
         usage = state.usage
         if self.persist and self.store.get_session(self.session_id):
@@ -299,6 +400,7 @@ class Agent:
             exit_reason=state.exit_reason,
             error=str(state.error or ""),
             messages=state.messages,
+            execution_plan=plan_payload,
         )
 
     def status_summary(self) -> dict:
@@ -316,4 +418,5 @@ class Agent:
             "memories": len(self.memory.list()) + len(self.memory.list(True)),
             "workspace": str(self.workspace),
             "home": str(self.home),
+            "plan": self.execution_plan.summary() if self.execution_plan else None,
         }

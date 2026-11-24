@@ -85,6 +85,20 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - No runtime behavior changed; no task-quality benchmark was run; no Hermes parity or superiority claim is made.
 - No lint/typecheck claim: no configured lint/typecheck command was found or run.
 
+## Phase B adaptive planning checkpoint
+
+- Branch: `feat/aether-020-intelligence-foundation`; base commit `d077948e085cb17038b2da245d31e6bf86491120`.
+- Added deterministic planning, plan/checkpoint persistence, plan tool/CLI/slash commands, and turn-loop/agent integration.
+- `python3 -W ignore::ResourceWarning -m unittest tests.test_planning tests.test_core tests.test_persistence tests.test_cli` — 48 focused tests passed.
+- `python3 -m unittest discover -s tests -v` — 121 tests passed in `0.632s` in a recorded verbose run.
+- The first focused run failed `test_revision_records_invalidating_evidence` because repair tasks were not selected first; `ExecutionPlan.next_task()` was fixed to prioritize `repair_` tasks before dependencies-aware selection.
+- `python3 -m compileall -q aether tests && python3 -m unittest discover -s tests -v && bash scripts/check.sh && bash scripts/test_install.sh && git diff --check` — all commands passed.
+- `bash scripts/check.sh` during Phase B verification — `all checks passed`; a recorded local startup benchmark had 3 cold starts, median wall time `0.095s`, peak child RSS `32.1 MiB`.
+- `AETHER_HOME=<temp> python3 -m aether --provider mock run "Say hello"` followed by `aether plan list` and `aether plan status` — passed; created one completed simple plan and displayed its status.
+- Full verbose test output emitted `ResourceWarning` notices for unclosed SQLite connections; no test or check failed.
+- No lint/typecheck claim: no configured lint/typecheck command was found or run.
+- No task-quality benchmark was run; no Hermes parity or superiority claim is made.
+
 ## Secrets
 
 - No `.env` file was created in the repository.

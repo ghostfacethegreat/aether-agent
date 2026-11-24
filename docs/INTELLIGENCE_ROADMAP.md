@@ -21,8 +21,8 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 
 | Phase | Name | Main outcome | Status |
 |---|---|---|---|
-| A | Intelligence audit and benchmark contract | evidence, gap register, comparison, benchmark rules | current documentation checkpoint |
-| B | Adaptive planning and execution state | inspectable plans, complexity routing, recoverable checkpoints | pending |
+| A | Intelligence audit and benchmark contract | evidence, gap register, comparison, benchmark rules | complete at `d077948` |
+| B | Adaptive planning and execution state | inspectable plans, complexity routing, recoverable checkpoints | complete and locally verified |
 | C | Layered memory | working, episodic, semantic, procedural, and user layers | pending |
 | D | Learning loop and skill quality | experience records, skill review, versions, rollback, curator | pending |
 | E | Model capability routing | task-aware provider/model selection with existing cost controls | pending |
@@ -63,6 +63,16 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 **Verification:** deterministic planner tests, state-transition tests, checkpoint resume tests, cancellation and cost-limit behavior tests, full checks.
 
 **Exit state:** the same objective can pause and resume without repeating completed or non-idempotent work.
+
+### Phase B result
+
+- Implemented in `aether/core/planning.py` and `aether/core/state.py`, with persistence in `aether/persistence/store.py`, turn integration in `aether/core/loop.py`, agent wiring in `aether/core/agent.py`, tool/CLI exposure in `aether/tools/builtins.py` and `aether/cli/app.py`, and deterministic tests in `tests/test_planning.py`.
+- Plans now record objective, constraints, risk assessment, alternatives, task dependencies, required tools, expected results, verification criteria, revision history, and resume context.
+- Focused verification: 48 tests passed in `tests.test_planning`, `tests.test_core`, `tests.test_persistence`, and `tests.test_cli`.
+- Full verification: 121 tests passed; `scripts/check.sh`, `scripts/test_install.sh`, and `git diff --check` passed.
+- Failure fixed: repair tasks are now prioritized by `ExecutionPlan.next_task()` after `test_revision_records_invalidating_evidence` exposed the ordering bug.
+- Startup benchmark after the code checkpoint: 3 cold starts, `0.095s` median wall time, `32.1 MiB` peak child RSS; no task-quality benchmark was run.
+- Detailed commands and limitations are in [RELEASE_CHECKS.md](RELEASE_CHECKS.md) and [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
 ## Phase C — layered memory
 

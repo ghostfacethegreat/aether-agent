@@ -17,6 +17,7 @@ DEFAULTS = {
     "context_tokens": 8192,
     "compression_threshold": 0.75,
     "reasoning_effort": None,
+    "planning": {"enabled": True, "persist_checkpoints": True},
     "personality": "You are Aether, a precise, pragmatic engineering assistant. Be concise and verify claims.",
     "system_prompt": "",
     "streaming": True,

@@ -1,5 +1,15 @@
 # Changelog
 
+## Phase B adaptive planning and execution state
+
+- Added deterministic request classification for simple, moderate, complex, and high-risk work, with inspectable routes and risk notes.
+- Added plan records with objective, constraints, risk assessment, alternatives, task dependencies, required tools, expected results, verification criteria, revision history, and resume context.
+- Added an execution state machine and SQLite-backed plan/checkpoint persistence.
+- Wired plan state into turns so tool results update task status and checkpoint status is emitted.
+- Added `plan_tool`, `aether plan list|show|status|checkpoints|resume`, and `/plan status|checkpoints|resume <id>|text`.
+- Added resume behavior that skips completed and non-idempotent work and records repairs when evidence invalidates a plan.
+- Added deterministic planner, persistence, and agent integration tests; all local checks pass.
+
 ## Phase A intelligence audit (documentation checkpoint)
 
 - Changed the 0.2+ priority from visual work to intelligence-first work: planning, memory, learning, model routing, coding, research, tool selection, orchestration, verification, recovery, and measured task success.

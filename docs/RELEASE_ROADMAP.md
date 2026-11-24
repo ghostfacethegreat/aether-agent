@@ -1,0 +1,118 @@
+# Release Roadmap
+
+This roadmap tracks the intelligence-first path from the current `0.1.0` alpha checkpoint to a verified `1.0.0` release. It is a status document, not a claim that any release has been published.
+
+## Rules
+
+1. Work in order; do not skip a release milestone.
+2. Each implementation phase gets deterministic tests, full local checks, documentation updates, and a working checkpoint commit.
+3. Preserve the Python core, provider framework, tools, memory, skills, scheduler, orchestration, cancellation, approvals, budgets, ASCII artwork, and colored rendering.
+4. Keep runtime stdlib-first and practical on an 8 GB Apple Silicon Mac.
+5. Use mock providers for ordinary tests. Never fabricate benchmarks or publish unverified claims.
+6. Push, pull request, CI, merge, tag, and release only after that milestone's gates pass and the result has been confirmed.
+7. If a milestone cannot pass, report the failure and keep the last verified checkpoint.
+
+## Status summary
+
+| Version | Theme | Status |
+|---|---|---|
+| `0.1.0` | local-first provider-agnostic CLI alpha | published baseline |
+| `0.2.0` | intelligence foundation | in development; Phases A-B verified, Phase C next |
+| `0.3.0` | autonomous software development | pending |
+| `0.4.0` | messaging, voice, and improved automation | pending |
+| `0.5.0` | desktop and website applications | pending |
+| `0.9.0` | release candidate and fair comparisons | pending |
+| `1.0.0` | reliable documented platform | pending |
+
+## `0.2.0` — intelligence foundation
+
+Goal: make Aether understand objectives, plan, execute, remember, learn, route models, verify, and recover without weakening the existing CLI.
+
+| Phase | Outcome | Status |
+|---|---|---|
+| A | intelligence audit, Hermes comparison, benchmark contract | complete |
+| B | adaptive planning and execution state | complete and locally verified |
+| C | layered memory | pending |
+| D | learning loop and skill quality | pending |
+| E | model capability routing | pending |
+| F | coding workflow | pending |
+| G | research and evidence | pending |
+| H | tool intelligence | pending |
+| I | specialist orchestration | pending |
+| J | verification and recovery | pending |
+| K | benchmark harness | pending |
+| L | release hardening | pending |
+
+Release gates:
+
+- focused deterministic tests for every phase
+- full local checks pass after every phase
+- install/uninstall smoke test pass
+- public docs describe implemented behavior only
+- no benchmark or superiority claim without stored evidence
+- no secrets, API keys, or `.env` files committed
+- working checkpoint commit created
+- only then push, open PR, verify CI, merge, tag, and publish accurate notes
+
+The active phase detail is in [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md). Verified history is in [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md). Known gaps are in [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
+
+## `0.3.0` — autonomous software development
+
+Planned capabilities:
+
+- repository indexing, symbol lookup, and progressive retrieval
+- test-first coding workflow with focused regression checks
+- multi-agent development teams with evidence-based role selection
+- durable long-running task supervision and recovery
+- optional bounded browser automation through local configuration
+- reviewed diffs and verified completion claims
+
+Gates: fixture-repository tests, patch and rollback tests, multi-agent contract tests, long-task resume tests, full checks, docs, checkpoint commit, push, PR, CI, merge, tag, and release notes.
+
+## `0.4.0` — messaging, voice, and automation
+
+Planned capabilities:
+
+- Telegram and Discord adapters as optional bounded interfaces
+- session continuity across messaging platforms with strict user isolation
+- voice input/output through configurable local or explicit provider paths
+- improved scheduled automation and delivery controls
+
+Gates: adapter tests with fake clients, credential isolation tests, user/session boundary tests, voice configuration tests, approval and cost regression tests, full checks, docs, checkpoint commit, publication flow.
+
+## `0.5.0` — desktop and website applications
+
+Planned capabilities:
+
+- Tauri 2 desktop shell with React, TypeScript, and Vite
+- optional local FastAPI service with authentication, strict bind address, CORS controls, and request limits
+- macOS packaging with verified artifacts
+- `apps/website/` documentation and download site
+- membership tiers, if any, enforced server-side by the repository owner; never only in the client
+
+Gates: desktop build, local service security tests, signed or clearly documented macOS artifact status, verified download links from actual GitHub release assets, website build, entitlement server tests, full checks, docs, checkpoint commit, publication flow.
+
+## `0.9.0` — release candidate
+
+Planned capabilities:
+
+- full test, security, performance, installation, and user-acceptance pass
+- reproducible task benchmark results under identical conditions
+- fair Aether/Hermes comparisons with exact commands, models, prompts, tools, budgets, and environment
+- known issues and migration notes
+
+Gates: benchmark result artifacts, no fabricated numbers, external review of claims, fresh-clone install test, full checks, docs, checkpoint commit, RC tag only after verification.
+
+## `1.0.0` — reliable platform
+
+Release only when all of the following are true:
+
+- critical tests and security checks pass
+- installers and migrations are verified
+- documentation matches actual behavior
+- desktop packaging and optional integrations are verified
+- cost, permission, and approval systems pass regression tests
+- performance and startup checks pass
+- limitations are published honestly
+- benchmark evidence supports every comparative claim, or no comparative claim is made
+- the working checkpoint is clean and fully verified before publication

@@ -54,6 +54,29 @@ CREATE TABLE IF NOT EXISTS approvals (
     decision TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS execution_plans (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL DEFAULT '',
+    objective TEXT NOT NULL DEFAULT '',
+    complexity TEXT NOT NULL DEFAULT '',
+    route TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT '',
+    plan_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_execution_plans_session ON execution_plans(session_id, updated_at);
+CREATE TABLE IF NOT EXISTS execution_checkpoints (
+    id TEXT PRIMARY KEY,
+    plan_id TEXT NOT NULL,
+    sequence INTEGER NOT NULL,
+    phase TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    payload TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(plan_id) REFERENCES execution_plans(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_execution_checkpoints_plan ON execution_checkpoints(plan_id, sequence);
 """
 
 MESSAGE_FIELDS = ("name", "tool_call_id", "tool_calls")
@@ -409,6 +432,115 @@ class Store:
                 "ON CONFLICT(rule_key) DO UPDATE SET decision=excluded.decision, created_at=excluded.created_at",
                 (rule_key, decision, utc_now()),
             )
+
+    @staticmethod
+    def _execution_payload(value) -> dict:
+        if hasattr(value, "to_dict"):
+            return value.to_dict()
+        if isinstance(value, dict):
+            return dict(value)
+        return {}
+
+    @staticmethod
+    def _decode_execution_row(row) -> dict | None:
+        if not row:
+            return None
+        item = dict(row)
+        try:
+            item["plan"] = json.loads(item.get("plan_json") or "{}")
+        except (TypeError, ValueError):
+            item["plan"] = {}
+        return item
+
+    def save_execution_plan(self, plan) -> None:
+        payload = self._execution_payload(plan)
+        now = utc_now()
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO execution_plans(id,session_id,objective,complexity,route,status,plan_json,created_at,updated_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET "
+                "session_id=excluded.session_id, objective=excluded.objective, complexity=excluded.complexity, "
+                "route=excluded.route, status=excluded.status, plan_json=excluded.plan_json, updated_at=excluded.updated_at",
+                (
+                    str(payload.get("id") or ""),
+                    str(payload.get("session_id") or ""),
+                    str(payload.get("objective") or ""),
+                    str(payload.get("complexity") or ""),
+                    str(payload.get("route") or ""),
+                    str(payload.get("status") or ""),
+                    json.dumps(payload, ensure_ascii=False),
+                    str(payload.get("created_at") or now),
+                    now,
+                ),
+            )
+
+    def get_execution_plan(self, plan_id: str) -> dict | None:
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM execution_plans WHERE id=?", (plan_id,)).fetchone()
+        return self._decode_execution_row(row)
+
+    def list_execution_plans(self, session_id: str | None = None, status: str | None = None, limit: int | None = 20) -> list[dict]:
+        sql = "SELECT * FROM execution_plans WHERE 1=1"
+        params = []
+        if session_id:
+            sql += " AND session_id=?"
+            params.append(session_id)
+        if status:
+            sql += " AND status=?"
+            params.append(status)
+        sql += " ORDER BY updated_at DESC"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        with self.connect() as db:
+            rows = db.execute(sql, params).fetchall()
+        return [self._decode_execution_row(row) for row in rows]
+
+    def save_execution_checkpoint(self, checkpoint) -> None:
+        payload = self._execution_payload(checkpoint)
+        with self.connect() as db:
+            db.execute(
+                "INSERT OR REPLACE INTO execution_checkpoints(id,plan_id,sequence,phase,note,payload,created_at) "
+                "VALUES(?,?,?,?,?,?,?)",
+                (
+                    str(payload.get("id") or ""),
+                    str(payload.get("plan_id") or ""),
+                    int(payload.get("sequence") or 0),
+                    str(payload.get("phase") or ""),
+                    str(payload.get("note") or ""),
+                    json.dumps(payload.get("payload") or {}, ensure_ascii=False),
+                    str(payload.get("created_at") or utc_now()),
+                ),
+            )
+
+    @staticmethod
+    def _decode_checkpoint_row(row) -> dict | None:
+        if not row:
+            return None
+        item = dict(row)
+        try:
+            item["payload"] = json.loads(item.get("payload") or "{}")
+        except (TypeError, ValueError):
+            item["payload"] = {}
+        return item
+
+    def list_execution_checkpoints(self, plan_id: str, limit: int | None = 50) -> list[dict]:
+        sql = "SELECT * FROM execution_checkpoints WHERE plan_id=? ORDER BY sequence ASC, created_at ASC"
+        params = [plan_id]
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        with self.connect() as db:
+            rows = db.execute(sql, params).fetchall()
+        return [self._decode_checkpoint_row(row) for row in rows]
+
+    def get_latest_execution_checkpoint(self, plan_id: str) -> dict | None:
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT * FROM execution_checkpoints WHERE plan_id=? ORDER BY sequence DESC, created_at DESC LIMIT 1",
+                (plan_id,),
+            ).fetchone()
+        return self._decode_checkpoint_row(row)
 
     def export_session(self, session_id: str) -> dict:
         session = self.get_session(session_id)

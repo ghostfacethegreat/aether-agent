@@ -493,6 +493,31 @@ def todo_tool(args, context):
     return f"Plan updated: {text or '(cleared)'}"
 
 
+def plan_tool(args, context):
+    plan = context.get("execution_plan")
+    if plan is None:
+        raise ToolError("Execution planning is not available in this context")
+    action = str(args.get("action") or "status").lower()
+    if action == "status":
+        return _text(plan.summary())
+    if action == "show":
+        return plan.render()
+    if action == "checkpoint":
+        callback = context.get("checkpoint_plan")
+        checkpoint_id = callback(str(args.get("note") or "")) if callback else ""
+        return f"Checkpoint saved: {checkpoint_id or '(not persisted)'}"
+    if action in ("complete", "update", "skip"):
+        task_id = str(args.get("task_id") or "")
+        status = "completed" if action == "complete" else ("skipped" if action == "skip" else str(args.get("status") or "in_progress"))
+        if not plan.mark_task(task_id, status, str(args.get("evidence") or "")):
+            raise ToolError(f"Unknown plan task '{task_id}'")
+        return f"Plan task {task_id} set to {status}"
+    if action == "revise":
+        task = plan.revise(str(args.get("signal") or "tool_failure"), str(args.get("reason") or ""))
+        return f"Plan revised; added {task.id}"
+    raise ToolError(f"Unknown plan action '{action}'")
+
+
 def session_search(args, context):
     store = context.get("store")
     if not store:
@@ -713,6 +738,26 @@ TOOLS = [
         "Record or clear the active plan shown to the user and included in system context.",
         {"type": "object", "properties": {"plan": {"type": "string"}, "title": {"type": "string"}, "status": {"type": "string"}}, "required": []},
         todo_tool,
+        "low",
+        True,
+    ),
+    Tool(
+        "plan_tool",
+        "Inspect, checkpoint, revise, or mark steps of the active execution plan. Use skip only with an explicit reason.",
+        {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["status", "show", "checkpoint", "complete", "update", "skip", "revise"]},
+                "task_id": {"type": "string"},
+                "status": {"type": "string"},
+                "evidence": {"type": "string"},
+                "note": {"type": "string"},
+                "signal": {"type": "string"},
+                "reason": {"type": "string"},
+            },
+            "required": ["action"],
+        },
+        plan_tool,
         "low",
         True,
     ),

@@ -6,7 +6,7 @@ Aether works with no paid account: the defaults target local Ollama, and a built
 
 ## Status
 
-Version `0.1.0` is an alpha release. A working core, screenshots, installer scripts, and source publication are complete. The project priority for `0.2+` is intelligence first: planning, memory, learning, routing, coding, research, coordination, verification, recovery, and measured task success. See the [intelligence audit](docs/INTELLIGENCE_AUDIT.md), [intelligence roadmap](docs/INTELLIGENCE_ROADMAP.md), and [source-evidenced Hermes comparison](docs/HERMES_COMPARISON.md). No Hermes parity or superiority is claimed. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
+Version `0.1.0` is an alpha release. A working core, screenshots, installer scripts, and source publication are complete. The project priority for `0.2+` is intelligence first: planning, memory, learning, routing, coding, research, coordination, verification, recovery, and measured task success. Adaptive planning, risk/alternatives records, and resumable execution checkpoints are implemented and locally verified on a feature branch; `0.2.0` has not been released. See the [development status](docs/DEVELOPMENT_STATUS.md), [release roadmap](docs/RELEASE_ROADMAP.md), [known limitations](docs/KNOWN_LIMITATIONS.md), [intelligence audit](docs/INTELLIGENCE_AUDIT.md), [intelligence roadmap](docs/INTELLIGENCE_ROADMAP.md), and [source-evidenced Hermes comparison](docs/HERMES_COMPARISON.md). No Hermes parity or superiority is claimed. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
 
 Terminal appearance is frozen. The existing ASCII artwork and colored rendering are preserved; only functional visual regressions will be fixed. Do not expect a theme selector, font system, animated title, or visual redesign in `0.2+`.
 
@@ -129,6 +129,22 @@ aether schedule add "Summarize new notes" "every 1h"
 ```
 
 Sessions, messages, task ledger, approvals, and usage counters are stored locally in `~/.aether/state.db`.
+
+## Plans and checkpoints
+
+Aether classifies requests as simple, moderate, complex, or high-risk and records an inspectable plan when work needs more than a direct reply. Plans include risk notes, alternatives, task dependencies, tools, expected results, verification criteria, and revision history. High-risk plans record an approval requirement while existing tool permissions continue to apply.
+
+Plans and checkpoints are stored in local SQLite. Resume skips completed and non-idempotent work, and plan changes caused by failures or feedback are recorded as revisions.
+
+```bash
+aether plan list
+aether plan status
+aether plan show <plan-id>
+aether plan checkpoints
+aether plan resume <plan-id>
+```
+
+Inside chat, use `/plan status`, `/plan checkpoints`, `/plan resume <plan-id>`, or `/plan <text>`.
 
 ## Multi-agent orchestration
 

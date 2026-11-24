@@ -10,6 +10,7 @@ from pathlib import Path
 from aether import __version__
 from aether.config import Config, load_config, load_environment
 from aether.core import Agent
+from aether.core.planning import ExecutionPlan
 from aether.errors import AetherError
 from aether.home import aether_home, env_path
 from aether.logging import get_logger, set_level
@@ -136,6 +137,23 @@ def build_parser():
     tasks_resume = tasks.add_parser("resume")
     tasks_resume.add_argument("id")
     tasks_resume.set_defaults(func=cmd_tasks)
+
+    p_plan = sub.add_parser("plan", help="Inspect or resume adaptive execution plans")
+    plan = p_plan.add_subparsers(dest="action", required=True)
+    plan_list = plan.add_parser("list", help="List stored execution plans")
+    plan_list.set_defaults(func=cmd_plan)
+    plan_show = plan.add_parser("show", help="Show a stored execution plan")
+    plan_show.add_argument("id")
+    plan_show.set_defaults(func=cmd_plan)
+    plan_status = plan.add_parser("status", help="Show the active or selected execution plan status")
+    plan_status.add_argument("id", nargs="?")
+    plan_status.set_defaults(func=cmd_plan)
+    plan_checkpoints = plan.add_parser("checkpoints", help="List checkpoints for a stored plan")
+    plan_checkpoints.add_argument("id", nargs="?")
+    plan_checkpoints.set_defaults(func=cmd_plan)
+    plan_resume = plan.add_parser("resume", help="Resume a stored execution plan")
+    plan_resume.add_argument("id")
+    plan_resume.set_defaults(func=cmd_plan)
 
     p_agents = sub.add_parser("agents", help="Inspect and run specialized agents")
     agents = p_agents.add_subparsers(dest="action", required=True)
@@ -350,7 +368,7 @@ def _print_help():
         ("/status", "show provider and workspace status"),
         ("/provider <name> [model]", "switch provider"),
         ("/model <model>", "switch model on active provider"),
-        ("/plan [text]", "show or set the active plan"),
+        ("/plan [status|checkpoints|resume <id>|text]", "inspect, resume, or set the active plan"),
         ("/tools", "list enabled tools"),
         ("/memory [list|add|search|delete]", "manage memory"),
         ("/skills [list|view]", "inspect skills"),
@@ -392,9 +410,32 @@ def _agent_command(agent, parts):
         print(render.success_line(f"using {provider.name}/{provider.model}"))
         return False
     if action == "plan":
-        if args:
+        sub = args[0] if args else ""
+        if sub == "status":
+            if agent.execution_plan:
+                print(json.dumps(agent.execution_plan.summary(), indent=2, ensure_ascii=False))
+            else:
+                print("(no active execution plan)")
+        elif sub == "checkpoints":
+            if agent.execution_plan:
+                rows = agent.store.list_execution_checkpoints(agent.execution_plan.id)
+                print(render.table(["ID", "Seq", "Phase", "Note", "Created"], [(row["id"], str(row["sequence"]), row["phase"], row["note"], row["created_at"]) for row in rows]) if rows else "(no checkpoints)")
+            else:
+                print("(no active execution plan)")
+        elif sub == "resume" and len(args) > 1:
+            row = agent.store.get_execution_plan(args[1])
+            if not row:
+                print(render.error_line(f"plan '{args[1]}' not found"))
+                return False
+            agent.execution_plan = ExecutionPlan.from_dict(row.get("plan") or {})
+            agent.plan = agent.execution_plan.render()
+            agent._refresh_executor_context()
+            print(render.success_line(f"resumed plan {args[1]}"))
+        elif args:
             agent.set_plan(" ".join(args))
-        print(agent.plan or "(no active plan)")
+            print(agent.plan or "(no active plan)")
+        else:
+            print(agent.execution_plan.render() if agent.execution_plan else (agent.plan or "(no active plan)"))
         return False
     if action == "tools":
         rows = [(name, tool.risk, "yes" if tool.parallel_safe else "no") for name, tool in agent.registry.tools.items()]
@@ -736,6 +777,41 @@ def cmd_tasks(args, config, home):
         return 0
     print(render.error_line("resume requires an interactive agent; use /resume <session> or delegate_task"))
     return 1
+
+
+def cmd_plan(args, config, home):
+    store = Store(home / "state.db")
+    if args.action == "list":
+        rows = [(row["id"], row["status"], row["complexity"], truncate(row["objective"], 70), row["updated_at"]) for row in store.list_execution_plans(limit=20)]
+        print(render.table(["ID", "Status", "Complexity", "Objective", "Updated"], rows))
+        return 0
+    plan_id = getattr(args, "id", None)
+    row = store.get_execution_plan(plan_id) if plan_id else None
+    if row is None:
+        rows = store.list_execution_plans(limit=1)
+        row = rows[0] if rows else None
+    if row is None:
+        print(render.error_line("no execution plan found"))
+        return 1
+    plan = ExecutionPlan.from_dict(row.get("plan") or {})
+    if args.action == "show":
+        print(plan.render())
+        return 0
+    if args.action == "status":
+        print(json.dumps(plan.summary(), indent=2, ensure_ascii=False))
+        return 0
+    if args.action == "checkpoints":
+        rows = store.list_execution_checkpoints(plan.id)
+        print(render.table(["ID", "Seq", "Phase", "Note", "Created"], [(item["id"], str(item["sequence"]), item["phase"], item["note"], item["created_at"]) for item in rows]) if rows else "(no checkpoints)")
+        return 0
+    if plan.session_id and not getattr(args, "session", None):
+        args.session = plan.session_id
+    agent = make_agent(args, config, home)
+    agent.execution_plan = plan
+    agent.plan = plan.render()
+    agent._refresh_executor_context()
+    result = stream_turn(agent, "resume", args)
+    return 0 if result.exit_reason not in ("provider_error", "cost_limit") else 1
 
 
 def cmd_agents(args, config, home, scheduler=None):
