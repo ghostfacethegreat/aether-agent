@@ -49,3 +49,7 @@ class SkillError(AetherError):
 
 class SchedulerError(AetherError):
     pass
+
+
+class OrchestratorError(AetherError):
+    pass

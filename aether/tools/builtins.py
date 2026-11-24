@@ -418,6 +418,20 @@ def delegate_task(args, context):
     return _text(manager.run(tasks, context))
 
 
+def orchestrate_task(args, context):
+    orchestrator = context.get("orchestrator")
+    if orchestrator is None:
+        raise ToolError("Multi-agent orchestration is not available in this context")
+    objective = str(args.get("objective") or "").strip()
+    if not objective:
+        raise ToolError("orchestrate_task requires an objective")
+    roles = args.get("roles") or None
+    if roles is not None and not isinstance(roles, list):
+        raise ToolError("roles must be a list")
+    run = orchestrator.run(objective=objective, roles=roles, mode=args.get("mode") or None)
+    return {"run_id": run.id, "status": run.status, "report": run.final_report}
+
+
 def todo_tool(args, context):
     text = str(args.get("plan") or args.get("text") or "").strip()
     callback = context.get("set_plan")
@@ -605,6 +619,22 @@ TOOLS = [
         },
         skill_tool,
         "write",
+    ),
+    Tool(
+        "orchestrate_task",
+        "Break a complex objective into specialized research, development, debugging, and review agents.",
+        {
+            "type": "object",
+            "properties": {
+                "objective": {"type": "string"},
+                "roles": {"type": "array", "items": {"type": "string"}, "description": "Optional explicit role sequence"},
+                "mode": {"type": "string", "enum": ["sequential", "parallel"]},
+            },
+            "required": ["objective"],
+        },
+        orchestrate_task,
+        "execute",
+        timeout=600,
     ),
     Tool(
         "delegate_task",

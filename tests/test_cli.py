@@ -2,8 +2,9 @@ import io
 import json
 import unittest
 from contextlib import redirect_stdout
+from unittest.mock import patch
 
-from aether.cli.app import main
+from aether.cli.app import SLASH_COMMANDS, main
 from aether.config import load_config
 
 from tests.base import TempHomeTest
@@ -61,6 +62,26 @@ class CliTests(TempHomeTest):
         self.assertEqual(code, 0)
         self.assertIn("mock (local)", output)
         self.assertIn("mock-standard", output)
+
+    def test_agents_list_command(self):
+        code, output = self.run_cli(["agents", "list"])
+        self.assertEqual(code, 0)
+        self.assertIn("researcher", output)
+        self.assertIn("reviewer", output)
+
+    def test_agents_run_command(self):
+        code, output = self.run_cli(["--provider", "mock", "agents", "run", "researcher", "Explain caching"])
+        self.assertEqual(code, 0)
+        self.assertIn("Aether multi-agent report", output)
+        self.assertIn("researcher", output)
+
+    def test_agents_slash_command(self):
+        self.assertIn("/agents", SLASH_COMMANDS)
+        buffer = io.StringIO()
+        with patch("builtins.input", side_effect=["/agents list", "/exit"]), redirect_stdout(buffer):
+            code = main(["--provider", "mock"])
+        self.assertIn(code, (None, 0))
+        self.assertIn("researcher", buffer.getvalue())
 
     def test_schedule_tick_reports_summary(self):
         code, output = self.run_cli(["--provider", "mock", "schedule", "tick"])

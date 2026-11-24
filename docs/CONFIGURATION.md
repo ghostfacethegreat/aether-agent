@@ -79,3 +79,33 @@ Browser automation is disabled by default. If enabled, the command template rece
 ```
 
 Scheduled jobs are stored at `~/.aether/cron/jobs.json`, and execution outcomes are appended to `~/.aether/cron/executions.jsonl`. The scheduler runs in-process only while an interactive chat or `aether run` process is alive. Manual `aether schedule tick` uses a real local runner and reports due, executed, skipped, and failed jobs. Paid or custom providers are refused for scheduled execution unless `allow_paid` is set to `true`.
+
+## Multi-agent orchestration
+
+```json
+{
+  "orchestrator": {
+    "enabled": true,
+    "mode": "parallel",
+    "max_concurrency": 3,
+    "max_children": 8,
+    "max_depth": 2,
+    "task_timeout_seconds": 120,
+    "retries": 1,
+    "allow_paid": false,
+    "roles": {
+      "researcher": {
+        "provider": "",
+        "model": "",
+        "system_prompt": "",
+        "allowed_tools": ["list_directory", "read_file", "web_fetch", "web_search"],
+        "deny_tools": [],
+        "require_approval": [],
+        "max_iterations": 5
+      }
+    }
+  }
+}
+```
+
+`mode` is `parallel` or `sequential`. Empty `provider` and `model` values inherit the parent agent's active provider and model. Each child inherits the parent's spend budget and cannot raise its limit. Child permissions are the intersection of parent and role allow-lists, plus parent/role deny-lists. Paid providers are blocked for children unless `allow_paid=true`, `AETHER_CONFIRM_PAID` is set, or `costs.confirm_paid=false`.

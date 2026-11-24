@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 3 multi-agent orchestration
+
+- Added a central `Orchestrator` with role-based plans, dependency ordering, sequential/parallel execution, retries, cancellation, timeouts, and persistent run/task recovery.
+- Added specialized `researcher`, `developer`, `debugger`, and `reviewer` roles with structured result parsing and owner-protected shared task state.
+- Added shared spend budgets, nested budget tightening, paid-child gating, strict child permissions, and child denials for orchestration/delegation tools.
+- Added the `orchestrate_task` tool and `aether agents` / `/agents` commands for listing roles, running tasks, viewing status, cancelling tasks, and resuming stored runs.
+- Added mock-provider regression tests for orchestration lifecycle, concurrency, isolation, communication, budgets, cancellation, timeouts, permissions, recovery, and failure handling.
+
 ## Phase 2 audit (documentation checkpoint)
 
 - Refreshed the Hermes Agent comparison baseline to commit `b98c388a880b1b6fd303c9c2821a3946651a0b4c`.

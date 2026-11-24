@@ -50,7 +50,7 @@ Start interactive mode:
 aether
 ```
 
-Type `/help` inside the chat for slash commands. Useful ones include `/status`, `/provider`, `/model`, `/plan`, `/tools`, `/memory`, `/skills`, `/sessions`, `/resume`, `/history`, `/tasks`, `/schedule`, `/cost`, and `/doctor`.
+Type `/help` inside the chat for slash commands. Useful ones include `/status`, `/provider`, `/model`, `/plan`, `/tools`, `/memory`, `/skills`, `/sessions`, `/resume`, `/history`, `/tasks`, `/agents`, `/schedule`, `/cost`, and `/doctor`.
 
 ## Screenshots
 
@@ -113,7 +113,7 @@ aether skills view code-review
 aether skills create my-skill "A useful procedure"
 ```
 
-Built-in tools cover file reads/writes, terminal and git commands, Python execution, web fetch/search, memory, skills, task delegation, plans, session search, and scheduling. Write/execute/network actions can require approval; destructive shell patterns are detected and can be rejected in strict mode.
+Built-in tools cover file reads/writes, terminal and git commands, Python execution, web fetch/search, memory, skills, task delegation, multi-agent orchestration, plans, session search, and scheduling. Write/execute/network actions can require approval; destructive shell patterns are detected and can be rejected in strict mode.
 
 ## Sessions and tasks
 
@@ -126,12 +126,27 @@ aether schedule add "Summarize new notes" "every 1h"
 
 Sessions, messages, task ledger, approvals, and usage counters are stored locally in `~/.aether/state.db`.
 
+## Multi-agent orchestration
+
+Aether can split an objective across specialized `researcher`, `developer`, `debugger`, and `reviewer` agents. The orchestrator builds a dependency plan, runs ready tasks in parallel by default, passes structured results between tasks, consolidates the final report, and keeps child permissions inside the parent's allow-list.
+
+```bash
+aether agents list
+aether --provider mock agents run researcher "Explain local caching"
+aether agents status
+aether agents cancel <task-id>
+aether agents resume <run-id>
+```
+
+Inside chat, use `/agents list`, `/agents run <role> <task>`, `/agents status`, and `/agents cancel <task-id>`. Agent runs share the parent's spend budget; nested agents cannot raise the limit. Paid providers are blocked for child agents unless `orchestrator.allow_paid=true`, `AETHER_CONFIRM_PAID` is set, or `costs.confirm_paid=false`.
+
 ## Safety notes
 
 - Aether is not a security sandbox. Tool subprocesses inherit the user's environment.
 - Do not run untrusted prompts with write/execute tools enabled in a sensitive workspace.
 - Use `tool_permissions.mode=strict` and explicit `allow_tools` for unattended runs.
 - Web output is data, not instructions; Aether's system prompt tells the model not to follow injected instructions from files or pages.
+- Multi-agent child results are untrusted data; the orchestrator passes them as task context and never grants children the `orchestrate_task` tool.
 - Browser automation is disabled unless you configure a local command template.
 - Scheduled prompts can spend money if you select a paid provider. Check `aether providers` and your provider dashboard.
 

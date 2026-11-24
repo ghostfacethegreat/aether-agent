@@ -47,6 +47,7 @@ class TurnState:
     error: str = ""
     plan: str = ""
     spend_budget: dict = field(default_factory=lambda: new_spend_budget())
+    cancel_event: threading.Event = field(default_factory=threading.Event)
 
     def status(self, kind: str, **payload) -> None:
         if self.on_status:
@@ -92,9 +93,16 @@ def _paid_not_confirmed(state: TurnState) -> bool:
 def _cost_limit(state: TurnState) -> float | None:
     raw = state.config.get("costs.max_estimated_usd_per_turn")
     try:
-        limit = None if raw is None else float(raw)
+        configured = None if raw is None else float(raw)
     except (TypeError, ValueError) as exc:
         raise AetherError("costs.max_estimated_usd_per_turn must be a number") from exc
+    inherited = state.spend_budget.get("limit")
+    if configured is None:
+        limit = inherited
+    elif inherited is None:
+        limit = configured
+    else:
+        limit = min(configured, inherited)
     state.spend_budget["limit"] = limit
     return limit
 
@@ -146,12 +154,20 @@ def _preflight_cost(state: TurnState, provider) -> tuple[float | None, float]:
     return estimate, reservation
 
 
+def _release_reservation(state: TurnState, reservation: float) -> None:
+    if reservation <= 0:
+        return
+    with state.spend_budget["lock"]:
+        state.spend_budget["reserved"] = max(0.0, state.spend_budget["reserved"] - reservation)
+
+
 def _call_provider(state: TurnState, iteration: int):
     errors = []
     for provider in state.provider_candidates:
         state.status("provider_call", provider=provider.name, model=provider.model, iteration=iteration)
-        _, reservation = _preflight_cost(state, provider)
+        reservation = 0.0
         try:
+            _, reservation = _preflight_cost(state, provider)
             response = provider.chat(
                 state.messages,
                 tools=state.tools,
@@ -163,12 +179,16 @@ def _call_provider(state: TurnState, iteration: int):
             state.usage["model"] = provider.model
             return response, provider, reservation
         except ProviderError as exc:
+            _release_reservation(state, reservation)
             message = redact(str(exc))
             errors.append(f"{provider.name}: {message}")
             state.status("provider_error", provider=provider.name, error=message, retryable=exc.retryable)
             state.provider_manager.mark_failed(provider.name, 30 if exc.retryable else 300)
             if state.on_delta:
                 state.on_delta("\n[provider switched after error]\n", "status")
+        except Exception:
+            _release_reservation(state, reservation)
+            raise
     raise AetherError("All providers failed. " + " | ".join(errors))
 
 
@@ -199,8 +219,20 @@ def _accumulate_usage(state: TurnState, response, provider, reservation: float =
     _sync_usage(state)
 
 
+def _mark_cancelled(state: TurnState) -> TurnState:
+    _sync_usage(state)
+    state.exit_reason = "cancelled"
+    state.final_text = "Stopped: task was cancelled."
+    assistant = {"role": "assistant", "content": state.final_text}
+    state.messages.append(assistant)
+    state.new_messages.append(assistant)
+    return state
+
+
 def run_turn_loop(state: TurnState) -> TurnState:
     for iteration in range(1, max(1, int(state.max_iterations)) + 1):
+        if state.cancel_event.is_set():
+            return _mark_cancelled(state)
         state.messages, fit = state.context_manager.fit(state.messages)
         if fit.get("changed"):
             state.status("context_compressed", **fit)
@@ -214,6 +246,8 @@ def run_turn_loop(state: TurnState) -> TurnState:
             return state
         _accumulate_usage(state, response, provider, reservation)
         state.status("model_response", provider=provider.name, tool_calls=len(response.tool_calls), finish_reason=response.finish_reason)
+        if state.cancel_event.is_set():
+            return _mark_cancelled(state)
         if _over_cost_limit(state):
             _sync_usage(state)
             state.status("cost_limit", estimated_cost=state.usage.get("estimated_cost", 0.0), limit=_cost_limit(state))

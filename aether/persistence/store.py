@@ -245,8 +245,8 @@ class Store:
                 rows = db.execute(sql, params).fetchall()
         return [dict(row) for row in rows]
 
-    def create_task(self, title="", session_id="", parent_id="", metadata=None) -> str:
-        task_id = make_id("task")
+    def create_task(self, title="", session_id="", parent_id="", metadata=None, task_id=None) -> str:
+        task_id = task_id or make_id("task")
         now = utc_now()
         with self.connect() as db:
             db.execute(

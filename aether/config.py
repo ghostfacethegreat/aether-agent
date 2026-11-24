@@ -47,6 +47,17 @@ DEFAULTS = {
         "browser": {"command": "", "enabled": False},
     },
     "scheduler": {"enabled": False, "tick_seconds": 30, "allow_paid": False},
+    "orchestrator": {
+        "enabled": True,
+        "mode": "parallel",
+        "max_concurrency": 3,
+        "max_children": 8,
+        "max_depth": 2,
+        "task_timeout_seconds": 120,
+        "retries": 1,
+        "allow_paid": False,
+        "roles": {},
+    },
     "logging": {"level": "INFO", "file": True},
 }
 
@@ -142,6 +153,16 @@ class Config:
             "1", "true", "yes", "on", "0", "false", "no", "off"
         }:
             warnings.append("costs.confirm_paid must be a boolean; treating invalid values as confirmation required.")
+        mode = self.get("orchestrator.mode")
+        if mode not in ("sequential", "parallel"):
+            warnings.append("orchestrator.mode must be sequential or parallel.")
+        for key in ("max_concurrency", "max_children", "max_depth", "task_timeout_seconds", "retries"):
+            value = self.get(f"orchestrator.{key}")
+            if not isinstance(value, int) or value < 0:
+                warnings.append(f"orchestrator.{key} must be a non-negative integer.")
+        roles = self.get("orchestrator.roles", {})
+        if not isinstance(roles, dict):
+            warnings.append("orchestrator.roles must be an object keyed by role name.")
         return warnings
 
 
