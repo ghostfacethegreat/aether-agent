@@ -29,6 +29,11 @@ class ConfigTests(TempHomeTest):
         self.assertTrue(any("Unknown provider" in item for item in warnings))
         self.assertTrue(any("max_iterations" in item for item in warnings))
 
+    def test_validation_warns_on_missing_cost_cap_for_billable_provider(self):
+        config = self.config(provider="openai", model="gpt-4o-mini")
+        warnings = config.validate()
+        self.assertTrue(any("cost cap" in item for item in warnings))
+
     def test_environment_file_does_not_override_existing(self):
         path = self.home / ".env"
         path.write_text("GROQ_API_KEY=from-file\nMOCK_ONLY=abc\n", encoding="utf-8")

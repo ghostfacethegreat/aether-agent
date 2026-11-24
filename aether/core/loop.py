@@ -1,8 +1,28 @@
 import json
+import os
+import threading
 from dataclasses import dataclass, field
 
 from aether.errors import AetherError, ProviderError
-from aether.utils import redact, utc_now
+from aether.providers.catalog import provider_is_billable, rough_cost
+from aether.utils import message_tokens, redact, utc_now
+
+
+def new_spend_budget(limit: float | None = None) -> dict:
+    return {
+        "spent": 0.0,
+        "reserved": 0.0,
+        "limit": limit,
+        "lock": threading.Lock(),
+        "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "reasoning_chars": 0,
+            "estimated_cost": 0.0,
+            "priced_calls": 0,
+            "unpriced_calls": 0,
+        },
+    }
 
 
 @dataclass
@@ -26,6 +46,7 @@ class TurnState:
     exit_reason: str = ""
     error: str = ""
     plan: str = ""
+    spend_budget: dict = field(default_factory=lambda: new_spend_budget())
 
     def status(self, kind: str, **payload) -> None:
         if self.on_status:
@@ -47,22 +68,100 @@ def _options(state: TurnState) -> dict:
     return {
         "temperature": state.config.get("temperature", 0.2),
         "max_tokens": state.config.get("max_tokens", 2048),
+        "top_p": state.config.get("top_p", 1.0),
         "reasoning_effort": state.config.get("reasoning_effort"),
     }
+
+
+def _paid_not_confirmed(state: TurnState) -> bool:
+    if os.environ.get("AETHER_CONFIRM_PAID"):
+        return False
+    raw = state.config.get("costs.confirm_paid")
+    if raw is None:
+        return True
+    if isinstance(raw, bool):
+        return raw
+    normalized = str(raw).strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return True
+
+
+def _cost_limit(state: TurnState) -> float | None:
+    raw = state.config.get("costs.max_estimated_usd_per_turn")
+    try:
+        limit = None if raw is None else float(raw)
+    except (TypeError, ValueError) as exc:
+        raise AetherError("costs.max_estimated_usd_per_turn must be a number") from exc
+    state.spend_budget["limit"] = limit
+    return limit
+
+
+def _over_cost_limit(state: TurnState) -> bool:
+    limit = _cost_limit(state)
+    return limit is not None and float(state.spend_budget["spent"]) > limit
+
+
+def _sync_usage(state: TurnState) -> None:
+    with state.spend_budget["lock"]:
+        shared = state.spend_budget["usage"]
+        state.usage.update({key: value for key, value in shared.items() if key != "lock"})
+    state.usage["cost_known"] = state.usage.get("unpriced_calls", 0) == 0 and state.usage.get("priced_calls", 0) > 0
+
+
+def _preflight_cost(state: TurnState, provider) -> tuple[float | None, float]:
+    if provider_is_billable(provider.name, provider.model) and _paid_not_confirmed(state):
+        raise ProviderError(
+            f"Paid provider '{provider.name}' is not confirmed. Use --confirm-paid or set costs.confirm_paid=false.",
+            provider=provider.name,
+            retryable=False,
+        )
+    limit = _cost_limit(state)
+    estimate = rough_cost(
+        provider.name,
+        provider.model,
+        {"prompt_tokens": message_tokens(state.messages), "completion_tokens": int(_options(state).get("max_tokens") or 0)},
+    )
+    if estimate is None:
+        if limit is not None:
+            raise AetherError(
+                f"Cannot enforce costs.max_estimated_usd_per_turn={limit:.6f} for unpriced model "
+                f"'{provider.name}/{provider.model}'. Add pricing or remove the cap."
+            )
+        return None, 0.0
+    attempts = max(1, int(state.config.get("retry_attempts", 2) or 0) + 1)
+    reservation = round(estimate * attempts, 6)
+    with state.spend_budget["lock"]:
+        budget = state.spend_budget
+        projected = budget["spent"] + budget["reserved"] + reservation
+        if limit is not None and projected > limit:
+            raise AetherError(
+                f"Estimated worst-case cost ${projected:.6f} exceeds costs.max_estimated_usd_per_turn={limit:.6f}. "
+                "Reduce max_tokens, lower the limit guard, or use a local provider."
+            )
+        budget["reserved"] += reservation
+    state.usage["preflight_estimate_usd"] = state.usage.get("preflight_estimate_usd", 0.0) + estimate
+    return estimate, reservation
 
 
 def _call_provider(state: TurnState, iteration: int):
     errors = []
     for provider in state.provider_candidates:
         state.status("provider_call", provider=provider.name, model=provider.model, iteration=iteration)
+        _, reservation = _preflight_cost(state, provider)
         try:
-            return provider.chat(
+            response = provider.chat(
                 state.messages,
                 tools=state.tools,
                 stream=bool(state.config.get("streaming", True)),
                 on_delta=state.on_delta,
                 options=_options(state),
-            ), provider
+            )
+            state.usage["provider"] = provider.name
+            state.usage["model"] = provider.model
+            return response, provider, reservation
         except ProviderError as exc:
             message = redact(str(exc))
             errors.append(f"{provider.name}: {message}")
@@ -73,14 +172,31 @@ def _call_provider(state: TurnState, iteration: int):
     raise AetherError("All providers failed. " + " | ".join(errors))
 
 
-def _accumulate_usage(state: TurnState, response) -> None:
+def _accumulate_usage(state: TurnState, response, provider, reservation: float = 0.0) -> None:
     usage = response.usage or {}
-    prompt = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
+    if "prompt_tokens" in usage:
+        prompt = int(usage.get("prompt_tokens") or 0)
+    else:
+        prompt = int(usage.get("input_tokens") or 0)
+        prompt += int(usage.get("cache_read_input_tokens") or 0)
+        prompt += int(usage.get("cache_creation_input_tokens") or 0)
     completion = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
-    state.usage["prompt_tokens"] = state.usage.get("prompt_tokens", 0) + prompt
-    state.usage["completion_tokens"] = state.usage.get("completion_tokens", 0) + completion
-    if response.reasoning:
-        state.usage["reasoning_chars"] = state.usage.get("reasoning_chars", 0) + len(response.reasoning)
+    reasoning = len(response.reasoning) if response.reasoning else 0
+    cost = rough_cost(provider.name, provider.model, usage)
+    with state.spend_budget["lock"]:
+        budget = state.spend_budget
+        budget["reserved"] = max(0.0, budget["reserved"] - reservation)
+        shared = budget["usage"]
+        shared["prompt_tokens"] += prompt
+        shared["completion_tokens"] += completion
+        shared["reasoning_chars"] += reasoning
+        if cost is None:
+            shared["unpriced_calls"] += 1
+        else:
+            shared["priced_calls"] += 1
+            shared["estimated_cost"] = round(shared["estimated_cost"] + cost, 6)
+            budget["spent"] = shared["estimated_cost"]
+    _sync_usage(state)
 
 
 def run_turn_loop(state: TurnState) -> TurnState:
@@ -89,14 +205,27 @@ def run_turn_loop(state: TurnState) -> TurnState:
         if fit.get("changed"):
             state.status("context_compressed", **fit)
         try:
-            response, provider = _call_provider(state, iteration)
+            response, provider, reservation = _call_provider(state, iteration)
         except AetherError as exc:
+            _sync_usage(state)
             state.error = str(exc)
             state.exit_reason = "provider_error"
             state.final_text = f"I could not get a model response. {exc}"
             return state
-        _accumulate_usage(state, response)
+        _accumulate_usage(state, response, provider, reservation)
         state.status("model_response", provider=provider.name, tool_calls=len(response.tool_calls), finish_reason=response.finish_reason)
+        if _over_cost_limit(state):
+            _sync_usage(state)
+            state.status("cost_limit", estimated_cost=state.usage.get("estimated_cost", 0.0), limit=_cost_limit(state))
+            state.exit_reason = "cost_limit"
+            state.final_text = (
+                f"Stopped: estimated cost ${state.usage.get('estimated_cost', 0.0):.6f} reached the configured "
+                "costs.max_estimated_usd_per_turn limit."
+            )
+            assistant = {"role": "assistant", "content": state.final_text}
+            state.messages.append(assistant)
+            state.new_messages.append(assistant)
+            return state
 
         if response.tool_calls:
             assistant = {
@@ -121,8 +250,10 @@ def run_turn_loop(state: TurnState) -> TurnState:
         state.new_messages.append(assistant)
         state.final_text = final_text
         state.exit_reason = "complete"
+        _sync_usage(state)
         return state
 
+    _sync_usage(state)
     state.exit_reason = "max_iterations"
     state.final_text = state.final_text or "I reached the iteration limit before completing the task. The tool log shows what was done so far."
     state.messages.append({"role": "assistant", "content": state.final_text})

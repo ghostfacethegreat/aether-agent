@@ -49,6 +49,13 @@ class CliTests(TempHomeTest):
         self.assertIn("mock provider is active", output)
         self.assertIn("mock/mock-standard", output)
 
+    def test_confirm_paid_flag_does_not_persist(self):
+        code, _ = self.run_cli(["--confirm-paid", "config", "set", "personality", "Be brief."])
+        self.assertEqual(code, 0)
+        config = load_config(self.home / "config.json")
+        self.assertTrue(config.get("costs.confirm_paid"))
+        self.assertEqual(config.get("personality"), "Be brief.")
+
     def test_status_with_mock(self):
         code, output = self.run_cli(["--provider", "mock", "status"])
         self.assertEqual(code, 0)

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from aether.config import Config
 from aether.core.context import ContextManager
-from aether.core.loop import TurnState, run_turn_loop
+from aether.core.loop import TurnState, new_spend_budget, run_turn_loop
 from aether.home import aether_home, state_db_path, workspace_root
 from aether.memory import MemoryStore
 from aether.persistence import Store
@@ -43,9 +43,16 @@ class Agent:
         persist=True,
         enable_subagents=True,
         scheduler=None,
+        spend_budget: dict | None = None,
     ):
         self.home = Path(home or aether_home())
         self.config = config or Config()
+        raw_limit = self.config.get("costs.max_estimated_usd_per_turn")
+        try:
+            budget_limit = None if raw_limit is None else float(raw_limit)
+        except (TypeError, ValueError):
+            budget_limit = None
+        self.spend_budget = spend_budget if spend_budget is not None else new_spend_budget(budget_limit)
         if provider_name:
             self.config.set("provider", provider_name)
         if model:
@@ -123,6 +130,7 @@ class Agent:
             allowed_tools=CHILD_TOOLS,
             persist=False,
             enable_subagents=False,
+            spend_budget=self.spend_budget,
         )
         child.policy.workspace = self.workspace
         return child
@@ -173,6 +181,8 @@ class Agent:
         messages = [{"role": "system", "content": system_prompt}] + [dict(item) for item in self.history]
         user_message = {"role": "user", "content": text}
         messages.append(user_message)
+        with self.spend_budget["lock"]:
+            start_usage = dict(self.spend_budget["usage"])
         state = TurnState(
             messages=messages,
             system_prompt=system_prompt,
@@ -188,29 +198,40 @@ class Agent:
             on_status=on_status,
             new_messages=[user_message],
             plan=self.plan,
+            spend_budget=self.spend_budget,
         )
         self.current_state = state
         run_turn_loop(state)
+        with self.spend_budget["lock"]:
+            end_usage = dict(self.spend_budget["usage"])
+        for key in ("prompt_tokens", "completion_tokens", "estimated_cost", "priced_calls", "unpriced_calls"):
+            state.usage[key] = end_usage.get(key, 0) - start_usage.get(key, 0)
+        state.usage["cost_known"] = bool(end_usage.get("cost_known")) and not end_usage.get("unpriced_calls")
         self.plan = state.plan
         self.history = [item for item in state.messages if item.get("role") != "system"][-80:]
+        usage = state.usage
         if self.persist and self.store.get_session(self.session_id):
             self.store.append_messages(self.session_id, state.new_messages)
             if len(self.history) == 1:
                 self.store.touch_session(self.session_id, title=truncate(text, 60))
-            usage = state.usage
+            provider_name = str(usage.get("provider") or self.provider_manager.active_name)
+            provider_model = str(usage.get("model") or self.provider_manager.model)
             self.store.record_usage(
                 self.session_id,
-                self.provider_manager.active_name,
-                self.provider_manager.model,
+                provider_name,
+                provider_model,
                 usage.get("prompt_tokens", 0),
                 usage.get("completion_tokens", 0),
-                0.0,
+                usage.get("estimated_cost", 0.0),
+                cost_known=bool(usage.get("cost_known")),
+                priced_calls=int(usage.get("priced_calls", 0)),
+                unpriced_calls=int(usage.get("unpriced_calls", 0)),
             )
         return TurnResult(
             text=state.final_text,
             session_id=self.session_id,
-            provider=self.provider_manager.active_name,
-            model=self.provider_manager.model,
+            provider=str(usage.get("provider") or self.provider_manager.active_name),
+            model=str(usage.get("model") or self.provider_manager.model),
             usage=state.usage,
             tool_log=state.tool_log,
             exit_reason=state.exit_reason,

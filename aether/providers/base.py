@@ -52,5 +52,6 @@ class BaseProvider(ABC):
             "kind": self.kind,
             "model": self.model,
             "cost": self.cost,
+            "cost_note": str(getattr(self.spec, "pricing_note", "") or "Rough estimates only; verify provider billing."),
             "limits": self.limits,
         }

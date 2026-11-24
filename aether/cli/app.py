@@ -8,14 +8,14 @@ import traceback
 from pathlib import Path
 
 from aether import __version__
-from aether.config import load_config, load_environment
+from aether.config import Config, load_config, load_environment
 from aether.core import Agent
 from aether.errors import AetherError
 from aether.home import aether_home, env_path
 from aether.logging import get_logger, set_level
 from aether.memory import MemoryStore
 from aether.persistence import Store
-from aether.providers.catalog import PROVIDERS, provider_spec
+from aether.providers.catalog import PROVIDERS, provider_is_billable
 from aether.tasks import Scheduler
 from aether.utils import parse_bool, read_json, redact, redact_mapping, truncate, atomic_json_write
 
@@ -40,6 +40,7 @@ def build_parser():
     parser.add_argument("--no-stream", action="store_true", help="Disable token streaming")
     parser.add_argument("--reasoning", action="store_true", help="Show model reasoning when available")
     parser.add_argument("--debug", action="store_true", help="Show debug logs and tracebacks")
+    parser.add_argument("--confirm-paid", action="store_true", help="Allow billable providers for this process only")
 
     sub = parser.add_subparsers(dest="command")
 
@@ -186,6 +187,8 @@ def prepare(args):
         os.environ["AETHER_WORKSPACE"] = str(Path(args.workspace).expanduser().resolve())
     load_environment()
     config = load_config(Path(args.config) if args.config else None, create=True)
+    if getattr(args, "confirm_paid", False):
+        os.environ["AETHER_CONFIRM_PAID"] = "1"
     if args.provider:
         previous = str(config.get("provider") or "")
         config.set("provider", args.provider)
@@ -300,7 +303,7 @@ def _print_help():
         ("/history [query]", "search previous messages"),
         ("/tasks", "list delegated tasks"),
         ("/schedule list|add|remove", "manage scheduled jobs"),
-        ("/cost", "show local usage totals"),
+        ("/cost", "show rough local cost and token totals"),
         ("/doctor", "run environment checks"),
         ("/export <path>", "export current session JSON"),
     ]
@@ -422,7 +425,14 @@ def _agent_command(agent, parts):
             print(render.error_line("usage: /schedule list|add <prompt> <schedule>|update <id> <schedule>|pause <id>|resume <id>|tick|remove <id>"))
         return False
     if action == "cost":
-        usage = agent.store.session_usage(agent.session_id)
+        usage = dict(agent.store.session_usage(agent.session_id))
+        usage["estimated_cost"] = f"${float(usage['estimated_cost']):.6f} (estimate, not invoice)"
+        usage["cost_known"] = "yes" if usage["cost_known"] else "no"
+        usage["estimate_note"] = (
+            "Includes unpriced calls excluded from the dollar estimate."
+            if usage["unpriced_calls"]
+            else "Rough estimate from local price table; verify provider billing."
+        )
         print(render.table(["Metric", "Value"], [(key, str(value)) for key, value in usage.items()]))
         return False
     if action == "doctor":
@@ -653,19 +663,23 @@ def cmd_tasks(args, config, home):
 
 
 def scheduled_runner(config, home):
-    spec = provider_spec(str(config.get("provider") or ""))
-    blocked = ""
-    if (spec is None or spec.kind not in ("local", "free-tier")) and not parse_bool(config.get("scheduler.allow_paid"), False):
-        provider = str(config.get("provider") or "unknown")
-        blocked = f"Scheduled execution with provider '{provider}' is disabled by default; set scheduler.allow_paid=true"
-
     def run(prompt):
-        if blocked:
-            raise RuntimeError(blocked)
-        agent = Agent(config, home=home, persist=False, approve_callback=None)
+        provider = str(config.get("provider") or "unknown")
+        model = str(config.get("model") or "")
+        allow_paid = parse_bool(config.get("scheduler.allow_paid"), False) or bool(os.environ.get("AETHER_CONFIRM_PAID"))
+        if provider_is_billable(provider, model) and not allow_paid:
+            raise RuntimeError(
+                f"Scheduled execution with billable provider '{provider}' is disabled by default; "
+                "set scheduler.allow_paid=true"
+            )
+        run_config = config
+        if allow_paid:
+            run_config = Config(config.as_dict())
+            run_config.set("costs.confirm_paid", False)
+        agent = Agent(run_config, home=home, persist=False, approve_callback=None)
         result = agent.run_turn(prompt)
-        if result.exit_reason == "provider_error":
-            raise RuntimeError("provider error during scheduled run")
+        if result.exit_reason in ("provider_error", "cost_limit"):
+            raise RuntimeError(f"scheduled run stopped: {result.exit_reason}")
         return result.text
 
     return run
@@ -708,7 +722,7 @@ def cmd_schedule(args, config, home):
 def cmd_run(args, config, home, scheduler=None):
     agent = make_agent(args, config, home, scheduler)
     result = stream_turn(agent, " ".join(args.prompt), args)
-    return 0 if result.exit_reason != "provider_error" else 1
+    return 0 if result.exit_reason not in ("provider_error", "cost_limit") else 1
 
 
 def cmd_version(args, config, home):

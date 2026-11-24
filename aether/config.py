@@ -116,6 +116,8 @@ class Config:
         atomic_json_write(self.path, self._data, mode=0o600)
 
     def validate(self) -> list[str]:
+        from aether.providers.catalog import provider_is_billable
+
         warnings = []
         if self.get("provider") not in _KNOWN_PROVIDERS:
             warnings.append(f"Unknown provider '{self.get('provider')}'. Use 'aether providers' to list valid names.")
@@ -129,8 +131,17 @@ class Config:
         threshold = self.get("compression_threshold")
         if not isinstance(threshold, (int, float)) or not 0.1 <= threshold <= 0.95:
             warnings.append("compression_threshold must be between 0.1 and 0.95.")
-        if parse_bool(self.get("costs.confirm_paid"), True) and self.get("costs.max_estimated_usd_per_turn") is None:
-            pass
+        confirm = self.get("costs.confirm_paid")
+        confirmed = True if confirm is None else parse_bool(confirm, True) and str(confirm).strip().lower() in {
+            "1", "true", "yes", "on", "0", "false", "no", "off"
+        }
+        billable = provider_is_billable(str(self.get("provider") or ""), str(self.get("model") or ""))
+        if billable and confirmed and self.get("costs.max_estimated_usd_per_turn") is None:
+            warnings.append("Billable provider is active with confirmation required and no per-turn cost cap.")
+        if not isinstance(confirm, (bool, type(None))) and str(confirm).strip().lower() not in {
+            "1", "true", "yes", "on", "0", "false", "no", "off"
+        }:
+            warnings.append("costs.confirm_paid must be a boolean; treating invalid values as confirmation required.")
         return warnings
 
 

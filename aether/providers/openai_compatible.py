@@ -1,12 +1,51 @@
 import json
+import re
 import time
 import urllib.error
 import urllib.request
 
 from aether.errors import AuthenticationError, ProviderError, RateLimitError
-from aether.utils import redact, redact_mapping
+from aether.utils import redact
 
 from .base import BaseProvider, ModelResponse, ToolCall
+
+_HEADER_TOKEN = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
+_PROTECTED_HEADERS = {
+    "authorization",
+    "proxy-authorization",
+    "x-api-key",
+    "cookie",
+    "set-cookie",
+    "host",
+    "content-length",
+    "transfer-encoding",
+    "connection",
+    "proxy-connection",
+    "keep-alive",
+    "expect",
+    "te",
+    "trailer",
+    "upgrade",
+    "content-type",
+    "accept",
+    "user-agent",
+}
+
+
+def _safe_extra_headers(extra) -> dict[str, str]:
+    if not isinstance(extra, dict):
+        return {}
+    result = {}
+    for key, value in extra.items():
+        name = str(key)
+        text = str(value)
+        normalized = name.lower().replace("_", "-")
+        if normalized in _PROTECTED_HEADERS or not _HEADER_TOKEN.fullmatch(name):
+            continue
+        if any(ord(char) < 32 or ord(char) == 127 for char in text):
+            continue
+        result[name] = text
+    return result
 
 
 def _content_text(value) -> str:
@@ -77,6 +116,7 @@ class OpenAICompatibleProvider(BaseProvider):
         }
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        headers.update(_safe_extra_headers(self.config.get(f"providers.{self.name}.extra_headers", {}) or {}))
         return headers
 
     def _request(self, path: str, payload=None, method="GET", stream=False):
@@ -150,6 +190,9 @@ class OpenAICompatibleProvider(BaseProvider):
         max_tokens = (options or {}).get("max_tokens", self.config.get("max_tokens", 2048))
         if max_tokens:
             payload["max_tokens"] = int(max_tokens)
+        top_p = (options or {}).get("top_p", self.config.get("top_p", 1.0))
+        if top_p is not None:
+            payload["top_p"] = float(top_p)
         if tools:
             payload["tools"] = tools
             payload["tool_choice"] = "auto"
@@ -255,5 +298,5 @@ class OpenAICompatibleProvider(BaseProvider):
         result = super().describe()
         result["base_url"] = self.base_url
         result["api_key"] = "set" if self.api_key else "not set"
-        result["headers"] = redact_mapping(self.config.get(f"providers.{self.name}.extra_headers", {}) or {})
+        result["headers"] = sorted(_safe_extra_headers(self.config.get(f"providers.{self.name}.extra_headers", {}) or {}))
         return result

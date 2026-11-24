@@ -1,3 +1,4 @@
+import sqlite3
 import unittest
 
 from aether.persistence import Store
@@ -61,6 +62,51 @@ class StoreTests(TempHomeTest):
         self.assertEqual(usage["prompt_tokens"], 10)
         self.store.set_approval("rule", "always")
         self.assertEqual(self.store.get_approval("rule"), "always")
+
+    def test_usage_cost_state_survives_restart(self):
+        session = self.store.create_session(provider="openai", model="gpt-4o-mini")
+        self.store.record_usage(
+            session,
+            "openai",
+            "gpt-4o-mini",
+            1_000_000,
+            500_000,
+            0.45,
+            cost_known=True,
+            priced_calls=1,
+            unpriced_calls=0,
+        )
+
+        reopened = Store(self.home / "state.db")
+        usage = reopened.session_usage(session)
+
+        self.assertEqual(usage["estimated_cost"], 0.45)
+        self.assertTrue(usage["cost_known"])
+        self.assertEqual(usage["priced_calls"], 1)
+        self.assertEqual(usage["unpriced_calls"], 0)
+
+    def test_legacy_usage_table_migrates_without_loss(self):
+        path = self.home / "legacy.db"
+        connection = sqlite3.connect(path)
+        connection.execute(
+            "CREATE TABLE usage (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, "
+            "provider TEXT NOT NULL, model TEXT NOT NULL, prompt_tokens INTEGER NOT NULL DEFAULT 0, "
+            "completion_tokens INTEGER NOT NULL DEFAULT 0, estimated_cost REAL NOT NULL DEFAULT 0, "
+            "created_at TEXT NOT NULL)"
+        )
+        connection.execute(
+            "INSERT INTO usage(session_id,provider,model,prompt_tokens,completion_tokens,estimated_cost,created_at) "
+            "VALUES('legacy','mock','mock-standard',10,4,0,'now')"
+        )
+        connection.commit()
+        connection.close()
+
+        store = Store(path)
+        usage = store.session_usage("legacy")
+
+        self.assertEqual(usage["prompt_tokens"], 10)
+        self.assertFalse(usage["cost_known"])
+        self.assertEqual(usage["unpriced_calls"], 0)
 
     def test_export_import_session(self):
         session = self.store.create_session(title="export me")

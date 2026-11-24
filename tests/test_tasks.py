@@ -1,6 +1,8 @@
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
+from aether.cli.app import scheduled_runner
 from aether.errors import SchedulerError
 from aether.tasks import Scheduler, SubagentManager, parse_schedule
 
@@ -93,6 +95,34 @@ class TaskTests(TempHomeTest):
         self.assertIsNotNone(scheduler._thread)
         scheduler.stop()
         self.assertIsNone(scheduler._thread)
+
+    def test_scheduled_runner_blocks_billable_provider_without_allow_paid(self):
+        config = self.config(provider="openai", model="gpt-4o-mini", scheduler={"allow_paid": False})
+        runner = scheduled_runner(config, self.home)
+        with self.assertRaises(RuntimeError) as raised:
+            runner("check status")
+        self.assertIn("scheduler.allow_paid=true", str(raised.exception))
+
+    def test_scheduled_runner_allow_paid_does_not_persist_confirmation(self):
+        config = self.config(provider="openai", model="gpt-4o-mini", scheduler={"allow_paid": True})
+        runner = scheduled_runner(config, self.home)
+
+        with patch("aether.cli.app.Agent") as agent_class:
+            agent_class.return_value.run_turn.return_value = SimpleNamespace(text="ok", exit_reason="complete")
+            self.assertEqual(runner("check status"), "ok")
+
+        run_config = agent_class.call_args.args[0]
+        self.assertFalse(run_config.get("costs.confirm_paid"))
+        self.assertTrue(config.get("costs.confirm_paid"))
+
+    def test_scheduled_runner_treats_cost_limit_as_failure(self):
+        config = self.config(provider="mock", model="mock-standard")
+        runner = scheduled_runner(config, self.home)
+        with patch("aether.cli.app.Agent") as agent_class:
+            agent_class.return_value.run_turn.return_value = SimpleNamespace(text="stopped", exit_reason="cost_limit")
+            with self.assertRaises(RuntimeError) as raised:
+                runner("check status")
+        self.assertIn("cost_limit", str(raised.exception))
 
     def test_subagents_run_parallel_results(self):
         manager = SubagentManager(lambda parent, task: FakeAgent(), max_workers=2)

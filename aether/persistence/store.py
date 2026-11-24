@@ -44,6 +44,9 @@ CREATE TABLE IF NOT EXISTS usage (
     prompt_tokens INTEGER NOT NULL DEFAULT 0,
     completion_tokens INTEGER NOT NULL DEFAULT 0,
     estimated_cost REAL NOT NULL DEFAULT 0,
+    cost_known INTEGER NOT NULL DEFAULT 0,
+    priced_calls INTEGER NOT NULL DEFAULT 0,
+    unpriced_calls INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS approvals (
@@ -96,6 +99,14 @@ class Store:
     def init(self) -> None:
         with self.connect() as db:
             db.executescript(SCHEMA)
+            columns = {row["name"] for row in db.execute("PRAGMA table_info(usage)")}
+            for name, definition in (
+                ("cost_known", "INTEGER NOT NULL DEFAULT 0"),
+                ("priced_calls", "INTEGER NOT NULL DEFAULT 0"),
+                ("unpriced_calls", "INTEGER NOT NULL DEFAULT 0"),
+            ):
+                if name not in columns:
+                    db.execute(f"ALTER TABLE usage ADD COLUMN {name} {definition}")
             try:
                 db.executescript(
                     """
@@ -274,22 +285,53 @@ class Store:
             row = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
         return dict(row) if row else None
 
-    def record_usage(self, session_id, provider, model, prompt_tokens=0, completion_tokens=0, estimated_cost=0.0) -> None:
+    def record_usage(
+        self,
+        session_id,
+        provider,
+        model,
+        prompt_tokens=0,
+        completion_tokens=0,
+        estimated_cost=0.0,
+        cost_known=False,
+        priced_calls=0,
+        unpriced_calls=0,
+    ) -> None:
         with self.connect() as db:
             db.execute(
-                "INSERT INTO usage(session_id,provider,model,prompt_tokens,completion_tokens,estimated_cost,created_at) "
-                "VALUES(?,?,?,?,?,?,?)",
-                (session_id, provider, model, int(prompt_tokens), int(completion_tokens), float(estimated_cost), utc_now()),
+                "INSERT INTO usage(session_id,provider,model,prompt_tokens,completion_tokens,estimated_cost,"
+                "cost_known,priced_calls,unpriced_calls,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (
+                    session_id,
+                    provider,
+                    model,
+                    int(prompt_tokens),
+                    int(completion_tokens),
+                    float(estimated_cost),
+                    int(bool(cost_known)),
+                    int(priced_calls),
+                    int(unpriced_calls),
+                    utc_now(),
+                ),
             )
 
     def session_usage(self, session_id: str) -> dict:
         with self.connect() as db:
             row = db.execute(
                 "SELECT COALESCE(SUM(prompt_tokens),0) p, COALESCE(SUM(completion_tokens),0) c, "
-                "COALESCE(SUM(estimated_cost),0) cost FROM usage WHERE session_id=?",
+                "COALESCE(SUM(estimated_cost),0) cost, COALESCE(SUM(cost_known),0) known_rows, "
+                "COALESCE(SUM(priced_calls),0) priced_calls, COALESCE(SUM(unpriced_calls),0) unpriced_calls "
+                "FROM usage WHERE session_id=?",
                 (session_id,),
             ).fetchone()
-        return {"prompt_tokens": row["p"], "completion_tokens": row["c"], "estimated_cost": row["cost"]}
+        return {
+            "prompt_tokens": row["p"],
+            "completion_tokens": row["c"],
+            "estimated_cost": row["cost"],
+            "cost_known": bool(row["known_rows"] and not row["unpriced_calls"]),
+            "priced_calls": row["priced_calls"],
+            "unpriced_calls": row["unpriced_calls"],
+        }
 
     def get_approval(self, rule_key: str) -> str | None:
         with self.connect() as db:

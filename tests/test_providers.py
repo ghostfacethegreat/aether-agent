@@ -3,7 +3,7 @@ import unittest
 
 from aether.errors import ConfigError, ProviderError
 from aether.providers import ProviderManager, build_provider
-from aether.providers.catalog import PROVIDERS, provider_spec
+from aether.providers.catalog import PROVIDERS, provider_spec, rough_cost
 
 from tests.base import TempHomeTest
 
@@ -14,6 +14,103 @@ class ProviderTests(TempHomeTest):
         self.assertEqual(PROVIDERS["groq"].kind, "free-tier")
         self.assertEqual(PROVIDERS["openai"].kind, "paid")
         self.assertIn("free", PROVIDERS["openrouter"].cost.lower())
+
+    def test_rough_cost_uses_model_specific_prices(self):
+        usage = {"prompt_tokens": 1_000_000, "completion_tokens": 1_000_000}
+        self.assertEqual(rough_cost("openai", "gpt-4o-mini", usage), 0.75)
+        self.assertIsNone(rough_cost("openai", "gpt-4o", usage))
+        self.assertEqual(rough_cost("anthropic", "claude-3-5-haiku-latest", usage), 4.8)
+        self.assertIsNone(rough_cost("groq", "llama-3.3-70b-versatile", usage))
+        self.assertEqual(
+            rough_cost("openrouter", "meta-llama/llama-3.3-70b-instruct:free", usage),
+            0.0,
+        )
+        self.assertEqual(
+            rough_cost(
+                "openai",
+                "gpt-4o-mini",
+                {
+                    "prompt_tokens": 1_000_000,
+                    "completion_tokens": 0,
+                    "prompt_tokens_details": {"cached_tokens": 500_000},
+                },
+            ),
+            0.1125,
+        )
+        self.assertEqual(
+            rough_cost(
+                "anthropic",
+                "claude-3-5-haiku-latest",
+                {
+                    "input_tokens": 1_000_000,
+                    "cache_read_input_tokens": 500_000,
+                    "cache_creation_input_tokens": 200_000,
+                    "output_tokens": 0,
+                },
+            ),
+            1.04,
+        )
+
+    def test_extra_headers_are_applied_without_logging_values(self):
+        config = self.config(
+            providers={
+                "openai": {
+                    "api_key": "test-key",
+                    "extra_headers": {
+                        "X-Trace": "trace-secret-value",
+                        "Authorization": "Bearer attacker-key",
+                        "X-Api-Key": "attacker-key",
+                    },
+                }
+            }
+        )
+        provider = build_provider(config, "openai")
+        headers = provider._headers()
+        self.assertEqual(headers["X-Trace"], "trace-secret-value")
+        self.assertEqual(headers["Authorization"], "Bearer test-key")
+        self.assertNotIn("X-Api-Key", headers)
+        described = json.dumps(provider.describe())
+        self.assertIn("X-Trace", described)
+        self.assertNotIn("trace-secret-value", described)
+
+    def test_malformed_or_protected_extra_headers_are_dropped(self):
+        config = self.config(
+            providers={
+                "openai": {
+                    "api_key": "test-key",
+                    "extra_headers": {
+                        "X-Trace": "safe",
+                        "X-Injected": "ok\r\n X-Injected: evil",
+                        "Bad\r\nName": "evil",
+                        "content-length": "0",
+                        "X_Api_Key": "attacker-key",
+                        " authorization ": "Bearer attacker-key",
+                    },
+                }
+            }
+        )
+        provider = build_provider(config, "openai")
+        headers = provider._headers()
+        self.assertEqual(headers["X-Trace"], "safe")
+        self.assertNotIn("X-Injected", headers)
+        self.assertNotIn("Bad\r\nName", headers)
+        self.assertNotIn("content-length", headers)
+        self.assertNotIn("X_Api_Key", headers)
+        self.assertNotIn(" authorization ", headers)
+        described = json.dumps(provider.describe())
+        self.assertNotIn("\r", described)
+        self.assertNotIn("\n", described)
+        self.assertNotIn("attacker-key", described)
+
+    def test_payload_forwards_top_p(self):
+        provider = build_provider(self.config(providers={"openai": {"api_key": "test-key"}}), "openai")
+        payload = provider._payload(
+            [{"role": "user", "content": "Hello"}],
+            None,
+            False,
+            {"top_p": 0.7},
+        )
+        self.assertEqual(payload["top_p"], 0.7)
 
     def test_build_mock_provider(self):
         provider = build_provider(self.config(), "mock")
@@ -102,6 +199,7 @@ class ProviderTests(TempHomeTest):
         self.assertEqual([item.name for item in candidates], ["mock", "lmstudio"])
         manager.mark_failed("lmstudio", 30)
         self.assertEqual([item.name for item in manager.candidates()], ["mock"])
+        self.assertFalse(hasattr(manager, "clear_failure"))
         provider = manager.activate("mock", "mock-tools")
         self.assertEqual(provider.model, "mock-tools")
         self.assertEqual(config.get("model"), "mock-tools")
