@@ -102,7 +102,8 @@ These are actual locally recorded checks. They are not a claim that a public rel
 
 ## Phase C layered memory checkpoint
 
-- Branch: `feat/aether-020-intelligence-foundation`; base commit `9aef0fb873f6e54bc78f7b587e3fe8709dc07c55`.
+- Branch: `feat/aether-020-intelligence-foundation`; base commit `d7e9c9ebf6b6cf65e80df8236e280eabb42c7087`.
+- Phase C checkpoint commit: `833cad8f4bbdea74241c4d18f3719c77755ad7c1`.
 - Added layered memory storage, bounded labeled retrieval, Markdown migration, provenance, correction, contradiction handling, consolidation, expiration, export/import, CLI/tool/slash exposure, and child write isolation.
 - `python3 -W ignore::ResourceWarning -m unittest tests.test_memory_layers -v` — 11 focused tests passed.
 - The first focused run failed `test_working_memory_is_session_scoped_and_expires` because already-expired active rows were excluded before pruning; `LayeredMemory.prune_expired()` now uses `include_expired=True`.

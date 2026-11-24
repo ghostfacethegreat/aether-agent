@@ -95,6 +95,7 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 
 ### Phase C result
 
+- Checkpoint commit: `833cad8f4bbdea74241c4d18f3719c77755ad7c1`.
 - Implemented in `aether/memory/layers.py`, `aether/persistence/store.py`, `aether/config.py`, `aether/core/agent.py`, `aether/cli/app.py`, `aether/tools/builtins.py`, and `tests/test_memory_layers.py`.
 - Existing `MEMORY.md` and `USER.md` entries migrate idempotently into semantic and user layers with source labels; the original Markdown files remain the editable baseline.
 - Turn integration records the active objective in working memory and an outcome/failure episode after each persistent turn; child agents cannot write layered memory.

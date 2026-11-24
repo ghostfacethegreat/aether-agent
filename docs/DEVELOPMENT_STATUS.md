@@ -6,7 +6,7 @@ This is the resume log for the intelligence-first `Aether 0.2+` program. It reco
 
 | Item | Verified value |
 |---|---|
-| Date | 2026-11-23 |
+| Date | 2026-11-24 |
 | Active branch | `feat/aether-020-intelligence-foundation` |
 | Base checkpoint | `d077948e085cb17038b2da245d31e6bf86491120` |
 | Prior checkpoint | `558bd58ec1f15ccf9cf76260d3ab7bfe675e76ce` |
@@ -18,6 +18,8 @@ This is the resume log for the intelligence-first `Aether 0.2+` program. It reco
 | Phase B verification | 121 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
 | Phase B checkpoint | `9aef0fb873f6e54bc78f7b587e3fe8709dc07c55` |
 | Phase C verification | 132 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
+| Phase C checkpoint | `833cad8f4bbdea74241c4d18f3719c77755ad7c1` |
+| Phase C checkpoint | `833cad8f4bbdea74241c4d18f3719c77755ad7c1` |
 
 The unpushed commits from this program are deliberately preserved. Do not reset, discard, force-push, push, merge, tag, or release until the release gates in [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) pass.
 
