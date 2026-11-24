@@ -23,11 +23,11 @@ Do not mark a milestone complete based only on code inspection. Do not fabricate
 | Phase | Name | Status |
 |---|---|---|
 | Phase 0 | Baseline and source-of-truth docs | complete |
-| Phase A | Intelligence audit, Hermes comparison, benchmark contract | current documentation checkpoint |
-| Phase B | Adaptive planning and execution state | pending |
-| Phase C | Layered memory | pending |
-| Phase D | Learning loop and skill quality | pending |
-| Phase E | Model capability routing | pending |
+| Phase A | Intelligence audit, Hermes comparison, benchmark contract | complete |
+| Phase B | Adaptive planning and execution state | complete and locally verified |
+| Phase C | Layered memory | complete and locally verified |
+| Phase D | Learning loop and skill quality | complete and locally verified |
+| Phase E | Model capability routing | implemented on this feature branch and locally verified (26 focused / 179 total tests); not released |
 | Phase F | Coding workflow | pending |
 | Phase G | Research and evidence | pending |
 | Phase H | Tool intelligence | pending |
@@ -36,7 +36,9 @@ Do not mark a milestone complete based only on code inspection. Do not fabricate
 | Phase K | Benchmark harness | pending |
 | Phase L | Release hardening | pending |
 
-Full scope, likely files, behaviors, verification, and exit states for Phases B-L are in [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md). Benchmark protocol details are in [benchmarks/README.md](../benchmarks/README.md).
+Phase E was verified locally with `python3 -W ignore::ResourceWarning -m unittest tests.test_model_routing -q` (26 passing) and `python3 -W ignore::ResourceWarning -m unittest discover -s tests -q` (179 passing). `bash scripts/check.sh && bash scripts/test_install.sh` passed with 3 cold starts, median wall time `0.114s`, peak child RSS `34.4 MiB`, and a local git-remote install test pass. `python3 scripts/benchmark.py` recorded 3 cold starts, median wall time `0.112s`, and peak child RSS `34.9 MiB`. `git diff --check` passed. `ResourceWarning` notices for unclosed SQLite connections are non-failing; no lint/typecheck command is configured. Version remains `0.1.0`; no `0.2.x` release or tag exists.
+
+Full scope, files, behaviors, verification, and exit states for Phases B-L are in [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md). Benchmark protocol details are in [benchmarks/README.md](../benchmarks/README.md).
 
 ## Phase 0 — baseline and design
 
@@ -116,7 +118,7 @@ Still relevant as intelligence work. Current version: Phase I; choose roles from
 
 ### Archived Phase 9 — provider intelligence
 
-Still relevant as intelligence work. Current version: Phase E; add capability-aware routing without changing provider contracts or weakening cost controls.
+Implemented as Phase E: capability-aware routing with evidence-aware facts and existing cost controls; see [MODEL_ROUTING.md](MODEL_ROUTING.md).
 
 ### Archived Phase 10 — memory and skill intelligence
 

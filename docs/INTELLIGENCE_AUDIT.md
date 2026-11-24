@@ -2,7 +2,7 @@
 
 This document is the Phase A source of truth for the intelligence-first `Aether 0.2+` work. It records what Aether can do today, where its reasoning and learning systems are thin, and which capabilities are worth adopting from Hermes Agent without copying upstream code or infrastructure.
 
-Phase A is a documentation and benchmark-contract checkpoint. It does not claim that any new runtime behavior has been implemented.
+Phase A is a documentation and benchmark-contract checkpoint. It does not claim that any new runtime behavior was implemented in that phase. This audit remains the Phase A source of truth at the commits below; later phases have closed some gaps, including Phase E capability-aware routing, which is implemented on this feature branch and locally verified (26 focused / 179 total tests) but not released.
 
 ## Scope and evidence
 
@@ -41,13 +41,13 @@ No conclusion here says that Aether is better or worse than Hermes overall. That
 | Layered memory | `MEMORY.md`, `USER.md`, and FTS-backed session search | No working, episodic, semantic, procedural, and user-model layers with provenance, confidence, consolidation, or expiration | High |
 | Learning loop | Skills can be created and viewed; usage counts exist | No outcome-based experience records, skill discovery, quality review, version history, rollback, or learning log | High |
 | Skill quality | Injection-pattern rejection and built-in/user labels | No skill curation lifecycle, evidence requirements, archive/restore, or per-mutation audit ledger | High |
-| Model routing | Catalog, ordered fallback, cost labels, and paid gating | No capability registry that selects from task type, context need, latency, cost, reliability, and configured credentials | High |
+| Model routing | Catalog, ordered fallback, cost labels, and paid gating | No capability registry at `558bd58`; Phase E has since added evidence-aware facts, deterministic classification, and scored routing over configured candidates (not task-quality proof) | High |
 | Coding workflow | File, terminal, git, Python, and orchestration tools | No repository index, symbol/dependency lookup, progressive file retrieval, patch workflow, TDD loop, regression detection, or diff review | High |
 | Research workflow | `web_fetch`, `web_search`, and `session_search` tools | No query planning, source comparison, citation extraction, contradiction detection, fact checking, or confidence separation | High |
 | Tool intelligence | JSON schemas, permissions, approvals, timeouts, and redaction | No capability search/schema deferral, preflight checks, result verification, or usage analytics | Medium |
 | specialist orchestration | Four roles: `researcher`, `developer`, `debugger`, `reviewer` | No 18-role catalog, evidence-based team selection, independent verifier, conflict arbiter, or richer role output contracts | High |
 | Long-running work | In-process scheduler and persisted orchestration runs | No durable goal journal, event-driven resume, progress checkpoints, or long-task supervisor beyond a single run | Medium |
-| Benchmarks | Startup benchmark in `scripts/benchmark.py`; 109 unit tests | No comparable task-success benchmark harness, result schema, scoring, or stored runs | High |
+| Benchmarks | Startup benchmark in `scripts/benchmark.py`; 109 unit tests | No comparable task-success benchmark harness, result schema, scoring, or stored runs; Phase E added a deterministic routing simulation with stdout JSON only | High |
 | CI | No GitHub Actions workflow | Repeatable local checks exist, but no public CI gate | Medium |
 | Visual identity | Existing ASCII artwork and colored terminal rendering | Frozen by user decision; only functional visual regressions should be fixed | Not a goal |
 
@@ -119,15 +119,14 @@ Current Aether:
 - [aether/providers/registry.py](../aether/providers/registry.py) handles activation, ordered fallback, cooldowns, and candidacy.
 - Paid provider confirmation, shared budgets, reservations, and monotonic caps are enforced.
 
-What is missing:
+What was missing at the audit checkpoint:
 
-- A task-facing capability registry for coding, reasoning, research, tool calling, structured output, context capacity, latency, cost, and reliability.
-- Routing based on task requirements and configured credentials, not only a fixed primary/fallback list.
-- Explicit preservation of local and cost-free priority.
-- Context-length management that chooses or compresses before an oversized request fails.
-- Response validation and retry policies tied to model capability.
+- A task-facing capability registry for coding, reasoning, research, tool calling, structured output, context capacity, latency, cost, and reliability. Phase E added this as evidence-aware facts in `aether/routing/capabilities.py`.
+- Routing based on task requirements and configured credentials, not only a fixed primary/fallback list. Phase E added a deterministic classifier and scored router over configured candidates.
+- Explicit preservation of local and cost-free priority. Phase E supports `cost` and `capability` strategies plus `prefer_local`.
+- Context-length management that chooses or compresses before an oversized request fails. Phase E fits context using capability windows and recovers from overflow with capped, still-matched tool-result restoration.
 
-Do not claim unlimited free inference. Free tiers and model IDs can change without notice.
+Routing remains advisory and does not validate model answers or prove task quality. Do not claim unlimited free inference. Free tiers and model IDs can change without notice.
 
 ### 5. Coding workflow
 

@@ -17,7 +17,7 @@ This roadmap tracks the intelligence-first path from the current `0.1.0` alpha c
 | Version | Theme | Status |
 |---|---|---|
 | `0.1.0` | local-first provider-agnostic CLI alpha | published baseline |
-| `0.2.0` | intelligence foundation | in development; Phases A-D verified, Phase E next |
+| `0.2.0` | intelligence foundation | in development; Phases A-E complete and locally verified, no `0.2.x` release or tag |
 | `0.3.0` | autonomous software development | pending |
 | `0.4.0` | messaging, voice, and improved automation | pending |
 | `0.5.0` | desktop and website applications | pending |
@@ -34,7 +34,7 @@ Goal: make Aether understand objectives, plan, execute, remember, learn, route m
 | B | adaptive planning and execution state | complete and locally verified |
 | C | layered memory | complete and locally verified |
 | D | learning loop and skill quality | complete and locally verified |
-| E | model capability routing | pending |
+| E | model capability routing | implemented on this feature branch and locally verified (26 focused / 179 total tests); not released |
 | F | coding workflow | pending |
 | G | research and evidence | pending |
 | H | tool intelligence | pending |
@@ -53,6 +53,8 @@ Release gates:
 - no secrets, API keys, or `.env` files committed
 - working checkpoint commit created
 - only then push, open PR, verify CI, merge, tag, and publish accurate notes
+
+Phase E verification is `python3 -W ignore::ResourceWarning -m unittest tests.test_model_routing -q` (26 passing) and `python3 -W ignore::ResourceWarning -m unittest discover -s tests -q` (179 passing). `bash scripts/check.sh && bash scripts/test_install.sh` passed with 3 cold starts, median wall time `0.114s`, peak child RSS `34.4 MiB`, and a local git-remote install test pass. `python3 scripts/benchmark.py` recorded 3 cold starts, median wall time `0.112s`, and peak child RSS `34.9 MiB`. `git diff --check` passed. `ResourceWarning` notices for unclosed SQLite connections are non-failing; no lint/typecheck command is configured. The package version remains `0.1.0` until an explicit release is confirmed.
 
 The active phase detail is in [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md). Verified history is in [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md). Known gaps are in [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 

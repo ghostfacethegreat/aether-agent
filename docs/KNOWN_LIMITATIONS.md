@@ -5,7 +5,8 @@ This document records what Aether does not yet prove or does not yet do. It is i
 ## Release state
 
 - Version `0.1.0` is the current published alpha baseline.
-- No `0.2.0` release, tag, merge, or publication has been completed.
+- No `0.2.0` release, tag, merge, or publication has been completed; the package version remains `0.1.0`.
+- Phase E is implemented on this feature branch and locally verified (26 focused / 179 total tests); implementation is committed separately from documentation, and its `scripts/check.sh`, install, and `git diff --check` gates passed locally. It is not released.
 - There are no release tags in the repository at this checkpoint.
 - There is no GitHub Actions CI workflow yet.
 - Push, PR, merge, tag, and release status must be confirmed before being claimed.
@@ -26,7 +27,13 @@ This document records what Aether does not yet prove or does not yet do. It is i
 - Rollback restores stored skill content but does not undo external side effects from earlier skill use.
 - Skill metrics are local counters, not task-quality benchmark results.
 - Learning history is local SQLite state with CLI inspection; there is no event-driven or cross-process learning loop.
-- Model routing uses configured order and fallback, not a task-facing capability registry.
+- Model routing is advisory over configured candidates (active model, configured fallbacks, role pins, and matching `models.metadata` entries); it cannot enable an unconfigured model or provider.
+- Routing classification is deterministic keyword/signal based, not model-driven or learned from free text alone.
+- Capability and pricing facts depend on provider reports and user-configured metadata; unknown facts stay unknown and are never treated as verified or free.
+- Provider health comes from local failure records and cooldowns; routing diagnostics do not poll providers or verify availability live.
+- Explicit `--provider`/`--model` or `Agent(provider_name=..., model=...)` selections are authoritative; there is no `routing.manual` override switch.
+- Role spend shares apply per turn to a child's portion of the shared budget; they do not raise the shared limit.
+- Verified performance recommendations require `mark_model_performance_verified()` evidence; bare success text is not verified.
 - Coding work does not yet build a repository index or produce verified diff reviews.
 - Research work does not yet produce structured evidence, citation, contradiction, and confidence reports.
 - Tool schemas are not deferred behind capability search.
@@ -35,9 +42,9 @@ This document records what Aether does not yet prove or does not yet do. It is i
 
 ## Benchmark and comparison gaps
 
-- No task-quality benchmark harness exists yet.
-- No benchmark result artifacts exist under `benchmarks/results/`.
-- The startup benchmark measures cold start time and memory, not task success.
+- No task-quality benchmark harness exists yet; the Phase E runner is a deterministic routing simulation over fixed fixtures, not task-result evidence.
+- No benchmark result artifacts exist under `benchmarks/results/`; the routing runner prints JSON to stdout and has no `--output` or file writes.
+- The startup benchmark measures cold start time and memory, not task success. Routing-simulation fixture eligibility is not model quality or task-quality parity.
 - No live Aether/Hermes comparison was run.
 - No Hermes parity, equivalence, or superiority claim is supported at this checkpoint.
 - Free-tier model IDs, limits, and costs can change without notice and must be verified with each provider.

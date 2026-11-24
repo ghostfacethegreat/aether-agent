@@ -23,6 +23,60 @@ Aether stores config at `~/.aether/config.json`. Override the location with `AET
 
 Use `aether config get <dotted.key>`, `aether config set <dotted.key> <json-or-string>`, and `aether config list`.
 
+## Model routing
+
+Routing is additive and reads only configured candidates: the active provider/model, configured fallbacks, role pins, and `models.metadata` entries that match configured providers. The recognized keys are exactly:
+
+```json
+{
+  "routing": {
+    "enabled": true,
+    "explain": true,
+    "strategy": "capability",
+    "prefer_local": true,
+    "strict_capabilities": false,
+    "context_safety_margin": 0.1,
+    "max_candidates": 5,
+    "learned_min_samples": 3,
+    "learned_weight": 12.0,
+    "role": "",
+    "avoid_models": [],
+    "default_role_spend_share": 0.25,
+    "category_keywords": {},
+    "overrides": {},
+    "roles": {}
+  },
+  "models": {
+    "metadata": {
+      "ollama/qwen2.5-coder:7b": {
+        "context_window": 32768,
+        "capabilities": {"coding": true, "tool_calling": true},
+        "evidence": {"context_window": "provider-reported", "coding": "provider-reported"},
+        "source": "user config",
+        "freshness": "2026-11-24"
+      }
+    }
+  }
+}
+```
+
+`strategy` is `capability`, `cost`, or `fixed`. `strict_capabilities=true` rejects models with unknown required capabilities instead of penalizing them; the default rejects known-false capabilities and insufficient verified context windows. `learned_min_samples` and `learned_weight` control verified performance history. `default_role_spend_share` applies to child roles per turn and does not raise the shared budget limit. `avoid_models`, `category_keywords`, `overrides`, and `roles` refine selection; role metadata is described in [PROVIDERS.md](PROVIDERS.md) and user-facing behavior in [MODEL_ROUTING.md](MODEL_ROUTING.md).
+
+There is no `routing.manual` key. CLI `--provider`/`--model` and `Agent(provider_name=..., model=...)` are authoritative as `TaskRequirements.explicit_provider`/`explicit_model`. Inspect decisions without model calls:
+
+```bash
+aether models list
+aether models inspect PROVIDER [MODEL]
+aether models capabilities PROVIDER [MODEL]
+aether models routing "TASK TEXT"
+aether models explain "TASK TEXT"
+aether models performance
+aether models health
+aether models benchmark [--samples N] [--confirm-billable]
+```
+
+`aether models benchmark` is an offline deterministic routing simulation that prints JSON, writes no files, and makes no model/network/billable calls; `--confirm-billable` is acknowledgement only.
+
 ## Tool permissions
 
 ```json

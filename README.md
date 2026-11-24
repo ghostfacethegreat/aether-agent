@@ -6,11 +6,11 @@ Aether works with no paid account: the defaults target local Ollama, and a built
 
 ## Status
 
-Version `0.1.0` is an alpha release. A working core, screenshots, installer scripts, and source publication are complete. The project priority for `0.2+` is intelligence first: planning, memory, learning, routing, coding, research, coordination, verification, recovery, and measured task success. Adaptive planning, risk/alternatives records, resumable execution checkpoints, additive layered memory, and an evidence-based learning loop with versioned skills are implemented and locally verified on a feature branch; `0.2.0` has not been released. See the [development status](docs/DEVELOPMENT_STATUS.md), [release roadmap](docs/RELEASE_ROADMAP.md), [known limitations](docs/KNOWN_LIMITATIONS.md), [intelligence audit](docs/INTELLIGENCE_AUDIT.md), [intelligence roadmap](docs/INTELLIGENCE_ROADMAP.md), [Phase D learning](docs/PHASE_D_LEARNING.md), and [source-evidenced Hermes comparison](docs/HERMES_COMPARISON.md). No Hermes parity or superiority is claimed. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
+Version `0.1.0` is an alpha release. A working core, screenshots, installer scripts, and source publication are complete. The project priority for `0.2+` is intelligence first: planning, memory, learning, routing, coding, research, coordination, verification, recovery, and measured task success. Adaptive planning, risk/alternatives records, resumable execution checkpoints, additive layered memory, an evidence-based learning loop with versioned skills, and capability-aware model routing are implemented and locally verified on a feature branch; `0.2.0` has not been released. See the [development status](docs/DEVELOPMENT_STATUS.md), [release roadmap](docs/RELEASE_ROADMAP.md), [known limitations](docs/KNOWN_LIMITATIONS.md), [intelligence audit](docs/INTELLIGENCE_AUDIT.md), [intelligence roadmap](docs/INTELLIGENCE_ROADMAP.md), [model routing](docs/MODEL_ROUTING.md), [Phase D learning](docs/PHASE_D_LEARNING.md), and [source-evidenced Hermes comparison](docs/HERMES_COMPARISON.md). No Hermes parity or superiority is claimed. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
 
 Terminal appearance is frozen. The existing ASCII artwork and colored rendering are preserved; only functional visual regressions will be fixed. Do not expect a theme selector, font system, animated title, or visual redesign in `0.2+`.
 
-Benchmark protocol and result rules are in [benchmarks/README.md](benchmarks/README.md). No task-quality benchmark results exist yet.
+Benchmark protocol and result rules are in [benchmarks/README.md](benchmarks/README.md). No task-quality benchmark results exist yet. `aether models benchmark` is an offline deterministic routing simulation that prints JSON and makes no model, network, or billable calls; it is not task-quality evidence.
 
 ## Install
 
@@ -54,7 +54,7 @@ Start interactive mode:
 aether
 ```
 
-Type `/help` inside the chat for slash commands. Useful ones include `/status`, `/provider`, `/model`, `/plan`, `/tools`, `/memory`, `/skills`, `/feedback`, `/sessions`, `/resume`, `/history`, `/tasks`, `/agents`, `/schedule`, `/cost`, and `/doctor`.
+Type `/help` inside the chat for slash commands. Useful ones include `/status`, `/provider`, `/model`, `/models`, `/plan`, `/tools`, `/memory`, `/skills`, `/feedback`, `/sessions`, `/resume`, `/history`, `/tasks`, `/agents`, `/schedule`, `/cost`, and `/doctor`.
 
 ## Screenshots
 
@@ -78,6 +78,23 @@ aether --provider mock --model mock-tools run "Use a tool"
 Provider catalog entries include `mock`, `ollama`, `lmstudio`, `llamacpp`, `groq`, `cerebras`, `huggingface`, `gemini`, `openrouter`, `openai`, `anthropic`, and `custom`. Paid providers are marked as paid. Free-tier providers are marked with their own limits. See `docs/PROVIDERS.md`.
 
 API keys are read from environment variables or `~/.aether/.env`. Never commit keys or publish `.env` files.
+
+## Model routing
+
+Aether can score the models you have configured using deterministic task requirements, evidence-labeled capability facts, context windows, cost, billability, provider health, and role needs. `routing.strategy` accepts `capability`, `cost`, or `fixed`. Explicit `--provider`/`--model` or `Agent(provider_name=..., model=...)` selections stay authoritative; there is no `routing.manual` setting. Diagnostics never call a model.
+
+```bash
+aether models list
+aether models inspect ollama qwen2.5-coder:7b
+aether models capabilities ollama qwen2.5-coder:7b
+aether models routing "Build a Python application"
+aether models explain "Build a Python application"
+aether models performance
+aether models health
+aether models benchmark --samples 5
+```
+
+Inside chat, `/models list|inspect|capabilities|routing|explain|performance|health` gives the same inspectable diagnostics. `aether models benchmark [--samples N] [--confirm-billable]` is an offline, deterministic routing simulation: it prints JSON, writes no files, and makes no model, network, or billable calls. `--confirm-billable` is acknowledgement only. It does not measure task quality. See [MODEL_ROUTING.md](docs/MODEL_ROUTING.md) and [configuration](docs/CONFIGURATION.md).
 
 ## Configuration
 
@@ -199,6 +216,8 @@ python3 -m unittest discover -s tests -v
 bash scripts/check.sh
 bash scripts/test_install.sh
 ```
+
+Phase E local verification: `python3 -W ignore::ResourceWarning -m unittest tests.test_model_routing -q` passes 26 focused tests, covering HTTP 400 context-length detection/recovery and orchestrator role preferred/fallback entries among other routing behavior, and `python3 -W ignore::ResourceWarning -m unittest discover -s tests -q` passes 179 tests. `bash scripts/check.sh && bash scripts/test_install.sh` passed with 3 cold starts, median wall time `0.114s`, peak child RSS `34.4 MiB`, and a local git-remote install test pass. `python3 scripts/benchmark.py` recorded 3 cold starts, median wall time `0.112s`, and peak child RSS `34.9 MiB`. `git diff --check` passed. `ResourceWarning` notices for unclosed SQLite connections are non-failing. No lint/typecheck command is configured, so none is claimed. These are startup measurements, not task-quality results.
 
 `scripts/check.sh` includes tests, doctor and mock CLI smoke checks, secret scanning, the local startup benchmark, and Markdown link checks. It does not measure task quality; see [benchmarks/README.md](benchmarks/README.md) for that protocol.
 

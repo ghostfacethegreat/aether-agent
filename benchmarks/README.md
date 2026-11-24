@@ -1,6 +1,6 @@
 # Aether Task Benchmarks
 
-This directory defines the fair-comparison protocol for the intelligence-first `Aether 0.2+` program. No benchmark results are claimed in this checkpoint. The harness and task fixtures are Phase K work in [INTELLIGENCE_ROADMAP.md](../docs/INTELLIGENCE_ROADMAP.md).
+This directory defines the fair-comparison protocol for the intelligence-first `Aether 0.2+` program. No task-quality benchmark results are claimed. The task harness and fixtures are Phase K work in [INTELLIGENCE_ROADMAP.md](../docs/INTELLIGENCE_ROADMAP.md). Phase E added a separate deterministic routing simulation under `model_routing/`; it is not a task-quality benchmark.
 
 The purpose is to measure whether an agent actually completes work under controlled conditions, not to compare branding, animations, hidden reasoning, or unsupported claims.
 
@@ -97,7 +97,7 @@ python3 -m benchmarks.runner --task <task-id> --agent hermes --config <config>
 python3 -m benchmarks.runner --compare <run-a> <run-b> --output benchmarks/results/<study-id>.json
 ```
 
-These commands are the intended interface, not implemented behavior in Phase A.
+These commands are the intended Phase K interface, not implemented behavior. The implemented Phase E diagnostic is `aether models benchmark [--samples N] [--confirm-billable]`, which is an offline deterministic routing simulation: it prints JSON to stdout, makes no model/network/billable calls, and writes no files. The runner is a library module with no `__main__`, `argparse`, `--output`, or file writes. See [model_routing/](model_routing/) and [../docs/PHASE_E_BENCHMARKS.md](../docs/PHASE_E_BENCHMARKS.md).
 
 ## Result storage
 
@@ -106,5 +106,5 @@ Use `results/README.md` for the result schema and naming rules. Every study shou
 ## Current state
 
 - `tasks/` contains the task-authoring guide only in this checkpoint.
-- `results/` contains no result data in this checkpoint.
-- The only currently measured local performance numbers are startup/memory numbers in [docs/RELEASE_CHECKS.md](../docs/RELEASE_CHECKS.md); they are not task-quality benchmarks.
+- `results/` contains no result data; the Phase E routing runner prints JSON to stdout and has no result artifact.
+- The currently measured local performance numbers are startup/memory numbers in [docs/RELEASE_CHECKS.md](../docs/RELEASE_CHECKS.md); they are not task-quality benchmarks. Phase E routing fixture eligibility is likewise not task-quality evidence.

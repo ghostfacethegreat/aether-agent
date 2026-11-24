@@ -21,6 +21,9 @@ This is the resume log for the intelligence-first `Aether 0.2+` program. It reco
 | Phase C checkpoint | `833cad8f4bbdea74241c4d18f3719c77755ad7c1` |
 | Phase D verification | 153 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
 | Phase D implementation checkpoint | `0dc4118af627cb2c5de4daac0a8ed4e3512705cf` |
+| Phase E focused verification | 26 tests passed in `tests.test_model_routing`; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
+| Phase E full verification | 179 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
+| Phase E status | implemented on this feature branch; implementation is committed separately from documentation; not released |
 
 The unpushed commits from this program are deliberately preserved. Do not reset, discard, force-push, push, merge, tag, or release until the release gates in [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) pass.
 
@@ -103,9 +106,28 @@ Failures found: the learning test setup shadowed the config helper; proposal hel
 
 The combined check/install run recorded 3 cold starts, `0.109s` median wall time, and `34.1 MiB` peak child RSS. These are startup measurements, not task-quality results.
 
+### Phase E — capability-aware model routing
+
+- Added an evidence-aware capability registry, a deterministic task classifier, and a scored router with `capability`, `cost`, and `fixed` strategies, explicit model authority, provider health cooldowns, and human-readable explanations.
+- Integrated routing into context fitting and overflow recovery: only still-matched tool results are restored and restored text is capped; configured fallbacks remain in the runtime chain.
+- Added verified model-performance history via `mark_model_performance_verified()`, role metadata, per-turn child role spend shares that do not mutate the shared budget limit, and model diagnostics that never call models.
+- Added `aether models list|inspect|capabilities|routing|explain|performance|health|benchmark` and `/models` slash commands. The benchmark is an offline deterministic routing simulation that prints JSON, makes no model/network/billable calls, and writes no files; `--confirm-billable` is acknowledgement only.
+- Added focused coverage for HTTP 400 context-length detection/recovery and orchestrator role preferred/fallback entries.
+- Implementation files: `aether/routing/{capabilities,classifier,router}.py`, `aether/core/{context,loop,agent}.py`, `aether/persistence/store.py`, `aether/learning/engine.py`, `aether/providers/registry.py`, `aether/config.py`, `aether/orchestration/{roles,orchestrator}.py`, `aether/cli/app.py`, `benchmarks/model_routing/runner.py`, and `tests/test_model_routing.py`.
+
+| Command | Result |
+|---|---|
+| `python3 -W ignore::ResourceWarning -m unittest tests.test_model_routing -q` | 26 focused tests passed |
+| `python3 -W ignore::ResourceWarning -m unittest discover -s tests -q` | 179 tests passed |
+| `bash scripts/check.sh && bash scripts/test_install.sh` | all checks passed; 3 cold starts, median wall time `0.114s`, peak child RSS `34.4 MiB`; local git-remote install test passed |
+| `python3 scripts/benchmark.py` | 3 cold starts, median wall time `0.112s`, peak child RSS `34.9 MiB` |
+| `git diff --check` | passed |
+
+`ResourceWarning` notices for unclosed SQLite connections are non-failing. No lint/typecheck command is configured, so none is claimed. These timing and memory figures are local startup measurements, not task-quality results. No task-quality benchmark result was recorded, and no Hermes parity or superiority claim is made. See [MODEL_ROUTING.md](MODEL_ROUTING.md), [PHASE_E_BENCHMARKS.md](PHASE_E_BENCHMARKS.md), and [RELEASE_CHECKS.md](RELEASE_CHECKS.md).
+
 ## Active work
 
-Phase E — model capability routing — is next and not started.
+Phase F — coding workflow — is next. Phase E is implemented on this feature branch; implementation is committed separately from documentation; not pushed, merged, tagged, or released.
 
 ## Per-phase record
 

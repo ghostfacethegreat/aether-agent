@@ -16,9 +16,12 @@ CLI (aether.cli.app)
   +-- Agent (aether.core.agent)
         |
         +-- ContextManager (aether.core.context)
-        +-- ProviderManager (aether.providers)
-        |     +-- catalog / cost pricing
-        |     +-- mock, OpenAI-compatible, Anthropic transports
+         +-- ProviderManager (aether.providers)
+         |     +-- catalog / cost pricing
+         |     +-- mock, OpenAI-compatible, Anthropic transports
+         +-- ModelRouter + capability registry (aether.routing) [Phase E]
+         |     +-- deterministic classifier / scored decisions / health cooldowns
+         |     +-- verified model performance / offline diagnostics
          +-- Turn loop (aether.core.loop)
          |     +-- cost preflight / shared budget
          |     +-- cancellation / fallbacks / iteration bound
@@ -50,18 +53,19 @@ CLI (aether.cli.app)
 | Core wiring | [../aether/core/agent.py](../aether/core/agent.py) | constructs and connects all subsystems; builds children | Keep constructor compatibility; add optional planner, state, verifier, memory, and learning hooks. |
 | Turn loop | [../aether/core/loop.py](../aether/core/loop.py) | bounded provider/tool loop, cost/cancellation/usage | Move toward a phase-oriented state machine with checkpoints, plan revision, and verification events; preserve cost and cancellation behavior. |
 | Context | [../aether/core/context.py](../aether/core/context.py) | prompt assembly and context fitting | Add bounded retrieval by task need, source labels, and progressive tool/file selection. |
-| Providers | [../aether/providers/](../aether/providers/) | catalog, registry, transports, cost functions | Add a task capability registry and advisory routing while retaining provider names, fallback APIs, and cost controls. |
+| Providers | [../aether/providers/](../aether/providers/) | catalog, registry, transports, cost functions | Retain provider names, fallback APIs, and cost controls; Phase E adds routing advice without changing transports. |
+| Routing | [../aether/routing/](../aether/routing/) | new in Phase E | Evidence-aware capability facts, deterministic classifier, scored router, explicit model authority, health cooldowns, and explanations; see [MODEL_ROUTING.md](MODEL_ROUTING.md). |
 | Tools | [../aether/tools/](../aether/tools/) | registry, executor, permissions, built-ins | Add capability descriptions, optional schema deferral, preflight, result verification, error classification, and usage analytics without weakening approvals. |
 | Memory | [../aether/memory/store.py](../aether/memory/store.py) | Markdown memory files and prompt context | Add layered memory and retrieval as additive methods/options; preserve `MEMORY.md` and `USER.md`. |
 | Skills | [../aether/skills/engine.py](../aether/skills/engine.py) | `SKILL.md` discovery, validation, usage tracking, explicit install | Evidence rules, proposals, versions, rollback, and audit history are now additive; preserve existing skill files and child-write isolation. |
 | Learning | [../aether/learning/](../aether/learning/) | new in Phase D | Keep verified evidence separate from model claims, validate before install, require explicit approval, and keep learning context labeled as data. |
-| Persistence | [../aether/persistence/store.py](../aether/persistence/store.py) | SQLite schema and data access | Additive tables now cover plans, memory layers, experiences, proposals, versions, metrics, and learning events; never destructively rewrite existing state. |
+| Persistence | [../aether/persistence/store.py](../aether/persistence/store.py) | SQLite schema and data access | Additive tables now cover plans, memory layers, experiences, proposals, versions, metrics, learning events, and verified model performance; never destructively rewrite existing state. |
 | Orchestration | [../aether/orchestration/](../aether/orchestration/) | roles, task graph, shared state, run persistence | Expand the role catalog, add team selection and conflict handling, and integrate the independent verifier. |
 | Subagents | [../aether/tasks/subagents.py](../aether/tasks/subagents.py) | parallel isolated children | Preserve delegation behavior; add output contracts and explicit delegation rationale while enforcing resource limits. |
 | Scheduler | [../aether/tasks/scheduler.py](../aether/tasks/scheduler.py) | in-process due jobs and ledger | Preserve strict paid-provider and no-orchestration restrictions; add durable goal/resume support separately. |
 | Config | [../aether/config.py](../aether/config.py) | typed dotted defaults and validation | Add 0.2+ settings with safe defaults; keep old configs valid. |
 | Tests | [../tests/](../tests/) | stdlib `unittest` suite with mock provider | Add deterministic tests per milestone; keep the existing suite green. |
-| Benchmarks | [../benchmarks/README.md](../benchmarks/README.md) | benchmark protocol and scaffolding | Implement deterministic runner, task fixtures, score calculations, and immutable result artifacts. |
+| Benchmarks | [../benchmarks/README.md](../benchmarks/README.md) | benchmark protocol and scaffolding | Phase E adds an offline routing-simulation runner that prints JSON; task fixtures and immutable task-quality result artifacts remain Phase K work. |
 
 ## Turn lifecycle
 
@@ -146,7 +150,7 @@ Phase D implements this pipeline in `aether/learning/` with additive SQLite tabl
 
 ### 4. Capability-aware routing
 
-Add a model capability registry and task-based selection advice. Keep local and cost-free priority, fallbacks, cooldowns, paid confirmations, shared budgets, and monotonic caps unchanged. Never infer secret keys from hostnames or log credentials.
+Phase E adds a model capability registry and deterministic task-based selection advice with `capability`, `cost`, and `fixed` strategies, explicit model authority, health cooldowns, context-fit overflow recovery, verified performance history, and role metadata. Local and cost-free priority, configured fallbacks, paid confirmations, shared budgets, and monotonic caps remain unchanged. Child role spend shares are per-turn and do not mutate the shared budget limit. Diagnostics never call models. Never infer secret keys from hostnames or log credentials.
 
 ### 5. Coding and research workflows
 

@@ -131,6 +131,21 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - No lint/typecheck claim: no configured lint/typecheck command was found or run.
 - No task-quality benchmark was run; no Hermes parity or superiority claim is made.
 
+## Phase E capability-aware routing checkpoint
+
+- Phase E is implemented on this feature branch; implementation is committed separately from documentation. Version remains `0.1.0`; no `0.2.x` release or tag exists.
+- Added evidence-aware capability registry, deterministic classifier, scored router with `capability`, `cost`, and `fixed` strategies, explicit model authority, provider health cooldowns, context-fit/overflow recovery, verified model performance, role metadata, and offline model diagnostics.
+- Added focused coverage for HTTP 400 context-length detection/recovery and orchestrator role preferred/fallback entries.
+- `python3 -W ignore::ResourceWarning -m unittest tests.test_model_routing -q` — 26 focused tests passed.
+- `python3 -W ignore::ResourceWarning -m unittest discover -s tests -q` — 179 tests passed.
+- `bash scripts/check.sh && bash scripts/test_install.sh` — all checks passed; 3 cold starts, median wall time `0.114s`, peak child RSS `34.4 MiB`; local git-remote install test passed.
+- `python3 scripts/benchmark.py` — 3 cold starts, median wall time `0.112s`, peak child RSS `34.9 MiB`.
+- `git diff --check` — passed.
+- `ResourceWarning` notices for unclosed SQLite connections are non-failing.
+- No lint/typecheck claim: no configured lint/typecheck command was found or run.
+- No model/network/billable calls were made by the routing diagnostics or the deterministic benchmark; no benchmark result artifact was written.
+- The startup timing and memory figures are local startup measurements, not task-quality results. No task-quality benchmark was run; no Hermes parity or superiority claim is made.
+
 ## Secrets
 
 - No `.env` file was created in the repository.

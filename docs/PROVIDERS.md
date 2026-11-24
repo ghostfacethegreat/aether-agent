@@ -73,4 +73,19 @@ If the endpoint needs a key, set `AETHER_API_KEY` or configure `providers.custom
 aether config set fallback_providers '["lmstudio", "groq"]'
 ```
 
-Failed providers are cooled down for the current process; a later successful call clears the need for manual intervention. Aether never silently changes a free provider into a paid one; fallbacks are explicit in config.
+Failed providers receive local cooldowns; a later successful call clears the need for manual intervention. Aether never silently changes a free provider into a paid one; fallbacks are explicit in config and remain in the runtime chain. `aether models health` shows local health state and does not poll providers.
+
+## Capability-aware routing
+
+Aether can score configured candidates using deterministic task requirements and evidence-labeled capability facts. `routing.strategy` is `capability`, `cost`, or `fixed`; `prefer_local` and `avoid_models` refine selection, and `models.metadata` supplies user-known context windows and capabilities. Unknown prices are not free, and no capability is invented.
+
+```bash
+aether config set routing.strategy cost
+aether config set routing.prefer_local true
+aether config set routing.avoid_models '["openai"]'
+aether models capabilities ollama qwen2.5-coder:7b
+aether models routing "Debug this traceback"
+aether models explain "Debug this traceback"
+```
+
+Explicit `--provider`/`--model` or `Agent(provider_name=..., model=...)` choices always win; there is no `routing.manual` setting. Diagnostics never call a model. `aether models benchmark [--samples N] [--confirm-billable]` is an offline deterministic routing simulation that prints JSON, writes no files, and makes no model/network/billable calls; `--confirm-billable` is acknowledgement only. See [MODEL_ROUTING.md](MODEL_ROUTING.md) and [CONFIGURATION.md](CONFIGURATION.md).

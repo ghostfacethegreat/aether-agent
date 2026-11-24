@@ -1,5 +1,16 @@
 # Changelog
 
+## Phase E capability-aware model routing
+
+- Added an evidence-aware capability registry with capability, context-window, pricing, source, and freshness facts; unknown facts and prices remain unknown.
+- Added a deterministic task classifier and a scored router with `capability`, `cost`, and `fixed` strategies, explicit provider/model authority, provider health cooldowns, and inspectable explanations.
+- Integrated routing with context fitting and overflow recovery that preserves the objective, restores only still-matched tool results, caps restored tool text, and retries the same provider once; configured fallbacks remain in the runtime chain.
+- Added verified model-performance history with `mark_model_performance_verified()`, role metadata, and per-turn child role spend shares that do not mutate the shared budget limit.
+- Added `aether models list|inspect|capabilities|routing|explain|performance|health|benchmark` and `/models` diagnostics that never call models; there is no `routing.manual` setting.
+- Added an offline deterministic routing benchmark that prints JSON without model, network, or billable calls or file writes; `--confirm-billable` is acknowledgement only. It is not a task-quality or Hermes-comparison result.
+- Verified locally with 26 focused routing tests, including HTTP 400 context-length detection/recovery and orchestrator role preferred/fallback entries, and 179 total tests. `bash scripts/check.sh && bash scripts/test_install.sh` passed with 3 cold starts, median wall time `0.114s`, peak child RSS `34.4 MiB`, and a local git-remote install test pass. `python3 scripts/benchmark.py` recorded 3 cold starts, median wall time `0.112s`, and peak child RSS `34.9 MiB`. `git diff --check` passed. `ResourceWarning` notices for unclosed SQLite connections are non-failing; no lint/typecheck command is configured.
+- Documented the behavior in `docs/MODEL_ROUTING.md`, `docs/PHASE_E_BENCHMARKS.md`, `docs/PHASE_E_ARCHITECTURE.md`, and `docs/RELEASE_CHECKS.md`. Package version remains `0.1.0`.
+
 ## Phase D evidence-based learning
 
 - Added sanitized experience records from real turns, with explicit feedback and deterministic evidence rules that do not treat model claims or successful tool calls as completion proof.

@@ -23,6 +23,7 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | Reasoning / planning modes | Reasoning params, trust gates, planning prompts | Partial | `reasoning_effort` forwarding, `/plan` mode, `todo` tool. Model must support reasoning. |
 | Reliable tool calling | Schema repair, retries, role alternation repair | Partial | Required-key validation, unknown-tool error message, ordered parallel results, M2.1 role-alternation repair, and M2.2 executor-level timeouts. No full JSON Schema validation yet. |
 | Provider fallback and error recovery | Credential pools, cooldowns, fallback chain | Done | Ordered fallback with retryable classification and cooldown per provider. |
+| Capability-aware model routing | Provider routing and fallback providers | Done | Evidence-aware capability facts, deterministic classifier, scored `capability`/`cost`/`fixed` strategies, explicit provider/model authority, health cooldowns, and offline diagnostics; benchmark is a deterministic routing simulation, not task-quality evidence. |
 | Cost and limit transparency | Catalog pricing, usage guards, account usage | Partial | Every provider has a cost annotation in `aether providers`; no per-turn dollar estimate or account-balance scraping. |
 
 ## Agent system

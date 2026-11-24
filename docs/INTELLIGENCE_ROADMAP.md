@@ -25,7 +25,7 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 | B | Adaptive planning and execution state | inspectable plans, complexity routing, recoverable checkpoints | complete and locally verified |
 | C | Layered memory | working, episodic, semantic, procedural, and user layers | complete and locally verified |
 | D | Learning loop and skill quality | experience records, skill review, versions, rollback, curator | complete and locally verified |
-| E | Model capability routing | task-aware provider/model selection with existing cost controls | pending |
+| E | Model capability routing | task-aware provider/model selection with existing cost controls | implemented on this feature branch and locally verified (26 focused / 179 total tests); not released |
 | F | Coding workflow | repository indexing, progressive retrieval, patches, tests, diff review | pending |
 | G | Research and evidence | query planning, sources, citations, contradictions, confidence | pending |
 | H | Tool intelligence | capability search, preflight, result verification, analytics | pending |
@@ -139,19 +139,32 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 
 ## Phase E — model capability routing
 
-**Likely files:** `aether/providers/capabilities.py`, `aether/providers/catalog.py`, `aether/providers/registry.py`, tests.
+**Implemented files:** `aether/routing/{capabilities,classifier,router}.py`, `aether/core/{context,loop,agent}.py`, `aether/persistence/store.py`, `aether/learning/engine.py`, `aether/providers/registry.py`, `aether/config.py`, `aether/orchestration/{roles,orchestrator}.py`, `aether/cli/app.py`, `benchmarks/model_routing/runner.py`, and `tests/test_model_routing.py`.
 
 **Behavior:**
 
-- registry records coding, reasoning, research, tool calling, structured output, context size, latency, cost, and reliability metadata
-- route tasks using requirement signals, configured credentials, and existing fallback order
-- keep local and cost-free priority for default operation
-- preserve paid confirmation, shared budgets, reservations, and monotonic caps
-- validate responses and apply capability-aware retry policies
+- evidence-aware capability registry with context windows, capability facts, prices, source, and freshness
+- deterministic task classifier producing category, complexity, context needs, tool requirements, and explicit provider/model authority
+- scored router with `capability`, `cost`, and `fixed` strategies, explicit model authority, health cooldowns, and explanations
+- context fitting from capability windows with overflow recovery that restores only still-matched tool results and caps restored text, including HTTP 400 context-length detection/recovery
+- verified model-performance history via `mark_model_performance_verified()`, role metadata, and per-turn child role spend shares that do not mutate the shared budget limit
+- offline diagnostic commands that never call models; configured fallbacks remain in the runtime chain, and orchestrator role preferred/fallback entries are recognized as configured entries
 
-**Verification:** routing tests with fabricated credentials, no-secret assertions, local-first tests, paid-gating tests, fallback and cooldown tests, response-validation tests.
+**Verification:** 26 deterministic tests in `tests.test_model_routing` and 179 tests in the full suite.
 
-**Exit state:** routing improves task fit without changing provider contracts or weakening cost controls.
+**Exit state:** routing offers inspectable task fit without changing provider contracts or weakening cost controls. No task-quality improvement is claimed.
+
+### Phase E result
+
+- Implemented on this feature branch; implementation is committed separately from documentation; not pushed, merged, tagged, or released.
+- Focused verification: `python3 -W ignore::ResourceWarning -m unittest tests.test_model_routing -q` — 26 tests passed, including HTTP 400 context-length detection/recovery and orchestrator role preferred/fallback entries.
+- Full verification: `python3 -W ignore::ResourceWarning -m unittest discover -s tests -q` — 179 tests passed.
+- `bash scripts/check.sh && bash scripts/test_install.sh` — all checks passed; 3 cold starts, median wall time `0.114s`, peak child RSS `34.4 MiB`; local git-remote install test passed.
+- `python3 scripts/benchmark.py` — 3 cold starts, median wall time `0.112s`, peak child RSS `34.9 MiB`.
+- `git diff --check` — passed.
+- `ResourceWarning` notices for unclosed SQLite connections are non-failing; no lint/typecheck command is configured, so none is claimed. Timing and memory figures are local startup measurements, not task-quality results.
+- Added `aether models list|inspect|capabilities|routing|explain|performance|health|benchmark` and `/models` commands. The benchmark is an offline deterministic routing simulation that prints JSON, makes no model/network/billable calls, and writes no result artifact; `--confirm-billable` is acknowledgement only.
+- Details and limitations are in [MODEL_ROUTING.md](MODEL_ROUTING.md), [PHASE_E_BENCHMARKS.md](PHASE_E_BENCHMARKS.md), and [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
 ## Phase F — coding workflow
 

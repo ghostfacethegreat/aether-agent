@@ -1,6 +1,6 @@
 # Benchmark Results
 
-This directory will hold raw and summarized benchmark evidence. Phase A stores no results here.
+This directory will hold raw and summarized task-quality benchmark evidence. No results are stored here. The Phase E routing runner prints JSON to stdout and intentionally writes no result artifact; its deterministic fixture eligibility is not task-quality evidence.
 
 ## Naming
 

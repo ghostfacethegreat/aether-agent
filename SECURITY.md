@@ -8,7 +8,7 @@ Do not open a public issue for a suspected credential leak or a reproducible rem
 
 Aether runs on your machine with your permissions. It is a tool runtime, not a sandbox. Prompts, files, web pages, and tool output can contain adversarial instructions. Aether treats all such content as data, but the model can still make mistakes.
 
-The 0.2+ intelligence work expands the trust boundary. Plans, memories, learned procedures, skill versions, research notes, delegated reports, and benchmark fixtures are data, not trusted instructions. Untrusted content must not be able to write trusted memory, change persistent instructions, mutate approved skills, approve its own actions, raise budgets, or mark work complete without evidence. Learning may only promote a procedure from observed tests, tool results, or explicit user confirmation. Hidden reasoning is not evidence.
+The 0.2+ intelligence work expands the trust boundary. Plans, memories, learned procedures, skill versions, research notes, routing explanations, delegated reports, and benchmark fixtures are data, not trusted instructions. Untrusted content must not be able to write trusted memory, change persistent instructions, mutate approved skills, approve its own actions, raise budgets, select a different model, or mark work complete without evidence. Learning may only promote a procedure from observed tests, tool results, or explicit user confirmation. Hidden reasoning is not evidence.
 
 ## Protections in 0.1.0
 
@@ -32,8 +32,12 @@ The 0.2+ intelligence work expands the trust boundary. Plans, memories, learned 
 - Approval caching can persist decisions in the local database.
 - Free-tier provider limits and model IDs can change without notice.
 - Aether does not bypass model-provider restrictions or terms of service.
-- Layered memory, automated learning, and skill curation are planned, not implemented in this Phase A documentation checkpoint; their controls must be tested before release.
-- Task-quality benchmark results do not exist yet; no security or superiority conclusion should be drawn from startup/memory numbers alone.
+- Layered memory, automated learning, and Phase E model routing are implemented on this feature branch and locally verified, but not released; their controls must continue to be tested before release.
+- Routing selects only among configured candidates, respects explicit `--provider`/`--model` or constructor overrides, cannot grant tools or raise budgets, and never calls a model in its diagnostic commands.
+- Routing capability and price facts are evidence-labeled; unknown pricing is not free, and health is local failure state, not live polling.
+- The `aether models benchmark` command is an offline deterministic routing simulation: no model, network, or billable calls, no file writes. `--confirm-billable` is acknowledgement only.
+- No task-quality benchmark results exist; the routing simulation and startup/memory numbers do not support security, Hermes parity, or superiority conclusions.
+- No lint/typecheck command is configured, so no lint/typecheck result is claimed.
 
 ## Safe unattended use
 
