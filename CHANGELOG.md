@@ -1,5 +1,14 @@
 # Changelog
 
+## Phase A intelligence audit (documentation checkpoint)
+
+- Changed the 0.2+ priority from visual work to intelligence-first work: planning, memory, learning, model routing, coding, research, tool selection, orchestration, verification, recovery, and measured task success.
+- Froze terminal appearance: existing ASCII artwork and colored rendering are preserved; themes, font tooling, animations, and visual redesigns are out of scope unless fixing a functional regression.
+- Added [INTELLIGENCE_AUDIT.md](docs/INTELLIGENCE_AUDIT.md), [INTELLIGENCE_ROADMAP.md](docs/INTELLIGENCE_ROADMAP.md), and [HERMES_COMPARISON.md](docs/HERMES_COMPARISON.md) with source-evidenced gaps, adoption decisions, and phases A-L.
+- Added benchmark protocol scaffolding under [benchmarks/README.md](benchmarks/README.md) with no result claims.
+- Superseded the visual-first 0.2 plans in the baseline, architecture, and roadmap documents while retaining them as historical provenance.
+- Refreshed the Hermes comparison evidence to current `main` at `fe9a4b58ec137d3e00719c10e2385876fa03b97c`; no runtime behavior changed and no parity or superiority claim is made.
+
 ## Phase 4 security and reliability audit
 
 - Linked parent cancellation into orchestrated runs, propagated task cancellation into child turns and tool execution, and made timeout/cancel paths stop child work between provider/tool operations.

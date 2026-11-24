@@ -71,6 +71,20 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - Validated behavior: due-prompt execution, no-runner skips, failed-run records, restart no-refire, one-shot disabling, execution ledger, scheduler thread start/stop, update/pause/resume controls, and CLI summary output.
 - Not validated here: real daemon/service scheduling, cross-process concurrency, delivery targets, or live scheduled provider calls.
 
+## Phase A intelligence audit checkpoint
+
+- Aether audit commit: `558bd58ec1f15ccf9cf76260d3ab7bfe675e76ce`.
+- Hermes pinned baseline: `b98c388a880b1b6fd303c9c2821a3946651a0b4c`.
+- Hermes current `main` checked for this phase: `fe9a4b58ec137d3e00719c10e2385876fa03b97c`.
+- Added [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md), [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md), [HERMES_COMPARISON.md](HERMES_COMPARISON.md), and [../benchmarks/README.md](../benchmarks/README.md) scaffolding.
+- Superseded visual-first 0.2 plans in the baseline, architecture, roadmap, original architecture audit, and Phase 2 docs; terminal appearance is frozen.
+- `python3 -m unittest discover -s tests -v` — 109 tests passed in `0.595s`.
+- `bash scripts/check.sh` — passed; 109 tests in `0.476s`, doctor and mock CLI smoke passed, secret scan passed, local Markdown links passed, cold starts: 3, median wall time `0.088s`, peak child RSS `30.3 MiB`, `all checks passed`.
+- `bash scripts/test_install.sh` — passed; local git-remote install test completed.
+- `git diff --check` — passed.
+- No runtime behavior changed; no task-quality benchmark was run; no Hermes parity or superiority claim is made.
+- No lint/typecheck claim: no configured lint/typecheck command was found or run.
+
 ## Secrets
 
 - No `.env` file was created in the repository.

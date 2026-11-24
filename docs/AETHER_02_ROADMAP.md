@@ -1,6 +1,8 @@
-# Aether 0.2.0 Roadmap
+# Aether 0.2+ Roadmap
 
-This roadmap tracks the additive upgrade from the verified `0.1.0` baseline at commit `01ee003` to `Aether v0.2.0`. Baseline facts are in [AETHER_02_BASELINE.md](AETHER_02_BASELINE.md); extension points are in [AETHER_02_ARCHITECTURE.md](AETHER_02_ARCHITECTURE.md).
+This roadmap tracks the additive upgrade from the verified `0.1.0` baseline at commit `01ee003` to the intelligence-first `Aether 0.2+` program. Baseline facts are in [AETHER_02_BASELINE.md](AETHER_02_BASELINE.md); extension points are in [AETHER_02_ARCHITECTURE.md](AETHER_02_ARCHITECTURE.md).
+
+The earlier visual-first phase list is archived below for provenance. It is superseded by [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md). Current work improves reasoning, memory, learning, routing, coding, research, coordination, verification, recovery, and measured task success. Terminal appearance is frozen: preserve the existing ASCII artwork and colored rendering, fix functional visual regressions only, and do not add themes, a theme selector, font tooling, animations, or a renderer rewrite without a demonstrated functional or performance bug.
 
 ## Milestone contract
 
@@ -11,11 +13,34 @@ Every milestone must end with:
 3. focused tests actually run
 4. fixes for any failures found
 5. documentation updates
-6. a working checkpoint commit
+6. benchmark impact, if any
+7. a working checkpoint commit
 
 Do not mark a milestone complete based only on code inspection. Do not fabricate screenshots, benchmark results, CI results, or provider behavior.
 
+## Current phase map
+
+| Phase | Name | Status |
+|---|---|---|
+| Phase 0 | Baseline and source-of-truth docs | complete |
+| Phase A | Intelligence audit, Hermes comparison, benchmark contract | current documentation checkpoint |
+| Phase B | Adaptive planning and execution state | pending |
+| Phase C | Layered memory | pending |
+| Phase D | Learning loop and skill quality | pending |
+| Phase E | Model capability routing | pending |
+| Phase F | Coding workflow | pending |
+| Phase G | Research and evidence | pending |
+| Phase H | Tool intelligence | pending |
+| Phase I | Specialist orchestration | pending |
+| Phase J | Verification and recovery | pending |
+| Phase K | Benchmark harness | pending |
+| Phase L | Release hardening | pending |
+
+Full scope, likely files, behaviors, verification, and exit states for Phases B-L are in [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md). Benchmark protocol details are in [benchmarks/README.md](../benchmarks/README.md).
+
 ## Phase 0 — baseline and design
+
+**Status:** complete.
 
 **Goal:** establish a verified source of truth before behavior changes.
 
@@ -24,10 +49,10 @@ Do not mark a milestone complete based only on code inspection. Do not fabricate
 - fetch and base work on `origin/main`
 - create `feat/aether-02-neon-agent-platform`
 - verify version, packaging, dependencies, tests, checks, benchmarks, CLI surface, providers, tools, memory, skills, orchestration, scheduler, and CI state
-- add the three 0.2.0 planning documents
+- add the initial 0.2 planning documents
 - commit the documentation-only checkpoint
 
-**Verification:**
+**Verification completed:**
 
 - `git status --short --branch`
 - `python3 -m unittest discover -s tests -q`
@@ -35,239 +60,84 @@ Do not mark a milestone complete based only on code inspection. Do not fabricate
 - `bash scripts/test_install.sh`
 - `git diff --check`
 
-**Exit state:** baseline docs committed; no runtime behavior changed in this phase.
+**Exit state:** baseline docs committed at `558bd58`; no runtime behavior changed in this phase.
 
-## Phase 1 — visual identity foundation
+## Phase A — intelligence audit and benchmark contract
 
-**Goal:** introduce the required purple-neon palette and a safe ANSI engine.
+**Goal:** replace guesses with source-evidenced intelligence priorities before runtime changes.
 
-**Likely files:** new visual modules under `aether/ui/` or `aether/cli/`, `aether/cli/render.py`, config defaults, renderer tests, docs.
+**Scope:**
 
-**Behavior:**
+- audit Aether at `558bd58ec1f15ccf9cf76260d3ab7bfe675e76ce`
+- compare Hermes at pinned commit `b98c388a880b1b6fd303c9c2821a3946651a0b4c` and current `main` at `fe9a4b58ec137d3e00719c10e2385876fa03b97c`
+- add the intelligence audit, roadmap, comparison, and benchmark protocol
+- supersede visual-first 0.2 plans
+- freeze terminal appearance and preserve existing ASCII artwork
 
-- primary, secondary, and background palette use the exact required hex colors
-- semantic color roles replace ad hoc color choices
-- truecolor, 256-color, 16-color, `NO_COLOR`, `TERM=dumb`, and non-TTY paths are explicit
-- untrusted text is sanitized before escape sequences are added
-- existing banner/dashboard/table/tool output remains functional
+**Verification:** full local checks and Markdown link checks; no runtime behavior changed.
 
-**Verification:** focused renderer tests plus full checks.
+**Exit state:** Phase A documentation checkpoint committed after checks pass.
 
-## Phase 2 — ASCII font registry
+## Archived visual-first milestones
 
-**Goal:** ship at least 12 genuinely different offline ASCII fonts.
+The following phases were written before the user changed the priority to intelligence first. They are retained as historical provenance only and must not be executed as current roadmap items.
 
-**Likely files:** new font data/modules, config defaults, CLI help/docs, font tests.
+### Archived Phase 1 — visual identity foundation
 
-**Behavior:**
+Originally proposed a purple-neon palette and safe ANSI engine. Superseded by the visual freeze; only functional renderer bugs and untrusted-text sanitization are in scope.
 
-- every font is local and deterministic
-- fonts are visibly different, not renamed copies
-- random selection avoids the immediately previous font
-- selected font persists safely and old config remains valid
+### Archived Phase 2 — ASCII font registry
 
-**Verification:** font count/distinctness tests, random-selection tests, config compatibility tests.
+Originally proposed at least 12 offline ASCII fonts, font selection, and persistence. Superseded; no font system should be added.
 
-## Phase 3 — ASCII art and animated title
+### Archived Phase 3 — ASCII art and animated title
 
-**Goal:** render Aether branding with local fonts and a smooth title sequence.
+Originally proposed generated ASCII art and an animated title sequence. Superseded; existing ASCII artwork must be preserved, not replaced or animated.
 
-**Likely files:** art renderer, title animation module, renderer façade, fallback assets, tests, docs.
+### Archived Phase 4 — new CLI command surface
 
-**Behavior:**
+Originally proposed `aether fonts`, `aether font *`, `/font *`, and `/art` commands. Superseded; do not add font/art commands.
 
-- generated ASCII art uses the selected font and palette
-- title animation is smooth on a TTY
-- non-TTY/no-color/dumb terminals get a stable static title
-- AI art generation has a deterministic offline fallback
-- no network request is required for startup or local art
+### Archived Phase 5 — interactive dashboard
 
-**Verification:** animation/frame tests with fake clocks or writers, fallback tests, non-TTY tests.
+Originally proposed a purple-neon dashboard redesign. Superseded; dashboard changes are limited to functional correctness and readability regressions.
 
-## Phase 4 — new CLI command surface
+### Archived Phase 6 — dynamic agent graph
 
-**Goal:** expose font/art controls through CLI and slash commands.
+Originally proposed a visual graph UI. Intelligence work may expose real plan/task state, but appearance changes are out of scope.
 
-**Required commands:**
+### Archived Phase 7 — specialist role catalog
 
-- `aether fonts`
-- `aether font random`
-- `aether font set block`
-- `aether font preview`
-- `/font`
-- `/font random`
-- `/font set glitch`
-- `/font list`
+Still relevant as intelligence work. Current version: Phase I in [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md); expand to at least 18 meaningful roles with real work, contracts, and forced-rule enforcement.
 
-**Behavior:**
+### Archived Phase 8 — intelligent team selection
 
-- aliases work without breaking current commands
-- help output documents the new commands
-- invalid font names fail clearly
-- completion includes the new slash commands
+Still relevant as intelligence work. Current version: Phase I; choose roles from objective evidence, keep explicit roles authoritative, and expose inspectable rationale.
 
-**Verification:** parser/dispatch tests for every command and invalid input.
+### Archived Phase 9 — provider intelligence
 
-## Phase 5 — interactive dashboard
+Still relevant as intelligence work. Current version: Phase E; add capability-aware routing without changing provider contracts or weakening cost controls.
 
-**Goal:** modernize the live dashboard using real state.
+### Archived Phase 10 — memory and skill intelligence
 
-**Behavior:**
+Still relevant as intelligence work. Current versions: Phases C and D; add layered memory, retrieval, skill evidence, versioning, and curation.
 
-- provider, model, session, context, cost, memory, skills, tools, and workspace remain visible
-- purple-neon panels and semantic indicators replace the old basic banner
-- status values come from `Agent.status_summary()` and store data
-- output remains readable in reduced-color and no-color terminals
+### Archived Phase 11 — terminal integration and single-writer output
 
-**Verification:** dashboard snapshot tests using deterministic mock state.
+Visual/animation details are superseded. Functional output correctness, sanitization, and cancellation-safe writes remain valid only when fixing a demonstrated bug.
 
-## Phase 6 — dynamic agent graph
+### Archived Phase 12 — tests and CI
 
-**Goal:** visualize real orchestration state.
+Still relevant. Current version: Phase L; add deterministic tests and CI after benchmark and runtime work stabilizes.
 
-**Required commands/flows:**
+### Archived Phase 13 — documentation and assets
 
-- `aether agents` views should work with stored and active runs
-- `/agents` should show live role/task state
-- `/team` should show selected roles, dependencies, and rationale
+Still relevant for docs; visual asset redesign is superseded. Current version: Phase L; update docs to describe implemented intelligence behavior only.
 
-**Behavior:**
+### Archived Phase 14 — release candidate hardening
 
-- graph nodes and edges derive from `SharedTaskState.snapshot()` and persisted task rows
-- statuses reflect actual `pending`, `running`, `retrying`, `completed`, `failed`, `cancelled`, and `timed_out` states
-- animation never invents progress
-- cancellation and stored-run recovery update the graph correctly
+Still relevant. Current version: Phase L.
 
-**Verification:** mock orchestration runs drive graph projection tests; no live paid provider required.
+### Archived Phase 15 — release
 
-## Phase 7 — specialist role catalog
-
-**Goal:** expand from four default roles to at least 18 meaningful specialists.
-
-**Behavior:**
-
-- each role has a distinct prompt, output contract, tool policy, approval requirements, and iteration budget
-- forced deny/approval rules remain monotone
-- read-only skill rules remain where appropriate
-- existing `researcher`, `developer`, `debugger`, and `reviewer` behavior remains available
-- custom role overrides still work
-
-**Verification:** role catalog tests, forced-rule tests, prompt/output-contract tests, backward compatibility tests.
-
-## Phase 8 — intelligent team selection
-
-**Goal:** choose role teams from objective evidence.
-
-**Behavior:**
-
-- selection uses task signals such as research, implementation, review, security, data, docs, testing, and operations
-- team choices are inspectable through `/team`
-- explicit roles always override automatic selection
-- existing objective heuristic remains a safe fallback
-- selected teams respect `orchestrator.max_children` and tool/security rules
-
-**Verification:** representative objective-to-team tests, explicit-role override tests, cap tests.
-
-## Phase 9 — provider intelligence
-
-**Goal:** add advisory provider/model selection without changing provider contracts.
-
-**Behavior:**
-
-- suggestions consider locality, configured credentials, cost annotations, and capability notes
-- paid providers are clearly labelled and confirmation rules remain unchanged
-- mock/local providers stay deterministic for tests
-- no provider key is printed, logged, or inferred from lookalike hostnames
-
-**Verification:** provider suggestion tests with fabricated config keys; secret-redaction tests.
-
-## Phase 10 — memory and skill intelligence
-
-**Goal:** improve context quality without breaking existing files.
-
-**Behavior:**
-
-- bounded memory retrieval selects relevant entries with explicit limits
-- existing `MEMORY.md` and `USER.md` formats remain valid
-- skills gain stronger validation/version handling
-- built-in skills remain read-only
-- child agents still cannot mutate skills
-
-**Verification:** retrieval relevance/limit tests, skill compatibility tests, validation tests, child restriction tests.
-
-## Phase 11 — terminal integration and single-writer output
-
-**Goal:** unify visual output so animations, streams, tool lines, and graphs never corrupt each other.
-
-**Behavior:**
-
-- one renderer owns terminal writes for interactive sessions
-- streaming deltas, status events, graph updates, and prompts serialize safely
-- spinner/title/graph animation stops cleanly on completion, error, and cancellation
-- non-interactive `run` output remains script-friendly
-
-**Verification:** fake-writer concurrency tests, cancellation tests, TTY/non-TTY behavior tests.
-
-## Phase 12 — tests and CI
-
-**Goal:** make 0.2.0 repeatably verifiable.
-
-**Behavior:**
-
-- all new modules have deterministic stdlib `unittest` coverage
-- `bash scripts/check.sh` includes any required new static checks
-- GitHub Actions runs compile, full tests, smoke/doctor checks, secret scan, and Markdown link check
-- CI does not require paid providers or network model calls
-
-**Verification:** local full checks plus real CI results. Wait for CI and fix failures before release.
-
-## Phase 13 — documentation and assets
-
-**Goal:** update the public project surface to match shipped behavior.
-
-**Required updates:**
-
-- `README.md` with 0.2.0 identity, commands, screenshots, and safety notes
-- `CHANGELOG.md` with an accurate `0.2.0` section
-- `docs/PROVIDERS.md`, `docs/CONFIGURATION.md`, `docs/FEATURE_MATRIX.md`, `docs/RELEASE_CHECKS.md`
-- new/updated ASCII screenshots generated from real local runs
-- `assets/logo.svg` and `assets/banner.svg` aligned with the purple-neon palette
-- no fabricated terminal captures or benchmark numbers
-
-**Verification:** link checks, smoke checks, screenshot provenance notes, full checks.
-
-## Phase 14 — release candidate hardening
-
-**Goal:** freeze behavior and verify release quality.
-
-**Behavior:**
-
-- version becomes `0.2.0` in package metadata and runtime
-- fresh install/uninstall works from a local clone
-- full tests, checks, benchmark, and install script pass
-- CI passes on the release branch
-- no secrets, tokens, `.env` files, or generated credentials are committed
-- release notes describe only implemented behavior
-
-**Verification:**
-
-- `python3 -m unittest discover -s tests -q`
-- `bash scripts/check.sh`
-- `bash scripts/test_install.sh`
-- real CI run
-- `git diff --check`
-
-## Phase 15 — release
-
-**Goal:** publish `v0.2.0`.
-
-**Required actions:**
-
-- open PR against `main`
-- wait for real CI results and fix failures
-- merge only after checks pass
-- tag `v0.2.0`
-- publish a GitHub release with accurate notes, screenshots, and installation instructions
-- if permissions or CI prevent completion, report the exact state and remaining commands
-
-**Exit state:** `AETHER v0.2.0` released without claiming `v1.0.0` or any unimplemented parity.
+Still relevant after all verification. Do not push, merge, tag, or publish until checks, reports, and benchmark claims are accurate.

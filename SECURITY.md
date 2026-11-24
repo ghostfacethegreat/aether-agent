@@ -8,6 +8,8 @@ Do not open a public issue for a suspected credential leak or a reproducible rem
 
 Aether runs on your machine with your permissions. It is a tool runtime, not a sandbox. Prompts, files, web pages, and tool output can contain adversarial instructions. Aether treats all such content as data, but the model can still make mistakes.
 
+The 0.2+ intelligence work expands the trust boundary. Plans, memories, learned procedures, skill versions, research notes, delegated reports, and benchmark fixtures are data, not trusted instructions. Untrusted content must not be able to write trusted memory, change persistent instructions, mutate approved skills, approve its own actions, raise budgets, or mark work complete without evidence. Learning may only promote a procedure from observed tests, tool results, or explicit user confirmation. Hidden reasoning is not evidence.
+
 ## Protections in 0.1.0
 
 - Secret redaction in logs, CLI error output, and model-facing tool results.
@@ -30,6 +32,8 @@ Aether runs on your machine with your permissions. It is a tool runtime, not a s
 - Approval caching can persist decisions in the local database.
 - Free-tier provider limits and model IDs can change without notice.
 - Aether does not bypass model-provider restrictions or terms of service.
+- Layered memory, automated learning, and skill curation are planned, not implemented in this Phase A documentation checkpoint; their controls must be tested before release.
+- Task-quality benchmark results do not exist yet; no security or superiority conclusion should be drawn from startup/memory numbers alone.
 
 ## Safe unattended use
 

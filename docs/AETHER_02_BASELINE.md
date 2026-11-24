@@ -1,6 +1,8 @@
-# Aether 0.2.0 Baseline
+# Aether 0.2+ Baseline
 
-This document is the Phase 0 source of truth for the additive `Aether v0.2.0` upgrade. It records the repository state, verified capabilities, measured performance, and constraints that must be preserved by every later milestone.
+This document is the Phase 0 source of truth for the additive `Aether 0.2+` upgrade. It records the repository state, verified capabilities, measured performance, and constraints that must be preserved by every later milestone.
+
+The project priority has changed: 0.2+ is an **intelligence-first** program. Terminal appearance is frozen. Preserve the existing ASCII artwork and colored rendering, fix functional visual regressions only, and do not add themes, a theme selector, font tooling, animations, or a renderer rewrite without a demonstrated functional or performance bug. Current planning lives in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md), [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md), and [HERMES_COMPARISON.md](HERMES_COMPARISON.md). Older visual milestone text is retained below only as historical audit evidence and is superseded by the intelligence roadmap.
 
 ## Repository state
 
@@ -10,6 +12,7 @@ This document is the Phase 0 source of truth for the additive `Aether v0.2.0` up
 | Working branch | `feat/aether-02-neon-agent-platform` |
 | Baseline commit | `01ee003795787cc392f033edffbb98fcb3dd8b35` |
 | Baseline commit subject | `Merge pull request #1 from ghostfacethegreat/feat/multi-agent-orchestration` |
+| Phase A docs commit | `558bd58ec1f15ccf9cf76260d3ab7bfe675e76ce` |
 | Tracking branch | `origin/main` |
 | Local `main` | `e2ee662`, behind `origin/main` |
 | Prior feature branch | `feat/multi-agent-orchestration` at `3df0698` |
@@ -22,7 +25,7 @@ This document is the Phase 0 source of truth for the additive `Aether v0.2.0` up
 | Console entry point | `aether = aether.cli.app:main` |
 | GitHub Actions | none; the repository has no `.github/workflows` directory |
 
-The 0.2.0 work starts from the merged state of PR #1, including the multi-agent orchestration implementation and the security hardening commit `3df0698`.
+The 0.2+ work starts from the merged state of PR #1, including the multi-agent orchestration implementation and the security hardening commit `3df0698`.
 
 ## Verification record
 
@@ -149,29 +152,31 @@ The renderer currently uses basic ANSI SGR colors in [../aether/cli/render.py](.
 
 The current palette is not the required purple-neon identity. It includes cyan, green, yellow, red, and magenta, and the banner is a simple cyan box. There is no font registry, ASCII art generator, animated title, `/font` command, `aether fonts` command, dynamic agent graph renderer, or `TERM=dumb` handling.
 
-## Known gaps for 0.2.0
+This section is a historical observation from the original visual-first plan. Those items are **not** current requirements. Preserve the existing ASCII artwork and colored rendering; do not add the listed visual systems.
 
-The upgrade must address these without replacing the working core:
+## Historical visual gap inventory
+
+The original 0.2.0 audit listed these visual gaps. They are superseded by [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md) and retained only to explain the baseline from which the priority changed:
 
 1. Version remains `0.1.0` alpha in package metadata and runtime version.
-2. No purple-neon palette using the required primary, secondary, and background colors.
+2. No purple-neon palette using the formerly required colors.
 3. No local ASCII font system; `aether fonts`, `aether font random`, `aether font set block`, and `aether font preview` do not exist.
 4. No slash commands for `/font`, `/font random`, `/font set <name>`, or `/font list`.
 5. No ASCII art engine, AI art generation path with offline fallback, or animated title sequence.
-6. No ≥12 genuinely different ASCII font designs.
+6. No 12-font registry or font distinctness system.
 7. No `TERM=dumb` handling, truecolor/256/16 color-tier fallback beyond basic SGR, or escape-injection sanitizer.
 8. No single coordinated terminal output owner; current streaming, spinner, tool lines, and command output are separate writes.
-9. Only four orchestration roles; ≥18 meaningful specialist roles are required.
+9. Only four orchestration roles; >=18 meaningful specialist roles are required by the intelligence roadmap, not by a visual redesign.
 10. No evidence-based automatic team selection from task content.
-11. No dynamic real-state agent graph UI; current agent status is tabular.
+11. No dynamic agent graph UI; current agent status is tabular.
 12. No bounded memory retrieval or strengthened skill validation/versioning beyond the current baseline.
 13. No GitHub Actions CI workflow.
 14. Existing docs and release notes describe older milestones and test counts.
-15. Existing screenshots capture the old terminal style, not the 0.2.0 purple-neon identity.
+15. Existing screenshots capture the old terminal style; no new visual redesign is planned.
 
 ## Preservation requirements
 
-Every 0.2.0 milestone must remain additive. Do not remove, silently replace, or regress:
+Every 0.2+ milestone must remain additive. Do not remove, silently replace, or regress:
 
 - AI conversation, streaming, fallback providers, and tool calling
 - local Ollama/LM Studio/llama.cpp support
@@ -183,7 +188,8 @@ Every 0.2.0 milestone must remain additive. Do not remove, silently replace, or 
 - multi-agent orchestration, shared budgets, cancellation, approvals, recovery, and untrusted-data boundaries
 - install, uninstall, doctor, update, and local install test scripts
 - strict no-secret policy and honest cost reporting
-- stdlib-only runtime and no required network dependency for local startup or ASCII art
+- stdlib-only runtime and no required network dependency for local startup
+- existing ASCII artwork and colored rendering
 
 ## Definition of a completed milestone
 
@@ -198,4 +204,4 @@ For each milestone, record:
 
 Do not claim success from static inspection alone. Run the relevant tests and full checks before reporting completion.
 
-See [AETHER_02_ARCHITECTURE.md](AETHER_02_ARCHITECTURE.md) for the source map and additive extension points, and [AETHER_02_ROADMAP.md](AETHER_02_ROADMAP.md) for the milestone plan.
+See [AETHER_02_ARCHITECTURE.md](AETHER_02_ARCHITECTURE.md) for intelligence extension points, [AETHER_02_ROADMAP.md](AETHER_02_ROADMAP.md) for the historical milestone index and current phase map, and [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md) for active work.

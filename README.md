@@ -6,7 +6,11 @@ Aether works with no paid account: the defaults target local Ollama, and a built
 
 ## Status
 
-Version `0.1.0` is an alpha release. A working core, screenshots, installer scripts, and source publication are complete. The Phase 2 feature gap audit and staged roadmap are public in [PHASE2_FEATURE_COMPARISON.md](docs/PHASE2_FEATURE_COMPARISON.md) and [PHASE2_ROADMAP.md](docs/PHASE2_ROADMAP.md); no Hermes parity is claimed. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
+Version `0.1.0` is an alpha release. A working core, screenshots, installer scripts, and source publication are complete. The project priority for `0.2+` is intelligence first: planning, memory, learning, routing, coding, research, coordination, verification, recovery, and measured task success. See the [intelligence audit](docs/INTELLIGENCE_AUDIT.md), [intelligence roadmap](docs/INTELLIGENCE_ROADMAP.md), and [source-evidenced Hermes comparison](docs/HERMES_COMPARISON.md). No Hermes parity or superiority is claimed. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
+
+Terminal appearance is frozen. The existing ASCII artwork and colored rendering are preserved; only functional visual regressions will be fixed. Do not expect a theme selector, font system, animated title, or visual redesign in `0.2+`.
+
+Benchmark protocol and result rules are in [benchmarks/README.md](benchmarks/README.md). No task-quality benchmark results exist yet.
 
 ## Install
 
@@ -61,7 +65,7 @@ Real terminal captures from a local mock-provider run; no network request or pai
 - [Provider catalog](docs/screenshots/03-providers.txt)
 - [Doctor diagnostics](docs/screenshots/04-doctor.txt)
 
-Branding assets are in `assets/logo.svg` and `assets/banner.svg`.
+Branding assets are in `assets/logo.svg` and `assets/banner.svg`; they are preserved as part of the visual freeze, not a roadmap for redesign.
 
 ## Providers
 
@@ -128,7 +132,7 @@ Sessions, messages, task ledger, approvals, and usage counters are stored locall
 
 ## Multi-agent orchestration
 
-Aether can split an objective across specialized `researcher`, `developer`, `debugger`, and `reviewer` agents. The orchestrator builds a dependency plan, runs ready tasks in parallel by default, passes structured results between tasks, consolidates the final report, and keeps child permissions inside the parent's allow-list.
+Aether can split an objective across specialized `researcher`, `developer`, `debugger`, and `reviewer` agents. The orchestrator builds a dependency plan, runs ready tasks in parallel by default, passes structured results between tasks, consolidates the final report, and keeps child permissions inside the parent's allow-list. Expanding the role catalog, automatic team selection, output contracts, and an independent verifier are planned intelligence work, not shipped behavior.
 
 ```bash
 aether agents list
@@ -155,11 +159,15 @@ Inside chat, use `/agents list`, `/agents run <role> <task>`, `/agents status`, 
 ```bash
 python3 -m compileall -q aether tests
 python3 -m unittest discover -s tests -v
+bash scripts/check.sh
+bash scripts/test_install.sh
 ```
+
+`scripts/check.sh` includes tests, doctor and mock CLI smoke checks, secret scanning, the local startup benchmark, and Markdown link checks. It does not measure task quality; see [benchmarks/README.md](benchmarks/README.md) for that protocol.
 
 ## Attribution
 
-Aether's architecture was informed by static audits of the public Hermes Agent repository, initially at commit `bb89ad1a` and refreshed for Phase 2 at `b98c388a880b1b6fd303c9c2821a3946651a0b4c`. Hermes Agent is MIT-licensed; see `NOTICE` and `docs/UPSTREAM_LICENSE.md`. Aether is independently implemented and branded.
+Aether's architecture was informed by static audits of the public Hermes Agent repository, initially at commit `bb89ad1a`, refreshed for Phase 2 at `b98c388a880b1b6fd303c9c2821a3946651a0b4c`, and refreshed again for Phase A against current `main` at `fe9a4b58ec137d3e00719c10e2385876fa03b97c`. Hermes Agent is MIT-licensed; see `NOTICE` and `docs/UPSTREAM_LICENSE.md`. Aether is independently implemented and branded.
 
 ## License
 
