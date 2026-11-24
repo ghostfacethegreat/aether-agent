@@ -95,6 +95,75 @@ CREATE TABLE IF NOT EXISTS memory_items (
 );
 CREATE INDEX IF NOT EXISTS idx_memory_items_layer ON memory_items(layer, status, updated_at);
 CREATE INDEX IF NOT EXISTS idx_memory_items_session ON memory_items(session_id, layer, status);
+CREATE TABLE IF NOT EXISTS learning_experiences (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL DEFAULT '',
+    objective TEXT NOT NULL DEFAULT '',
+    classification TEXT NOT NULL DEFAULT '{}',
+    plan_id TEXT NOT NULL DEFAULT '',
+    plan TEXT NOT NULL DEFAULT '{}',
+    agents TEXT NOT NULL DEFAULT '[]',
+    models TEXT NOT NULL DEFAULT '[]',
+    tools TEXT NOT NULL DEFAULT '[]',
+    errors TEXT NOT NULL DEFAULT '[]',
+    solution TEXT NOT NULL DEFAULT '',
+    verification TEXT NOT NULL DEFAULT '{}',
+    feedback TEXT NOT NULL DEFAULT '{}',
+    outcome TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT '',
+    provenance TEXT NOT NULL DEFAULT 'agent-turn',
+    confidence REAL NOT NULL DEFAULT 0.5,
+    verified INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_learning_experiences_session ON learning_experiences(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_learning_experiences_verified ON learning_experiences(verified, created_at);
+CREATE TABLE IF NOT EXISTS learning_proposals (
+    id TEXT PRIMARY KEY,
+    skill_name TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL DEFAULT 'create',
+    status TEXT NOT NULL DEFAULT 'proposed',
+    content TEXT NOT NULL,
+    meta TEXT NOT NULL DEFAULT '{}',
+    evidence TEXT NOT NULL DEFAULT '[]',
+    validation TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    decided_at TEXT NOT NULL DEFAULT '',
+    decided_by TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_learning_proposals_skill ON learning_proposals(skill_name, status, created_at);
+CREATE TABLE IF NOT EXISTS learning_versions (
+    id TEXT PRIMARY KEY,
+    skill_name TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'candidate',
+    proposal_id TEXT NOT NULL DEFAULT '',
+    score REAL NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    UNIQUE(skill_name, version)
+);
+CREATE INDEX IF NOT EXISTS idx_learning_versions_skill ON learning_versions(skill_name, version);
+CREATE TABLE IF NOT EXISTS learning_metrics (
+    skill_name TEXT PRIMARY KEY,
+    active_version INTEGER NOT NULL DEFAULT 0,
+    execution_count INTEGER NOT NULL DEFAULT 0,
+    success_count INTEGER NOT NULL DEFAULT 0,
+    verification_count INTEGER NOT NULL DEFAULT 0,
+    total_duration_ms REAL NOT NULL DEFAULT 0,
+    total_tokens INTEGER NOT NULL DEFAULT 0,
+    estimated_cost REAL NOT NULL DEFAULT 0,
+    last_success_at TEXT NOT NULL DEFAULT '',
+    last_modified_at TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS learning_events (
+    id TEXT PRIMARY KEY,
+    skill_name TEXT NOT NULL DEFAULT '',
+    event_type TEXT NOT NULL DEFAULT '',
+    payload TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_learning_events_skill ON learning_events(skill_name, created_at);
 """
 
 MESSAGE_FIELDS = ("name", "tool_call_id", "tool_calls")
@@ -704,6 +773,282 @@ class Store:
             with self.connect() as db:
                 rows = db.execute(sql, [like, like, *params, limit]).fetchall()
         return [self._decode_memory_row(row) for row in rows]
+
+    @staticmethod
+    def _encode_learning_json(value) -> str:
+        payload = value if isinstance(value, (dict, list)) else []
+        return json.dumps(payload, ensure_ascii=False)
+
+    @staticmethod
+    def _decode_learning_json(raw, default):
+        try:
+            value = json.loads(raw or "")
+        except (TypeError, ValueError):
+            return default
+        if isinstance(value, type(default)):
+            return value
+        return default
+
+    def _decode_experience_row(self, row) -> dict | None:
+        if not row:
+            return None
+        item = dict(row)
+        for key, default in (
+            ("classification", {}),
+            ("plan", {}),
+            ("agents", []),
+            ("models", []),
+            ("tools", []),
+            ("errors", []),
+            ("verification", {}),
+            ("feedback", {}),
+        ):
+            item[key] = self._decode_learning_json(item.get(key), default)
+        item["verified"] = bool(item.get("verified"))
+        return item
+
+    def save_experience(self, item) -> None:
+        now = utc_now()
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO learning_experiences(id,session_id,objective,classification,plan_id,plan,agents,models,"
+                "tools,errors,solution,verification,feedback,outcome,status,provenance,confidence,verified,created_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(id) DO UPDATE SET session_id=excluded.session_id, objective=excluded.objective, "
+                "classification=excluded.classification, plan_id=excluded.plan_id, plan=excluded.plan, "
+                "agents=excluded.agents, models=excluded.models, tools=excluded.tools, errors=excluded.errors, "
+                "solution=excluded.solution, verification=excluded.verification, feedback=excluded.feedback, "
+                "outcome=excluded.outcome, status=excluded.status, provenance=excluded.provenance, "
+                "confidence=excluded.confidence, verified=excluded.verified",
+                (
+                    str(item.get("id") or ""),
+                    str(item.get("session_id") or ""),
+                    str(item.get("objective") or ""),
+                    self._encode_learning_json(item.get("classification") or {}),
+                    str(item.get("plan_id") or ""),
+                    self._encode_learning_json(item.get("plan") or {}),
+                    self._encode_learning_json(item.get("agents") or []),
+                    self._encode_learning_json(item.get("models") or []),
+                    self._encode_learning_json(item.get("tools") or []),
+                    self._encode_learning_json(item.get("errors") or []),
+                    str(item.get("solution") or ""),
+                    self._encode_learning_json(item.get("verification") or {}),
+                    self._encode_learning_json(item.get("feedback") or {}),
+                    str(item.get("outcome") or ""),
+                    str(item.get("status") or ""),
+                    str(item.get("provenance") or "agent-turn"),
+                    float(item.get("confidence", 0.5)),
+                    int(bool(item.get("verified"))),
+                    str(item.get("created_at") or now),
+                ),
+            )
+
+    def get_experience(self, experience_id: str) -> dict | None:
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM learning_experiences WHERE id=?", (experience_id,)).fetchone()
+        return self._decode_experience_row(row)
+
+    def list_experiences(
+        self,
+        session_id: str | None = None,
+        verified_only: bool = False,
+        query: str = "",
+        limit: int | None = 50,
+    ) -> list[dict]:
+        sql = "SELECT * FROM learning_experiences WHERE 1=1"
+        params = []
+        if session_id is not None:
+            sql += " AND session_id=?"
+            params.append(session_id)
+        if verified_only:
+            sql += " AND verified=1"
+        if query:
+            like = f"%{str(query)}%"
+            sql += " AND (objective LIKE ? OR solution LIKE ? OR outcome LIKE ? OR plan_id LIKE ?)"
+            params.extend([like, like, like, like])
+        sql += " ORDER BY created_at DESC"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        with self.connect() as db:
+            rows = db.execute(sql, params).fetchall()
+        return [self._decode_experience_row(row) for row in rows]
+
+    def _decode_learning_proposal_row(self, row) -> dict | None:
+        if not row:
+            return None
+        item = dict(row)
+        item["meta"] = self._decode_learning_json(item.get("meta"), {})
+        item["evidence"] = self._decode_learning_json(item.get("evidence"), [])
+        item["validation"] = self._decode_learning_json(item.get("validation"), {})
+        return item
+
+    def save_learning_proposal(self, item) -> None:
+        now = utc_now()
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO learning_proposals(id,skill_name,kind,status,content,meta,evidence,validation,"
+                "created_at,decided_at,decided_by) VALUES(?,?,?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(id) DO UPDATE SET skill_name=excluded.skill_name, kind=excluded.kind, "
+                "status=excluded.status, content=excluded.content, meta=excluded.meta, evidence=excluded.evidence, "
+                "validation=excluded.validation, decided_at=excluded.decided_at, decided_by=excluded.decided_by",
+                (
+                    str(item.get("id") or ""),
+                    str(item.get("skill_name") or ""),
+                    str(item.get("kind") or "create"),
+                    str(item.get("status") or "proposed"),
+                    str(item.get("content") or ""),
+                    self._encode_learning_json(item.get("meta") or {}),
+                    self._encode_learning_json(item.get("evidence") or []),
+                    self._encode_learning_json(item.get("validation") or {}),
+                    str(item.get("created_at") or now),
+                    str(item.get("decided_at") or ""),
+                    str(item.get("decided_by") or ""),
+                ),
+            )
+
+    def get_learning_proposal(self, proposal_id: str) -> dict | None:
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM learning_proposals WHERE id=?", (proposal_id,)).fetchone()
+        return self._decode_learning_proposal_row(row)
+
+    def list_learning_proposals(self, skill_name: str | None = None, status: str | None = None, limit: int | None = 50) -> list[dict]:
+        sql = "SELECT * FROM learning_proposals WHERE 1=1"
+        params = []
+        if skill_name:
+            sql += " AND skill_name=?"
+            params.append(skill_name)
+        if status:
+            sql += " AND status=?"
+            params.append(status)
+        sql += " ORDER BY created_at DESC"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        with self.connect() as db:
+            rows = db.execute(sql, params).fetchall()
+        return [self._decode_learning_proposal_row(row) for row in rows]
+
+    def save_skill_version(self, item) -> None:
+        now = utc_now()
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO learning_versions(id,skill_name,version,content,status,proposal_id,score,created_at) "
+                "VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(skill_name,version) DO UPDATE SET content=excluded.content, "
+                "status=excluded.status, proposal_id=excluded.proposal_id, score=excluded.score",
+                (
+                    str(item.get("id") or ""),
+                    str(item.get("skill_name") or ""),
+                    int(item.get("version") or 1),
+                    str(item.get("content") or ""),
+                    str(item.get("status") or "candidate"),
+                    str(item.get("proposal_id") or ""),
+                    float(item.get("score") or 0.0),
+                    str(item.get("created_at") or now),
+                ),
+            )
+
+    def get_skill_version(self, skill_name: str, version: int) -> dict | None:
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT * FROM learning_versions WHERE skill_name=? AND version=?",
+                (skill_name, int(version)),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def list_skill_versions(self, skill_name: str) -> list[dict]:
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT * FROM learning_versions WHERE skill_name=? ORDER BY version DESC",
+                (skill_name,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def latest_skill_version(self, skill_name: str) -> dict | None:
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT * FROM learning_versions WHERE skill_name=? ORDER BY version DESC LIMIT 1",
+                (skill_name,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def set_skill_version_status(self, skill_name: str, version: int, status: str) -> None:
+        with self.connect() as db:
+            db.execute(
+                "UPDATE learning_versions SET status=? WHERE skill_name=? AND version=?",
+                (status, skill_name, int(version)),
+            )
+
+    def save_skill_metrics(self, item) -> None:
+        now = utc_now()
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO learning_metrics(skill_name,active_version,execution_count,success_count,"
+                "verification_count,total_duration_ms,total_tokens,estimated_cost,last_success_at,last_modified_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(skill_name) DO UPDATE SET "
+                "active_version=excluded.active_version, execution_count=excluded.execution_count, "
+                "success_count=excluded.success_count, verification_count=excluded.verification_count, "
+                "total_duration_ms=excluded.total_duration_ms, total_tokens=excluded.total_tokens, "
+                "estimated_cost=excluded.estimated_cost, last_success_at=excluded.last_success_at, "
+                "last_modified_at=excluded.last_modified_at",
+                (
+                    str(item.get("skill_name") or ""),
+                    int(item.get("active_version") or 0),
+                    int(item.get("execution_count") or 0),
+                    int(item.get("success_count") or 0),
+                    int(item.get("verification_count") or 0),
+                    float(item.get("total_duration_ms") or 0.0),
+                    int(item.get("total_tokens") or 0),
+                    float(item.get("estimated_cost") or 0.0),
+                    str(item.get("last_success_at") or ""),
+                    str(item.get("last_modified_at") or now),
+                ),
+            )
+
+    def get_skill_metrics(self, skill_name: str) -> dict | None:
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM learning_metrics WHERE skill_name=?", (skill_name,)).fetchone()
+        return dict(row) if row else None
+
+    def list_skill_metrics(self) -> list[dict]:
+        with self.connect() as db:
+            rows = db.execute("SELECT * FROM learning_metrics ORDER BY skill_name").fetchall()
+        return [dict(row) for row in rows]
+
+    def record_learning_event(self, item) -> None:
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO learning_events(id,skill_name,event_type,payload,created_at) VALUES(?,?,?,?,?)",
+                (
+                    str(item.get("id") or ""),
+                    str(item.get("skill_name") or ""),
+                    str(item.get("event_type") or ""),
+                    self._encode_learning_json(item.get("payload") or {}),
+                    str(item.get("created_at") or utc_now()),
+                ),
+            )
+
+    def list_learning_events(self, skill_name: str | None = None, event_type: str | None = None, limit: int | None = 50) -> list[dict]:
+        sql = "SELECT * FROM learning_events WHERE 1=1"
+        params = []
+        if skill_name:
+            sql += " AND skill_name=?"
+            params.append(skill_name)
+        if event_type:
+            sql += " AND event_type=?"
+            params.append(event_type)
+        sql += " ORDER BY created_at DESC"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        with self.connect() as db:
+            rows = db.execute(sql, params).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["payload"] = self._decode_learning_json(item.get("payload"), {})
+            result.append(item)
+        return result
 
     def export_session(self, session_id: str) -> dict:
         session = self.get_session(session_id)

@@ -27,7 +27,7 @@ from . import render
 SLASH_COMMANDS = [
     "/help", "/quit", "/exit", "/new", "/clear", "/status", "/provider", "/model",
     "/plan", "/tools", "/memory", "/skills", "/sessions", "/resume", "/history",
-    "/tasks", "/agents", "/schedule", "/cost", "/doctor", "/export",
+    "/tasks", "/agents", "/schedule", "/cost", "/doctor", "/export", "/feedback",
 ]
 
 
@@ -179,6 +179,60 @@ def build_parser():
     skill_edit.add_argument("name")
     skill_edit.add_argument("body")
     skill_edit.set_defaults(func=cmd_skills)
+    skill_discover = skill.add_parser("discover", help="Propose skills from verified experiences")
+    skill_discover.add_argument("--limit", type=int)
+    skill_discover.add_argument("--query", default="")
+    skill_discover.set_defaults(func=cmd_skills)
+    skill_proposals = skill.add_parser("proposals", help="List skill proposals and evidence")
+    skill_proposals.add_argument("--status")
+    skill_proposals.add_argument("--skill")
+    skill_proposals.set_defaults(func=cmd_skills)
+    skill_validate = skill.add_parser("validate", help="Validate a proposed skill")
+    skill_validate.add_argument("skill")
+    skill_validate.set_defaults(func=cmd_skills)
+    skill_approve = skill.add_parser("approve", help="Approve and save a validated proposal")
+    skill_approve.add_argument("proposal")
+    skill_approve.add_argument("--yes", action="store_true", help="Confirm persistent skill change")
+    skill_approve.set_defaults(func=cmd_skills)
+    skill_reject = skill.add_parser("reject", help="Reject a proposal")
+    skill_reject.add_argument("proposal")
+    skill_reject.add_argument("--reason", default="")
+    skill_reject.set_defaults(func=cmd_skills)
+    skill_history = skill.add_parser("history", help="Show learning history for a skill")
+    skill_history.add_argument("skill", nargs="?")
+    skill_history.add_argument("--query", default="")
+    skill_history.add_argument("--limit", type=int)
+    skill_history.set_defaults(func=cmd_skills)
+    skill_versions = skill.add_parser("versions", help="List stored skill versions")
+    skill_versions.add_argument("skill")
+    skill_versions.set_defaults(func=cmd_skills)
+    skill_rollback = skill.add_parser("rollback", help="Activate a previous skill version")
+    skill_rollback.add_argument("skill")
+    skill_rollback.add_argument("version", type=int)
+    skill_rollback.add_argument("--yes", action="store_true", help="Confirm rollback")
+    skill_rollback.set_defaults(func=cmd_skills)
+    skill_result = skill.add_parser("result", help="Record a verified skill execution result")
+    skill_result.add_argument("skill")
+    skill_result.add_argument("--success", action="store_true")
+    skill_result.add_argument("--verified", action="store_true")
+    skill_result.add_argument("--duration-ms", type=float, default=0.0)
+    skill_result.add_argument("--tokens", type=int, default=0)
+    skill_result.add_argument("--cost", type=float, default=0.0)
+    skill_result.set_defaults(func=cmd_skills)
+
+    p_learning = sub.add_parser("learning", help="Inspect learning state and record feedback")
+    learning = p_learning.add_subparsers(dest="action", required=True)
+    p_feedback = learning.add_parser("feedback", help="Record explicit user feedback")
+    p_feedback.add_argument("verdict", choices=["verified", "failed", "neutral"])
+    p_feedback.add_argument("text", nargs="+")
+    p_feedback.add_argument("--experience")
+    p_feedback.add_argument("--session")
+    p_feedback.set_defaults(func=cmd_learning)
+    p_pending = learning.add_parser("pending", help="List pending learning proposals")
+    p_pending.set_defaults(func=cmd_learning)
+    p_metrics = learning.add_parser("metrics", help="Show tracked skill performance")
+    p_metrics.add_argument("skill", nargs="?")
+    p_metrics.set_defaults(func=cmd_learning)
 
     p_tasks = sub.add_parser("tasks", help="Inspect delegated task ledger")
     tasks = p_tasks.add_subparsers(dest="action", required=True)
@@ -421,7 +475,8 @@ def _print_help():
         ("/plan [status|checkpoints|resume <id>|text]", "inspect, resume, or set the active plan"),
         ("/tools", "list enabled tools"),
         ("/memory [list|add|search|delete|layer]", "manage memory"),
-        ("/skills [list|view]", "inspect skills"),
+        ("/skills [list|view|discover|proposals|validate|history|versions]", "inspect skills and learning state"),
+        ("/feedback <verified|failed|neutral> <text>", "record explicit outcome feedback"),
         ("/sessions, /resume <id>", "list or resume sessions"),
         ("/history [query]", "search previous messages"),
         ("/tasks", "list delegated tasks"),
@@ -541,8 +596,37 @@ def _agent_command(agent, parts):
         elif sub == "view" and len(args) > 1:
             skill = agent.skills.view(args[1])
             print(f"# {skill.name}\n\n{skill.body}")
+        elif sub == "discover":
+            proposals = agent.learning.discover(limit=5, query=" ".join(args[1:]))
+            if not proposals:
+                print("(no new skill proposals)")
+            else:
+                for proposal in proposals:
+                    print(f"{proposal['skill_name']}: evidence={', '.join(proposal['evidence'][:5])}")
+        elif sub == "proposals":
+            rows = agent.learning.pending()
+            print(render.table(
+                ["ID", "Skill", "Kind", "Evidence"],
+                [(row["id"][:16], row["skill_name"], row["kind"], str(len(row.get("evidence") or []))) for row in rows],
+            ) if rows else "(no pending proposals)")
+        elif sub == "validate" and len(args) > 1:
+            validation = agent.learning.validate_proposal(args[1])
+            print(json.dumps(validation, indent=2, ensure_ascii=False, default=str))
+        elif sub == "history":
+            history = agent.learning.history(skill_name=args[1] if len(args) > 1 else "", query=" ".join(args[2:]))
+            print(json.dumps(history, indent=2, ensure_ascii=False, default=str)[:4000])
+        elif sub == "versions" and len(args) > 1:
+            rows = agent.learning.versions(args[1])
+            print(render.table(
+                ["Version", "Status", "Score"],
+                [(str(row["version"]), row["status"], str(row["score"])) for row in rows],
+            ) if rows else "(no stored versions)")
         else:
-            print(render.error_line("usage: /skills list|view <name>"))
+            print(render.error_line("usage: /skills list|view <name>|discover|proposals|validate <skill>|history [skill]|versions <skill>"))
+        return False
+    if action == "feedback" and args:
+        result = agent.learning.record_feedback(" ".join(args[1:]), args[0], session_id=agent.session_id)
+        print(render.success_line(f"recorded {result.get('verdict', args[0])} feedback") if result else render.error_line("learning is disabled"))
         return False
     if action == "sessions":
         rows = [(row["id"], row["title"][:40], row["provider"], row["updated_at"]) for row in agent.store.list_sessions()]
@@ -883,22 +967,146 @@ def cmd_memory_layer(args, config, home):
     return 0
 
 
-def cmd_skills(args, config, home):
+def _learning_components(config, home):
+    from aether.learning import LearningEngine
+    from aether.memory import LayeredMemory, MemoryStore
     from aether.skills import SkillEngine
+    from aether.tools import default_registry
 
-    engine = SkillEngine(home, enabled=bool(config.get("skills.enabled", True)))
+    store = Store(home / "state.db")
+    skill_engine = SkillEngine(home, enabled=bool(config.get("skills.enabled", True)))
+    memory = MemoryStore(home, int(config.get("memory.char_limit", 4000)))
+    layered = LayeredMemory(memory, store, config=config, session_id="cli-learning")
+    engine = LearningEngine(
+        store,
+        skill_engine,
+        layered,
+        config,
+        list(default_registry(int(config.get("tools.max_result_chars", 16000))).tools),
+    )
+    return engine, skill_engine
+
+
+def _show_proposal(proposal: dict) -> None:
+    print(f"Proposal {proposal['id']}: {proposal['skill_name']} ({proposal['kind']}, {proposal['status']})")
+    print("Evidence: " + ", ".join(str(item) for item in (proposal.get("evidence") or [])))
+    print(truncate(proposal.get("content", ""), 1200))
+
+
+def cmd_skills(args, config, home):
+    engine, skill_engine = _learning_components(config, home)
     if args.action == "list":
-        rows = [(item["name"], item["source"], item["views"], item["description"][:80]) for item in engine.list_skills()]
+        rows = [(item["name"], item["source"], item["views"], item["description"][:80]) for item in skill_engine.list_skills()]
         print(render.table(["Name", "Source", "Views", "Description"], rows))
-    elif args.action == "view":
-        skill = engine.view(args.name)
+        return 0
+    if args.action == "view":
+        skill = skill_engine.view(args.name)
         print(f"# {skill.name}\n\n{skill.body}")
-    elif args.action == "create":
-        engine.create(args.name, args.description, args.body or "TODO: describe the procedure.")
+        return 0
+    if args.action == "create":
+        skill_engine.create(args.name, args.description, args.body or "TODO: describe the procedure.")
         print(render.success_line(f"created {args.name}"))
-    else:
-        engine.edit(args.name, args.body)
+        return 0
+    if args.action == "edit":
+        skill_engine.edit(args.name, args.body)
         print(render.success_line(f"updated {args.name}"))
+        return 0
+    if args.action == "discover":
+        proposals = engine.discover(limit=args.limit, query=args.query)
+        if not proposals:
+            print("(no new skill proposals)")
+            return 0
+        for proposal in proposals:
+            _show_proposal(proposal)
+        return 0
+    if args.action == "proposals":
+        rows = engine.proposals(status=args.status, skill_name=args.skill)
+        if not rows:
+            print("(no proposals)")
+            return 0
+        print(render.table(
+            ["ID", "Skill", "Kind", "Status", "Evidence"],
+            [(row["id"][:16], row["skill_name"], row["kind"], row["status"], str(len(row.get("evidence") or []))) for row in rows],
+        ))
+        return 0
+    if args.action == "validate":
+        validation = engine.validate_proposal(args.skill)
+        print(json.dumps(validation, indent=2, ensure_ascii=False, default=str))
+        return 0 if validation.get("passed") else 1
+    if args.action == "approve":
+        proposal = next((row for row in engine.proposals() if row["id"] == args.proposal), None)
+        if proposal is None:
+            print(render.error_line(f"proposal '{args.proposal}' not found"))
+            return 1
+        _show_proposal(proposal)
+        if not args.yes:
+            print(render.error_line("approval not granted; rerun with --yes to save this skill"))
+            return 1
+        result = engine.approve_proposal(args.proposal, authorized=True, approver="cli-user")
+        print(render.success_line(f"approved {result['skill']} version {result['version']}"))
+        return 0
+    if args.action == "reject":
+        result = engine.reject_proposal(args.proposal, approver="cli-user", reason=args.reason)
+        print(render.success_line(f"rejected {result['skill_name']}"))
+        return 0
+    if args.action == "history":
+        history = engine.history(skill_name=args.skill or "", query=args.query, limit=args.limit)
+        print(json.dumps(history, indent=2, ensure_ascii=False, default=str)[:8000])
+        return 0
+    if args.action == "versions":
+        rows = engine.versions(args.skill)
+        print(render.table(
+            ["Version", "Status", "Score", "Proposal", "Created"],
+            [(str(row["version"]), row["status"], str(row["score"]), row["proposal_id"][:16], row["created_at"]) for row in rows],
+        ) if rows else "(no stored versions)")
+        return 0
+    if args.action == "rollback":
+        row = next((item for item in engine.versions(args.skill) if int(item["version"]) == args.version), None)
+        if row is None:
+            print(render.error_line(f"version {args.version} of '{args.skill}' not found"))
+            return 1
+        print(truncate(row["content"], 1200))
+        if not args.yes:
+            print(render.error_line("approval not granted; rerun with --yes to activate this version"))
+            return 1
+        result = engine.rollback_skill(args.skill, args.version, authorized=True, approver="cli-user")
+        print(render.success_line(f"active version is now {result['active_version']}"))
+        return 0
+    if args.action == "result":
+        metrics = engine.record_skill_result(
+            args.skill,
+            success=args.success,
+            verified=args.verified,
+            duration_ms=args.duration_ms,
+            tokens=args.tokens,
+            cost=args.cost,
+        )
+        print(json.dumps(metrics, indent=2))
+        return 0
+    print(render.error_line(f"unknown skills action '{args.action}'"))
+    return 1
+
+
+def cmd_learning(args, config, home):
+    engine, _ = _learning_components(config, home)
+    if args.action == "feedback":
+        result = engine.record_feedback(
+            " ".join(args.text),
+            args.verdict,
+            experience_id=args.experience or "",
+            session_id=args.session or "cli-learning",
+        )
+        print(json.dumps(result, indent=2, ensure_ascii=False, default=str)[:4000])
+        return 0
+    if args.action == "pending":
+        rows = engine.pending()
+        print(render.table(
+            ["ID", "Skill", "Kind", "Created", "Evidence"],
+            [(row["id"][:16], row["skill_name"], row["kind"], row["created_at"], str(len(row.get("evidence") or []))) for row in rows],
+        ) if rows else "(no pending proposals)")
+        return 0
+    rows = engine.metrics(args.skill)
+    print(json.dumps(rows, indent=2, ensure_ascii=False) if rows else "(no tracked skills)")
     return 0
 
 

@@ -51,6 +51,16 @@ DEFAULTS = {
         },
     },
     "skills": {"enabled": True, "max_prompt_chars": 3000},
+    "learning": {
+        "enabled": True,
+        "experience_retention": 500,
+        "min_experiences": 2,
+        "min_confidence": 0.7,
+        "require_approval": True,
+        "allow_auto_approve": False,
+        "max_context_chars": 1200,
+        "regression_limit": 6,
+    },
     "costs": {"confirm_paid": True, "max_estimated_usd_per_turn": None},
     "integrations": {
         "web_search": {"provider": "duckduckgo", "api_key_env": "", "base_url": ""},
@@ -174,6 +184,13 @@ class Config:
         roles = self.get("orchestrator.roles", {})
         if not isinstance(roles, dict):
             warnings.append("orchestrator.roles must be an object keyed by role name.")
+        for key in ("experience_retention", "min_experiences", "max_context_chars", "regression_limit"):
+            value = self.get(f"learning.{key}")
+            if not isinstance(value, int) or value < 0:
+                warnings.append(f"learning.{key} must be a non-negative integer.")
+        confidence = self.get("learning.min_confidence")
+        if not isinstance(confidence, (int, float)) or not 0.0 <= float(confidence) <= 1.0:
+            warnings.append("learning.min_confidence must be between 0 and 1.")
         return warnings
 
 

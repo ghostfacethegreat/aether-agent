@@ -8,6 +8,7 @@ from aether.core.loop import TurnState, new_spend_budget, run_turn_loop
 from aether.core.planning import ExecutionPlan, ExecutionStateMachine, build_plan, is_resume_request
 from aether.core.state import ExecutionCheckpoint, make_checkpoint, restore_plan
 from aether.home import aether_home, state_db_path, workspace_root
+from aether.learning import LearningEngine
 from aether.memory import LayeredMemory, MemoryStore
 from aether.orchestration import Orchestrator
 from aether.orchestration.roles import FORCED_APPROVAL_TOOLS, FORCED_DENY_TOOLS
@@ -83,6 +84,13 @@ class Agent:
         self.registry = default_registry(int(self.config.get("tools.max_result_chars", 16000)))
         if allowed_tools is not None:
             self.registry.tools = {name: tool for name, tool in self.registry.tools.items() if name in allowed_tools}
+        self.learning = LearningEngine(
+            self.store,
+            self.skills,
+            self.layered_memory,
+            self.config,
+            list(self.registry.tools),
+        )
         self.policy = PermissionPolicy(
             self.config,
             store=self.store,
@@ -208,6 +216,7 @@ class Agent:
                 "memory": self.memory,
                 "layered_memory": self.layered_memory,
                 "skills": self.skills,
+                "learning": self.learning,
                 "policy": self.policy,
                 "provider_manager": self.provider_manager,
                 "scheduler": self.scheduler,
@@ -224,6 +233,7 @@ class Agent:
     def _child_agent(self, parent_context, task):
         child_config = Config(self.config.as_dict())
         child_config.set("planning.enabled", False)
+        child_config.set("learning.enabled", False)
         child_config.set("provider", self.provider_manager.active_name)
         child_config.set("model", self.provider_manager.model)
         child_config.set("max_iterations", min(4, int(self.config.get("max_iterations", 12))))
@@ -256,6 +266,7 @@ class Agent:
         child_config.set("provider", provider)
         child_config.set("model", model)
         child_config.set("planning.enabled", False)
+        child_config.set("learning.enabled", False)
         child_config.set("personality", role_spec.get("system_prompt", ""))
         child_config.set("system_prompt", "")
         child_config.set("max_iterations", int(role_spec.get("max_iterations", 4)))
@@ -361,10 +372,14 @@ class Agent:
             else ""
         )
         memory_context = "\n".join(part for part in (legacy_context, layered_context) if part)
+        learning_context = (
+            self.learning.context(text) if self.config.get("learning.enabled", True) else ""
+        )
         system_prompt = self.context_manager.system_prompt(
             memory_context=memory_context,
             skills_context=self.skills.context(int(self.config.get("skills.max_prompt_chars", 3000))),
             plan=plan_context,
+            learning_context=learning_context,
         )
         messages = [{"role": "system", "content": system_prompt}] + [dict(item) for item in self.history]
         user_message = {"role": "user", "content": text}
@@ -393,6 +408,34 @@ class Agent:
         plan_payload = self._finalize_execution_plan(state)
         if self.persist and self.config.get("memory.enabled", True):
             self.layered_memory.record_episode(text, state.final_text, state.exit_reason, state.tool_log, self.session_id)
+        if self.persist and self.config.get("learning.enabled", True):
+            errors = [str(state.error)] if state.error else []
+            errors.extend(str(item.get("error")) for item in state.tool_log if item.get("error"))
+            plan = plan_payload or {}
+            route = plan.get("route") if isinstance(plan.get("route"), list) else []
+            agents = ["parent"]
+            if any("orchestrat" in str(item).lower() for item in route):
+                agents.append("orchestrator")
+            self.learning.record_experience(
+                text,
+                plan=plan,
+                classification={
+                    "complexity": str(plan.get("complexity") or ""),
+                    "route": route,
+                    "risk": str(plan.get("risk") or ""),
+                },
+                plan_id=str(plan.get("id") or ""),
+                agents=agents,
+                models=[f"{state.usage.get('provider') or self.provider_manager.active_name}/{state.usage.get('model') or self.provider_manager.model}"],
+                tools=state.tool_log,
+                errors=errors,
+                solution=state.final_text,
+                verification={"status": "unverified", "sources": [], "model_claim": state.final_text},
+                outcome=state.exit_reason,
+                status=state.exit_reason,
+                provenance="agent-turn",
+                session_id=self.session_id,
+            )
         self.plan = self.execution_plan.render() if self.execution_plan else state.plan
         state.plan = self.plan
         self.history = [item for item in state.messages if item.get("role") != "system"][-80:]
@@ -441,6 +484,10 @@ class Agent:
             "skills": len(self.skills.list_skills()),
             "memories": len(self.memory.list()) + len(self.memory.list(True)),
             "memory_layers": self.layered_memory.counts(),
+            "learning": {
+                "pending_proposals": len(self.learning.pending()),
+                "tracked_skills": len(self.learning.metrics()),
+            },
             "workspace": str(self.workspace),
             "home": str(self.home),
             "plan": self.execution_plan.summary() if self.execution_plan else None,
