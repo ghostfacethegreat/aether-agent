@@ -6,7 +6,7 @@ Aether works with no paid account: the defaults target local Ollama, and a built
 
 ## Status
 
-Version `0.1.0` is an alpha release. A working core, screenshots, installer scripts, and source publication are complete. The project priority for `0.2+` is intelligence first: planning, memory, learning, routing, coding, research, coordination, verification, recovery, and measured task success. Adaptive planning, risk/alternatives records, and resumable execution checkpoints are implemented and locally verified on a feature branch; `0.2.0` has not been released. See the [development status](docs/DEVELOPMENT_STATUS.md), [release roadmap](docs/RELEASE_ROADMAP.md), [known limitations](docs/KNOWN_LIMITATIONS.md), [intelligence audit](docs/INTELLIGENCE_AUDIT.md), [intelligence roadmap](docs/INTELLIGENCE_ROADMAP.md), and [source-evidenced Hermes comparison](docs/HERMES_COMPARISON.md). No Hermes parity or superiority is claimed. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
+Version `0.1.0` is an alpha release. A working core, screenshots, installer scripts, and source publication are complete. The project priority for `0.2+` is intelligence first: planning, memory, learning, routing, coding, research, coordination, verification, recovery, and measured task success. Adaptive planning, risk/alternatives records, resumable execution checkpoints, and additive layered memory are implemented and locally verified on a feature branch; `0.2.0` has not been released. See the [development status](docs/DEVELOPMENT_STATUS.md), [release roadmap](docs/RELEASE_ROADMAP.md), [known limitations](docs/KNOWN_LIMITATIONS.md), [intelligence audit](docs/INTELLIGENCE_AUDIT.md), [intelligence roadmap](docs/INTELLIGENCE_ROADMAP.md), and [source-evidenced Hermes comparison](docs/HERMES_COMPARISON.md). No Hermes parity or superiority is claimed. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
 
 Terminal appearance is frozen. The existing ASCII artwork and colored rendering are preserved; only functional visual regressions will be fixed. Do not expect a theme selector, font system, animated title, or visual redesign in `0.2+`.
 
@@ -102,11 +102,14 @@ See `docs/CONFIGURATION.md`.
 
 ## Memory, skills, and tools
 
-Memory is two editable Markdown files: `~/.aether/memories/MEMORY.md` and `USER.md`.
+Memory starts as two editable Markdown files: `~/.aether/memories/MEMORY.md` and `USER.md`. Aether also keeps additive SQLite-backed layers for working objectives, turn episodes, semantic facts with provenance, verified procedures, and an explicit user model. Layered recall is bounded and labeled, and child agents cannot write it persistently.
 
 ```bash
 aether memory add "Prefer Python for prototypes" --category preferences
 aether memory list
+aether memory layer add "Uses SQLite locally" --layer semantic --subject storage --provenance manual
+aether memory layer recall "SQLite"
+aether memory layer counts
 ```
 
 Skills are `SKILL.md` files in `~/.aether/skills/<name>/SKILL.md`, with built-in examples under `aether/skills/builtin/`. Skills are discovered on demand and summarized in the system prompt.

@@ -17,8 +17,9 @@ This is the resume log for the intelligence-first `Aether 0.2+` program. It reco
 | Pushed commits from this program | none |
 | Phase B verification | 121 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
 | Phase B checkpoint | `9aef0fb873f6e54bc78f7b587e3fe8709dc07c55` |
+| Phase C verification | 132 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
 
-The two unpushed documentation commits are deliberately preserved. Do not reset, discard, force-push, push, merge, tag, or release until the release gates in [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) pass.
+The unpushed commits from this program are deliberately preserved. Do not reset, discard, force-push, push, merge, tag, or release until the release gates in [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) pass.
 
 ## Completed work
 
@@ -64,9 +65,25 @@ Failure found: `test_revision_records_invalidating_evidence` initially failed be
 
 The full verbose test output emitted `ResourceWarning` notices for unclosed SQLite connections; no test or check failed. The startup benchmark recorded 3 cold starts, `0.095s` median wall time, and `32.1 MiB` peak child RSS. These are startup measurements, not task-quality results.
 
+### Phase C — layered memory
+
+- Added additive SQLite-backed working, episodic, semantic, procedural, and user memory layers while keeping `MEMORY.md` and `USER.md` valid and editable.
+- Added bounded, labeled context retrieval with provenance, confidence, session-scoped working memory, duplicate consolidation, correction, contradiction handling, expiration, export/import, and idempotent Markdown migration.
+- Wrote active objectives and turn episodes from real agent turns, exposed layered memory through `aether memory layer ...`, `/memory layer ...`, and the `memory` tool, and blocked child agents from persistent layered-memory writes.
+
+| Command | Result |
+|---|---|
+| `python3 -W ignore::ResourceWarning -m unittest tests.test_memory_layers -v` | 11 focused tests passed |
+| `python3 -W ignore::ResourceWarning -m unittest discover -s tests -v` | 132 tests passed in `1.007s` |
+| `bash scripts/check.sh && bash scripts/test_install.sh && git diff --check` | all commands passed |
+
+Failures found: `test_working_memory_is_session_scoped_and_expires` exposed that already-expired active rows were filtered out before pruning; `LayeredMemory.prune_expired()` now includes expired rows. `test_consolidation_merges_duplicates` exposed an ambiguous tie when confidence and timestamp matched; the test now uses distinct confidence values to verify highest-confidence retention.
+
+Startup benchmarks recorded 3 cold starts, `0.110s` median wall time, and `33.6 MiB` peak child RSS during the implementation run, then `0.095s` and `32.4 MiB` during the final documentation run. These are startup measurements, not task-quality results.
+
 ## Active work
 
-Phase C — layered memory — is next and not started.
+Phase D — learning loop and skill quality — is next and not started.
 
 ## Per-phase record
 

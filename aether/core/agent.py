@@ -8,7 +8,7 @@ from aether.core.loop import TurnState, new_spend_budget, run_turn_loop
 from aether.core.planning import ExecutionPlan, ExecutionStateMachine, build_plan, is_resume_request
 from aether.core.state import ExecutionCheckpoint, make_checkpoint, restore_plan
 from aether.home import aether_home, state_db_path, workspace_root
-from aether.memory import MemoryStore
+from aether.memory import LayeredMemory, MemoryStore
 from aether.orchestration import Orchestrator
 from aether.orchestration.roles import FORCED_APPROVAL_TOOLS, FORCED_DENY_TOOLS
 from aether.persistence import Store
@@ -70,6 +70,13 @@ class Agent:
         self.persist = persist
         self.workspace = workspace_root()
         self.memory = MemoryStore(self.home, self.config.get("memory.char_limit", 4000))
+        self.layered_memory = LayeredMemory(
+            self.memory,
+            self.store,
+            config=self.config,
+            persist=self.persist,
+            session_id=self.session_id if hasattr(self, "session_id") else "",
+        )
         self.skills = SkillEngine(self.home, enabled=bool(self.config.get("skills.enabled", True)))
         self.context_manager = ContextManager(self.config)
         self.provider_manager = ProviderManager(self.config)
@@ -97,6 +104,7 @@ class Agent:
         self.execution_plan: ExecutionPlan | None = None
         self.current_state: TurnState | None = None
         self.session_id = session_id or (self.store.create_session(provider=self.provider_manager.active_name, model=self.provider_manager.model) if persist else make_id("session"))
+        self.layered_memory.session_id = self.session_id
         self.history = self._load_history()
         self._restore_execution_plan()
         self._refresh_executor_context()
@@ -198,6 +206,7 @@ class Agent:
                 "home": self.home,
                 "workspace": self.workspace,
                 "memory": self.memory,
+                "layered_memory": self.layered_memory,
                 "skills": self.skills,
                 "policy": self.policy,
                 "provider_manager": self.provider_manager,
@@ -236,6 +245,7 @@ class Agent:
             approve_callback=self.approve_callback,
         )
         child.policy.workspace = self.workspace
+        child.layered_memory.enabled = False
         child.executor.context["child_agent"] = True
         return child
 
@@ -281,6 +291,7 @@ class Agent:
             cancel_event=cancel_event,
         )
         child.policy.workspace = self.workspace
+        child.layered_memory.enabled = False
         child.executor.context["child_agent"] = True
         return child
 
@@ -308,6 +319,7 @@ class Agent:
         self.history = []
         self.plan = ""
         self.execution_plan = None
+        self.layered_memory.clear(layer="working", session_id=self.session_id)
         if self.persist:
             session = self.store.get_session(self.session_id)
             if session:
@@ -324,6 +336,8 @@ class Agent:
             raise ValueError("User input cannot be empty")
         self._sync_execution_plan(text)
         self._refresh_executor_context()
+        if self.config.get("memory.enabled", True):
+            self.layered_memory.set_working("active_objective", text, provenance=f"turn:{self.session_id}")
         if self.cancel_event.is_set():
             if self.execution_plan is not None:
                 self.execution_plan.cancel("cancelled before turn start")
@@ -339,8 +353,16 @@ class Agent:
         plan_context = self.plan
         if self.execution_plan is not None and self.execution_plan.status == "paused":
             plan_context = self.execution_plan.resume_context()
+        memory_enabled = bool(self.config.get("memory.enabled", True))
+        legacy_context = self.memory.context(include_user=bool(self.config.get("memory.inject_user_profile", True))) if memory_enabled else ""
+        layered_context = (
+            self.layered_memory.context(text, int(self.config.get("memory.layered.context_chars", 1800)))
+            if memory_enabled
+            else ""
+        )
+        memory_context = "\n".join(part for part in (legacy_context, layered_context) if part)
         system_prompt = self.context_manager.system_prompt(
-            memory_context=self.memory.context() if self.config.get("memory.enabled", True) else "",
+            memory_context=memory_context,
             skills_context=self.skills.context(int(self.config.get("skills.max_prompt_chars", 3000))),
             plan=plan_context,
         )
@@ -369,6 +391,8 @@ class Agent:
         self.current_state = state
         run_turn_loop(state)
         plan_payload = self._finalize_execution_plan(state)
+        if self.persist and self.config.get("memory.enabled", True):
+            self.layered_memory.record_episode(text, state.final_text, state.exit_reason, state.tool_log, self.session_id)
         self.plan = self.execution_plan.render() if self.execution_plan else state.plan
         state.plan = self.plan
         self.history = [item for item in state.messages if item.get("role") != "system"][-80:]
@@ -416,6 +440,7 @@ class Agent:
             "tools": len(self.registry.tools),
             "skills": len(self.skills.list_skills()),
             "memories": len(self.memory.list()) + len(self.memory.list(True)),
+            "memory_layers": self.layered_memory.counts(),
             "workspace": str(self.workspace),
             "home": str(self.home),
             "plan": self.execution_plan.summary() if self.execution_plan else None,

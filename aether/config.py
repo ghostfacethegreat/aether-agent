@@ -39,7 +39,17 @@ DEFAULTS = {
         "parallel_safe": True,
         "python_enabled": True,
     },
-    "memory": {"enabled": True, "char_limit": 4000, "inject_user_profile": True},
+    "memory": {
+        "enabled": True,
+        "char_limit": 4000,
+        "inject_user_profile": True,
+        "layered": {
+            "enabled": True,
+            "context_chars": 1800,
+            "recall_limit": 12,
+            "working_days": 1,
+        },
+    },
     "skills": {"enabled": True, "max_prompt_chars": 3000},
     "costs": {"confirm_paid": True, "max_estimated_usd_per_turn": None},
     "integrations": {

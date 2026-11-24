@@ -403,8 +403,69 @@ def browser(args, context):
 
 def memory_tool(args, context):
     store = context["memory"]
+    layered = context.get("layered_memory")
     action = str(args.get("action") or "list").lower()
     user = bool(args.get("user"))
+    if action == "layer":
+        if layered is None:
+            raise ToolError("Layered memory is unavailable")
+        operation = str(args.get("layer_action") or args.get("operation") or "list").lower()
+        write_operations = {"add", "correct", "delete", "clear", "consolidate", "prune", "migrate", "import"}
+        if context.get("child_agent") and operation in write_operations:
+            raise ToolError("Child agents cannot modify layered memory")
+        if operation == "add":
+            item = layered.remember(
+                str(args.get("layer") or "semantic"),
+                args.get("content", args.get("text", "")),
+                subject=args.get("subject", ""),
+                provenance=args.get("provenance", "manual"),
+                confidence=args.get("confidence"),
+                session_id=args.get("session_id"),
+                expires_days=args.get("expires_days"),
+                verified=bool(args.get("verified")),
+            )
+            return _text({"id": item["id"]} if item else {"added": False})
+        if operation == "list":
+            return _text(layered.list(layer=args.get("layer"), session_id=args.get("session_id")))
+        if operation in ("recall", "search"):
+            return _text(
+                layered.recall(
+                    args.get("query", args.get("text", "")),
+                    limit=args.get("limit"),
+                    layers=[args.get("layer")] if args.get("layer") else None,
+                    session_id=args.get("session_id"),
+                )
+            )
+        if operation == "context":
+            return layered.context(args.get("query", args.get("text", "")), max_chars=args.get("max_chars"))
+        if operation == "counts":
+            return _text(layered.counts())
+        if operation == "correct":
+            item = layered.correct(
+                str(args.get("item_id") or ""),
+                args.get("content", args.get("text", "")),
+                provenance=args.get("provenance", "correction"),
+                confidence=args.get("confidence"),
+            )
+            return _text(item or {"corrected": False})
+        if operation == "delete":
+            return _text({"deleted": layered.delete(str(args.get("item_id") or ""))})
+        if operation == "clear":
+            return _text({"cleared": layered.clear(layer=args.get("layer"), session_id=args.get("session_id"))})
+        if operation == "consolidate":
+            return _text(layered.consolidate())
+        if operation == "prune":
+            return _text({"expired": layered.prune_expired()})
+        if operation == "migrate":
+            return _text({"migrated": layered.migrate_markdown()})
+        if operation == "export":
+            return _text(layered.export_data())
+        if operation == "import":
+            data = args.get("data")
+            if args.get("path"):
+                data = json.loads(_path(context, args["path"]).read_text(encoding="utf-8"))
+            return _text({"imported": layered.import_data(data, merge=not args.get("replace"))})
+        raise ToolError(f"Unknown layered memory operation '{operation}'")
     if action == "add":
         store.add(str(args.get("text") or ""), str(args.get("category") or "general"), user)
         return "Memory saved"
@@ -659,16 +720,28 @@ TOOLS = [
     ),
     Tool(
         "memory",
-        "Manage persistent memory: add, list, search, replace, delete, export, import.",
+        "Manage Markdown memory and layered memory: add, list, search, replace, delete, layer, export, import.",
         {
             "type": "object",
             "properties": {
                 "action": {"type": "string"},
+                "layer_action": {"type": "string"},
                 "text": {"type": "string"},
+                "content": {"type": "string"},
                 "category": {"type": "string"},
+                "layer": {"type": "string"},
+                "subject": {"type": "string"},
+                "provenance": {"type": "string"},
+                "confidence": {"type": "number"},
                 "query": {"type": "string"},
                 "index": {"type": "integer"},
+                "item_id": {"type": "string"},
+                "session_id": {"type": "string"},
+                "limit": {"type": "integer"},
+                "max_chars": {"type": "integer"},
+                "expires_days": {"type": "number"},
                 "user": {"type": "boolean"},
+                "verified": {"type": "boolean"},
                 "path": {"type": "string"},
                 "data": {},
                 "replace": {"type": "boolean"},

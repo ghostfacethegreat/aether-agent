@@ -14,7 +14,7 @@ from aether.core.planning import ExecutionPlan
 from aether.errors import AetherError
 from aether.home import aether_home, env_path
 from aether.logging import get_logger, set_level
-from aether.memory import MemoryStore
+from aether.memory import LAYERS, LayeredMemory, MemoryStore
 from aether.orchestration import ROLE_NAMES, Orchestrator, resolved_roles
 from aether.persistence import Store
 from aether.providers.catalog import PROVIDERS, provider_is_billable
@@ -112,6 +112,56 @@ def build_parser():
     mem_import.add_argument("path")
     mem_import.add_argument("--replace", action="store_true")
     mem_import.set_defaults(func=cmd_memory)
+
+    mem_layer = mem.add_parser("layer", help="Manage layered memory")
+    layer = mem_layer.add_subparsers(dest="layer_action", required=True)
+    layer_list = layer.add_parser("list")
+    layer_list.add_argument("--layer", choices=LAYERS)
+    layer_list.add_argument("--session")
+    layer_list.set_defaults(func=cmd_memory)
+    layer_add = layer.add_parser("add")
+    layer_add.add_argument("content")
+    layer_add.add_argument("--layer", choices=LAYERS, default="semantic")
+    layer_add.add_argument("--subject", default="")
+    layer_add.add_argument("--provenance", default="manual")
+    layer_add.add_argument("--confidence", type=float)
+    layer_add.add_argument("--session")
+    layer_add.add_argument("--expires-days", type=float)
+    layer_add.add_argument("--verified", action="store_true")
+    layer_add.set_defaults(func=cmd_memory)
+    layer_recall = layer.add_parser("recall")
+    layer_recall.add_argument("query", nargs="?")
+    layer_recall.add_argument("--layer", choices=LAYERS)
+    layer_recall.add_argument("--session")
+    layer_recall.add_argument("--limit", type=int)
+    layer_recall.add_argument("--max-chars", type=int)
+    layer_recall.set_defaults(func=cmd_memory)
+    layer_context = layer.add_parser("context")
+    layer_context.add_argument("task", nargs="*")
+    layer_context.add_argument("--max-chars", type=int)
+    layer_context.set_defaults(func=cmd_memory)
+    layer_correct = layer.add_parser("correct")
+    layer_correct.add_argument("id")
+    layer_correct.add_argument("content")
+    layer_correct.add_argument("--provenance", default="correction")
+    layer_correct.add_argument("--confidence", type=float)
+    layer_correct.set_defaults(func=cmd_memory)
+    layer_delete = layer.add_parser("delete")
+    layer_delete.add_argument("id")
+    layer_delete.set_defaults(func=cmd_memory)
+    layer_clear = layer.add_parser("clear")
+    layer_clear.add_argument("--layer", choices=LAYERS)
+    layer_clear.add_argument("--session")
+    layer_clear.set_defaults(func=cmd_memory)
+    for name in ("consolidate", "prune", "migrate", "counts"):
+        layer.add_parser(name).set_defaults(func=cmd_memory)
+    layer_export = layer.add_parser("export")
+    layer_export.add_argument("path", nargs="?")
+    layer_export.set_defaults(func=cmd_memory)
+    layer_import = layer.add_parser("import")
+    layer_import.add_argument("path")
+    layer_import.add_argument("--replace", action="store_true")
+    layer_import.set_defaults(func=cmd_memory)
 
     p_skills = sub.add_parser("skills", help="Manage reusable SKILL.md skills")
     skill = p_skills.add_subparsers(dest="action", required=True)
@@ -370,7 +420,7 @@ def _print_help():
         ("/model <model>", "switch model on active provider"),
         ("/plan [status|checkpoints|resume <id>|text]", "inspect, resume, or set the active plan"),
         ("/tools", "list enabled tools"),
-        ("/memory [list|add|search|delete]", "manage memory"),
+        ("/memory [list|add|search|delete|layer]", "manage memory"),
         ("/skills [list|view]", "inspect skills"),
         ("/sessions, /resume <id>", "list or resume sessions"),
         ("/history [query]", "search previous messages"),
@@ -455,11 +505,33 @@ def _agent_command(agent, parts):
         elif sub == "list":
             rows = agent.memory.list(user)
             print(render.table(["Category", "Entry"], [(c, truncate(e, 100)) for c, e in rows]) if rows else "(empty)")
+        elif sub == "layer" and len(args) >= 2:
+            operation = args[1]
+            layered = agent.layered_memory
+            if operation == "list":
+                rows = [
+                    (item["id"][:12], item["layer"], item["subject"][:40], truncate(item["content"], 100))
+                    for item in layered.list()
+                ]
+                print(render.table(["ID", "Layer", "Subject", "Content"], rows) if rows else "(empty)")
+            elif operation == "add" and len(args) >= 4:
+                item = layered.remember(args[2], " ".join(args[3:]), provenance="cli")
+                print(render.success_line(item["id"]) if item else render.error_line("memory not saved"))
+            elif operation in ("recall", "search") and len(args) >= 3:
+                rows = [
+                    (item["layer"], item["subject"][:40], truncate(item["content"], 120))
+                    for item in layered.recall(" ".join(args[2:]))
+                ]
+                print(render.table(["Layer", "Subject", "Content"], rows) if rows else "(no matches)")
+            elif operation == "counts":
+                print(json.dumps(layered.counts(), indent=2))
+            else:
+                print(render.error_line("usage: /memory layer list|add <layer> <text>|recall <query>|counts"))
         elif sub == "delete" and len(args) >= 3:
             ok = agent.memory.delete(args[1], int(args[2]), user)
             print(render.success_line("deleted") if ok else render.error_line("no matching entry"))
         else:
-            print(render.error_line("usage: /memory list|add <text>|search <query>|delete <category> <index>"))
+            print(render.error_line("usage: /memory list|add <text>|search <query>|delete <category> <index>|layer ..."))
         return False
     if action == "skills":
         sub = args[0] if args else "list"
@@ -722,6 +794,8 @@ def cmd_sessions(args, config, home):
 
 
 def cmd_memory(args, config, home):
+    if args.action == "layer":
+        return cmd_memory_layer(args, config, home)
     store = MemoryStore(home, config.get("memory.char_limit", 4000))
     user = bool(getattr(args, "user", False))
     if args.action == "list":
@@ -747,6 +821,65 @@ def cmd_memory(args, config, home):
         payload = read_json(Path(args.path), {})
         store.import_data(payload, merge=not args.replace)
         print(render.success_line("memory imported"))
+    return 0
+
+
+def cmd_memory_layer(args, config, home):
+    markdown = MemoryStore(home, config.get("memory.char_limit", 4000))
+    store = Store(home / "state.db")
+    layered = LayeredMemory(markdown, store, config=config, persist=True)
+    action = str(args.layer_action)
+    if action == "list":
+        rows = layered.list(layer=getattr(args, "layer", None), session_id=getattr(args, "session", None))
+        rendered = [(row["id"][:12], row["layer"], row["subject"][:40], truncate(row["content"], 100), row["provenance"][:30]) for row in rows]
+        print(render.table(["ID", "Layer", "Subject", "Content", "Source"], rendered) if rendered else "(empty)")
+    elif action == "add":
+        item = layered.remember(
+            args.layer,
+            args.content,
+            subject=args.subject,
+            provenance=args.provenance,
+            confidence=args.confidence,
+            session_id=args.session,
+            expires_days=getattr(args, "expires_days", None),
+            verified=bool(getattr(args, "verified", False)),
+        )
+        print(render.success_line(item["id"]) if item else render.error_line("memory not saved"))
+    elif action == "recall":
+        rows = layered.recall(
+            getattr(args, "query", "") or "",
+            limit=args.limit,
+            layers=[args.layer] if getattr(args, "layer", None) else None,
+            session_id=getattr(args, "session", None),
+            max_chars=getattr(args, "max_chars", None),
+        )
+        rendered = [(row["layer"], row["subject"][:40], truncate(row["content"], 120), f"{float(row['confidence']):.2f}") for row in rows]
+        print(render.table(["Layer", "Subject", "Content", "Confidence"], rendered) if rendered else "(no matches)")
+    elif action == "context":
+        context = layered.context(" ".join(args.task), max_chars=getattr(args, "max_chars", None))
+        print(context or "(empty)")
+    elif action == "correct":
+        item = layered.correct(args.id, args.content, provenance=args.provenance, confidence=args.confidence)
+        print(render.success_line(item["id"]) if item else render.error_line("no matching item"))
+    elif action == "delete":
+        print(render.success_line("deleted") if layered.delete(args.id) else render.error_line("no matching item"))
+    elif action == "clear":
+        print(render.success_line(f"cleared {layered.clear(layer=getattr(args, 'layer', None), session_id=getattr(args, 'session', None))}"))
+    elif action == "consolidate":
+        print(json.dumps(layered.consolidate(), indent=2))
+    elif action == "prune":
+        print(json.dumps({"expired": layered.prune_expired()}, indent=2))
+    elif action == "migrate":
+        print(json.dumps({"migrated": layered.migrate_markdown()}, indent=2))
+    elif action == "counts":
+        print(json.dumps(layered.counts(), indent=2))
+    elif action == "export":
+        path = Path(args.path) if args.path else home / "exports" / "memory-layers.json"
+        atomic_json_write(path, layered.export_data())
+        print(render.success_line(str(path)))
+    else:
+        payload = read_json(Path(args.path), {})
+        print(render.success_line(f"imported {layered.import_data(payload, merge=not args.replace)}"))
     return 0
 
 

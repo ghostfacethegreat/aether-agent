@@ -1,4 +1,5 @@
 import json
+import re
 import sqlite3
 from pathlib import Path
 
@@ -77,6 +78,23 @@ CREATE TABLE IF NOT EXISTS execution_checkpoints (
     FOREIGN KEY(plan_id) REFERENCES execution_plans(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_execution_checkpoints_plan ON execution_checkpoints(plan_id, sequence);
+CREATE TABLE IF NOT EXISTS memory_items (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL DEFAULT '',
+    layer TEXT NOT NULL,
+    subject TEXT NOT NULL DEFAULT '',
+    content TEXT NOT NULL,
+    provenance TEXT NOT NULL DEFAULT '',
+    confidence REAL NOT NULL DEFAULT 0.5,
+    status TEXT NOT NULL DEFAULT 'active',
+    metadata TEXT NOT NULL DEFAULT '{}',
+    supersedes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_memory_items_layer ON memory_items(layer, status, updated_at);
+CREATE INDEX IF NOT EXISTS idx_memory_items_session ON memory_items(session_id, layer, status);
 """
 
 MESSAGE_FIELDS = ("name", "tool_call_id", "tool_calls")
@@ -144,6 +162,18 @@ class Store:
                     CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
                         DELETE FROM messages_fts WHERE rowid = old.id;
                         INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+                    END;
+                    CREATE VIRTUAL TABLE IF NOT EXISTS memory_items_fts
+                    USING fts5(content, subject, content_rowid='rowid', tokenize='unicode61');
+                    CREATE TRIGGER IF NOT EXISTS memory_items_ai AFTER INSERT ON memory_items BEGIN
+                        INSERT INTO memory_items_fts(rowid, content, subject) VALUES (new.rowid, new.content, new.subject);
+                    END;
+                    CREATE TRIGGER IF NOT EXISTS memory_items_ad AFTER DELETE ON memory_items BEGIN
+                        DELETE FROM memory_items_fts WHERE rowid = old.rowid;
+                    END;
+                    CREATE TRIGGER IF NOT EXISTS memory_items_au AFTER UPDATE ON memory_items BEGIN
+                        DELETE FROM memory_items_fts WHERE rowid = old.rowid;
+                        INSERT INTO memory_items_fts(rowid, content, subject) VALUES (new.rowid, new.content, new.subject);
                     END;
                     """
                 )
@@ -541,6 +571,139 @@ class Store:
                 (plan_id,),
             ).fetchone()
         return self._decode_checkpoint_row(row)
+
+    @staticmethod
+    def _encode_memory_metadata(metadata) -> str:
+        return json.dumps(metadata if isinstance(metadata, dict) else {}, ensure_ascii=False)
+
+    @staticmethod
+    def _decode_memory_row(row) -> dict | None:
+        if not row:
+            return None
+        item = dict(row)
+        try:
+            metadata = json.loads(item.get("metadata") or "{}")
+        except (TypeError, ValueError):
+            metadata = {}
+        item["metadata"] = metadata if isinstance(metadata, dict) else {}
+        return item
+
+    @staticmethod
+    def _fts_query(query: str) -> str:
+        tokens = re.findall(r"\w+", str(query or ""), re.UNICODE)[:12]
+        return " OR ".join('"' + token.replace('"', '""') + '"' for token in tokens)
+
+    def save_memory_item(self, item) -> None:
+        now = utc_now()
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO memory_items(id,session_id,layer,subject,content,provenance,confidence,status,"
+                "metadata,supersedes,created_at,updated_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(id) DO UPDATE SET session_id=excluded.session_id, layer=excluded.layer, "
+                "subject=excluded.subject, content=excluded.content, provenance=excluded.provenance, "
+                "confidence=excluded.confidence, status=excluded.status, metadata=excluded.metadata, "
+                "supersedes=excluded.supersedes, updated_at=excluded.updated_at, expires_at=excluded.expires_at",
+                (
+                    str(item.get("id") or ""),
+                    str(item.get("session_id") or ""),
+                    str(item.get("layer") or "semantic"),
+                    str(item.get("subject") or ""),
+                    str(item.get("content") or ""),
+                    str(item.get("provenance") or ""),
+                    float(item.get("confidence", 0.5)),
+                    str(item.get("status") or "active"),
+                    self._encode_memory_metadata(item.get("metadata")),
+                    str(item.get("supersedes") or ""),
+                    str(item.get("created_at") or now),
+                    str(item.get("updated_at") or now),
+                    str(item.get("expires_at") or ""),
+                ),
+            )
+
+    def get_memory_item(self, item_id: str) -> dict | None:
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM memory_items WHERE id=?", (item_id,)).fetchone()
+        return self._decode_memory_row(row)
+
+    def list_memory_items(
+        self,
+        layer: str | None = None,
+        session_id: str | None = None,
+        status: str | None = "active",
+        include_expired: bool = False,
+        limit: int | None = None,
+    ) -> list[dict]:
+        sql = "SELECT * FROM memory_items WHERE 1=1"
+        params = []
+        if status:
+            sql += " AND status=?"
+            params.append(status)
+        if layer:
+            sql += " AND layer=?"
+            params.append(layer)
+        if session_id is not None:
+            sql += " AND session_id=?"
+            params.append(session_id)
+        if not include_expired:
+            sql += " AND (expires_at='' OR expires_at>?)"
+            params.append(utc_now())
+        sql += " ORDER BY updated_at DESC, created_at DESC"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        with self.connect() as db:
+            rows = db.execute(sql, params).fetchall()
+        return [self._decode_memory_row(row) for row in rows]
+
+    def delete_memory_item(self, item_id: str) -> bool:
+        with self.connect() as db:
+            cursor = db.execute("DELETE FROM memory_items WHERE id=?", (item_id,))
+        return cursor.rowcount > 0
+
+    def search_memory_items(
+        self,
+        query: str,
+        layer: str | None = None,
+        session_id: str | None = None,
+        status: str | None = "active",
+        limit: int = 50,
+    ) -> list[dict]:
+        text = str(query or "").strip()
+        if not text:
+            return []
+        filters = ""
+        params = []
+        if status:
+            filters += " AND memory_items.status=?"
+            params.append(status)
+        if layer:
+            filters += " AND memory_items.layer=?"
+            params.append(layer)
+        if session_id is not None:
+            filters += " AND memory_items.session_id=?"
+            params.append(session_id)
+        rows = []
+        if self._fts:
+            match = self._fts_query(text)
+            if match:
+                try:
+                    with self.connect() as db:
+                        rows = db.execute(
+                            "SELECT memory_items.* FROM memory_items_fts "
+                            "JOIN memory_items ON memory_items.rowid=memory_items_fts.rowid "
+                            "WHERE memory_items_fts MATCH ?" + filters + " ORDER BY memory_items.updated_at DESC LIMIT ?",
+                            [match, *params, limit],
+                        ).fetchall()
+                except sqlite3.OperationalError:
+                    rows = []
+        if not rows:
+            like = f"%{text}%"
+            sql = "SELECT * FROM memory_items WHERE (content LIKE ? OR subject LIKE ?)" + filters.replace(
+                "memory_items.", ""
+            )
+            with self.connect() as db:
+                rows = db.execute(sql, [like, like, *params, limit]).fetchall()
+        return [self._decode_memory_row(row) for row in rows]
 
     def export_session(self, session_id: str) -> dict:
         session = self.get_session(session_id)

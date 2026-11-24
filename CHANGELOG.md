@@ -1,5 +1,14 @@
 # Changelog
 
+## Phase C layered memory
+
+- Added additive SQLite-backed working, episodic, semantic, procedural, and user memory layers.
+- Added bounded, labeled recall with provenance, confidence, and source labels.
+- Added semantic correction and contradiction handling, duplicate consolidation, expiration, deletion controls, export/import, and idempotent Markdown migration.
+- Recorded active objectives and turn outcomes from real agent turns while keeping existing `MEMORY.md` and `USER.md` valid.
+- Added `aether memory layer ...`, `/memory layer ...`, and `memory` tool layer actions with child write isolation.
+- Added deterministic recall, provenance, migration, retention, isolation, persistence, and CLI tests; all local checks pass.
+
 ## Phase B adaptive planning and execution state
 
 - Added deterministic request classification for simple, moderate, complex, and high-risk work, with inspectable routes and risk notes.

@@ -17,7 +17,10 @@ This document records what Aether does not yet prove or does not yet do. It is i
 - High-risk plans record an approval requirement; planning does not yet add a separate approval gate beyond existing tool permissions.
 - Planner tool selection is a coarse keyword-to-tool map, not capability search or verified tool-result interpretation.
 - Planning-specific cancellation and cost-limit scenarios are not separately tested; general core cancellation and cost tests still pass.
-- Layered memory beyond `MEMORY.md` and `USER.md` is not implemented.
+- Layered memory is additive SQLite storage for working, episodic, semantic, procedural, and user records; retrieval uses deterministic lexical scoring, not embeddings or learned ranking.
+- Layered memory does not generate new facts from tool output, promote procedures into skills, or perform model-driven consolidation; that evidence pipeline belongs to the learning phase.
+- Layered user-model writes are explicit CLI/tool actions; approval policy for learned user-model changes is not implemented.
+- Layered memory has no cross-process locking, distributed sync, or encrypted storage.
 - The learning loop does not yet record verified experience or version/rollback skill changes from evidence.
 - Model routing uses configured order and fallback, not a task-facing capability registry.
 - Coding work does not yet build a repository index or produce verified diff reviews.

@@ -23,7 +23,7 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 |---|---|---|---|
 | A | Intelligence audit and benchmark contract | evidence, gap register, comparison, benchmark rules | complete at `d077948` |
 | B | Adaptive planning and execution state | inspectable plans, complexity routing, recoverable checkpoints | complete and locally verified |
-| C | Layered memory | working, episodic, semantic, procedural, and user layers | pending |
+| C | Layered memory | working, episodic, semantic, procedural, and user layers | complete and locally verified |
 | D | Learning loop and skill quality | experience records, skill review, versions, rollback, curator | pending |
 | E | Model capability routing | task-aware provider/model selection with existing cost controls | pending |
 | F | Coding workflow | repository indexing, progressive retrieval, patches, tests, diff review | pending |
@@ -92,6 +92,17 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 **Verification:** recall/relevance tests, bounded-context tests, provenance and contradiction tests, migration tests for existing `MEMORY.md` and `USER.md`, child isolation tests.
 
 **Exit state:** existing Markdown memory remains valid, while richer memory is available through additive storage.
+
+### Phase C result
+
+- Implemented in `aether/memory/layers.py`, `aether/persistence/store.py`, `aether/config.py`, `aether/core/agent.py`, `aether/cli/app.py`, `aether/tools/builtins.py`, and `tests/test_memory_layers.py`.
+- Existing `MEMORY.md` and `USER.md` entries migrate idempotently into semantic and user layers with source labels; the original Markdown files remain the editable baseline.
+- Turn integration records the active objective in working memory and an outcome/failure episode after each persistent turn; child agents cannot write layered memory.
+- Focused verification: 11 tests passed in `tests.test_memory_layers`.
+- Full verification: 132 tests passed; `scripts/check.sh`, `scripts/test_install.sh`, and `git diff --check` passed.
+- Failure fixed: `LayeredMemory.prune_expired()` now includes already-expired active rows instead of relying on the default active-row filter.
+- Startup benchmarks after the Phase C work: 3 cold starts, `0.110s` median wall time and `33.6 MiB` peak child RSS during implementation, then `0.095s` and `32.4 MiB` during the final documentation run; no task-quality benchmark was run.
+- Detailed commands and limitations are in [RELEASE_CHECKS.md](RELEASE_CHECKS.md) and [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
 ## Phase D — learning loop and skill quality
 

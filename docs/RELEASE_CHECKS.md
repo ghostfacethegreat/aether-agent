@@ -100,6 +100,21 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - No lint/typecheck claim: no configured lint/typecheck command was found or run.
 - No task-quality benchmark was run; no Hermes parity or superiority claim is made.
 
+## Phase C layered memory checkpoint
+
+- Branch: `feat/aether-020-intelligence-foundation`; base commit `9aef0fb873f6e54bc78f7b587e3fe8709dc07c55`.
+- Added layered memory storage, bounded labeled retrieval, Markdown migration, provenance, correction, contradiction handling, consolidation, expiration, export/import, CLI/tool/slash exposure, and child write isolation.
+- `python3 -W ignore::ResourceWarning -m unittest tests.test_memory_layers -v` — 11 focused tests passed.
+- The first focused run failed `test_working_memory_is_session_scoped_and_expires` because already-expired active rows were excluded before pruning; `LayeredMemory.prune_expired()` now uses `include_expired=True`.
+- The first focused run also failed `test_consolidation_merges_duplicates` on an ambiguous confidence/timestamp tie; the test now uses distinct confidence values to verify highest-confidence retention.
+- `python3 -W ignore::ResourceWarning -m unittest discover -s tests -v` — 132 tests passed in `1.007s`.
+- `bash scripts/check.sh && bash scripts/test_install.sh && git diff --check` — all commands passed.
+- `bash scripts/check.sh` during Phase C verification — `all checks passed`; first run: 132 tests in `0.975s`, 3 cold starts, median wall time `0.110s`, peak child RSS `33.6 MiB`; final documentation run: 132 tests in `0.948s`, median wall time `0.095s`, peak child RSS `32.4 MiB`.
+- `aether memory layer add|recall|counts` was covered by deterministic CLI tests using the mock provider and temporary home.
+- Full verbose test output emitted `ResourceWarning` notices for unclosed SQLite connections; no test or check failed.
+- No lint/typecheck claim: no configured lint/typecheck command was found or run.
+- No task-quality benchmark was run; no Hermes parity or superiority claim is made.
+
 ## Secrets
 
 - No `.env` file was created in the repository.
