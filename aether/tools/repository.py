@@ -15,16 +15,16 @@ from aether.errors import ToolError
 
 _SYMBOL_PATTERNS = {
     ".py": (
-        (re.compile(r"^\\s*(?:async\\s+)?def\\s+([A-Za-z_]\\w*)\\b"), "function"),
-        (re.compile(r"^\\s*class\\s+([A-Za-z_]\\w*)\\b"), "class"),
+        (re.compile(r"^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)\b"), "function"),
+        (re.compile(r"^\s*class\s+([A-Za-z_]\w*)\b"), "class"),
     ),
     ".js": (
-        (re.compile(r"^\\s*(?:export\\s+)?(?:default\\s+)?(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)\\b"), "function"),
-        (re.compile(r"^\\s*(?:export\\s+)?(?:default\\s+)?(?:abstract\\s+)?class\\s+([A-Za-z_$][\\w$]*)\\b"), "class"),
-        (re.compile(r"^\\s*(?:export\\s+)?interface\\s+([A-Za-z_$][\\w$]*)\\b"), "interface"),
-        (re.compile(r"^\\s*(?:export\\s+)?type\\s+([A-Za-z_$][\\w$]*)\\b"), "type"),
-        (re.compile(r"^\\s*(?:export\\s+)?enum\\s+([A-Za-z_$][\\w$]*)\\b"), "enum"),
-        (re.compile(r"^\\s*(?:export\\s+)?(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:async\\s*)?(?:function\\b|\\([^)]*\\)\\s*=>|[A-Za-z_$][\\w$]*\\s*=>)"), "function"),
+        (re.compile(r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\b"), "function"),
+        (re.compile(r"^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)\b"), "class"),
+        (re.compile(r"^\s*(?:export\s+)?interface\s+([A-Za-z_$][\w$]*)\b"), "interface"),
+        (re.compile(r"^\s*(?:export\s+)?type\s+([A-Za-z_$][\w$]*)\b"), "type"),
+        (re.compile(r"^\s*(?:export\s+)?enum\s+([A-Za-z_$][\w$]*)\b"), "enum"),
+        (re.compile(r"^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:function\b|\([^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)"), "function"),
     ),
 }
 _SYMBOL_PATTERNS[".jsx"] = _SYMBOL_PATTERNS[".js"]
