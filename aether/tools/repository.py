@@ -89,12 +89,14 @@ def _ignore_rules(directory, base):
         if not value:
             continue
         directory_only = value.endswith("/")
+        # Preserve a leading slash before removing separators so negated anchored
+        # patterns (for example, !/keep.txt) remain scoped to this directory.
+        anchored = value.startswith("/")
         value = value.strip("/")
         if not value:
             continue
         # Git treats slash-containing patterns as relative to this ignore file.
         # A leading slash is also anchored to this directory.
-        anchored = line.lstrip().startswith("/")
         rules.append((base, value, negated, directory_only, anchored or "/" in value))
     return rules
 
