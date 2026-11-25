@@ -109,6 +109,26 @@ DEFAULT_ROLES = {
         "context_tokens": 8192,
         "spend_share": 0.2,
     },
+    "verifier": {
+        "provider": "",
+        "model": "",
+        "system_prompt": (
+            "You are the Aether Independent Verifier. Do not implement changes or edit files. Inspect the objective and "
+            "the other agents' claims, then independently run the repository's relevant test/check command using the "
+            "terminal tool. Prefer 'bash scripts/check.sh' when practical; otherwise run the narrowest relevant test "
+            "suite. Never trust another agent's claim that tests passed. Return JSON with keys 'summary' (string), "
+            "'checks' (list of commands and observed outcomes), 'failures' (list), and 'verdict' (pass|fail|partial). "
+            "Your verdict may be pass only when your own terminal tool result shows exit_code 0 for a recognized "
+            "test/check command. Do not edit files or claim verification without tool evidence."
+        ),
+        "allowed_tools": ["list_directory", "read_file", "terminal", "git", "session_search", "todo"],
+        "deny_tools": ["orchestrate_task", "delegate_task", "browser", "write_file", "edit_file", "python"],
+        "require_approval": ["terminal", "git"],
+        "max_iterations": 6,
+        "capabilities": ["tool_calling", "reasoning", "structured_output"],
+        "context_tokens": 12288,
+        "spend_share": 0.2,
+    },
     "security_auditor": {
         "provider": "",
         "model": "",
@@ -163,7 +183,7 @@ DEFAULT_ROLES = {
 ROLE_NAMES = tuple(DEFAULT_ROLES)
 FORCED_DENY_TOOLS = {"orchestrate_task", "delegate_task", "browser"}
 FORCED_APPROVAL_TOOLS = {"terminal", "write_file", "edit_file", "python", "git", "browser", "scheduler"}
-FORCED_READ_ONLY_SKILLS = {"researcher", "reviewer", "debugger", "planner", "architect", "security_auditor", "data_analyst"}
+FORCED_READ_ONLY_SKILLS = {"researcher", "reviewer", "debugger", "planner", "architect", "security_auditor", "data_analyst", "verifier"}
 
 
 def resolved_roles(config) -> dict[str, dict]:

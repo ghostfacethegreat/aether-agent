@@ -28,6 +28,73 @@ class OrchestrationTests(TempHomeTest):
             exit_reason="complete",
         )
 
+    def test_automatic_implementation_plan_uses_specialist_chain(self):
+        agent = Agent(self.config(), home=self.home)
+        tasks = agent.orchestrator._plan_tasks("Implement a feature and add tests")
+        roles = [task.role for task in tasks]
+        self.assertEqual(roles, ["planner", "researcher", "architect", "developer", "tester", "verifier", "reviewer"])
+        by_role = {task.role: task for task in tasks}
+        self.assertEqual(by_role["tester"].dependencies, [by_role["developer"].id])
+        self.assertEqual(by_role["verifier"].dependencies, [by_role["tester"].id])
+        self.assertEqual(by_role["reviewer"].dependencies, [by_role["verifier"].id])
+
+    def test_automatic_security_plan_adds_security_auditor(self):
+        agent = Agent(self.config(), home=self.home)
+        tasks = agent.orchestrator._plan_tasks("Implement authentication and audit security permissions")
+        roles = [task.role for task in tasks]
+        self.assertIn("security_auditor", roles)
+        self.assertIn("verifier", roles)
+        self.assertLessEqual(len(roles), 8)
+
+    def test_verifier_requires_its_own_successful_check_command(self):
+        good = {
+            "name": "terminal",
+            "ok": True,
+            "arguments": {"command": "bash scripts/check.sh"},
+            "result": '{"exit_code": 0, "output": "all checks passed"}',
+        }
+        bad_exit = {
+            "name": "terminal",
+            "ok": True,
+            "arguments": {"command": "python3 -m unittest discover -s tests"},
+            "result": '{"exit_code": 1, "output": "FAILED"}',
+        }
+        claim_only = {
+            "name": "terminal",
+            "ok": True,
+            "arguments": {"command": "echo tests passed"},
+            "result": '{"exit_code": 0, "output": "tests passed"}',
+        }
+        self.assertEqual(
+            Orchestrator._verified_check_evidence([good]),
+            [{"command": "bash scripts/check.sh", "exit_code": 0}],
+        )
+        self.assertEqual(Orchestrator._verified_check_evidence([bad_exit, claim_only]), [])
+
+    def test_verifier_role_is_read_only_and_requires_terminal_approval(self):
+        agent = Agent(self.config(), home=self.home)
+        role = resolved_roles(agent.config)["verifier"]
+        task = OrchestrationTask(id="task_verifier_policy", role="verifier", goal="Verify")
+        child = agent._orchestration_child(role, task.to_dict(), {}, threading.Event())
+        self.assertIn("terminal", child.registry.tools)
+        self.assertNotIn("write_file", child.registry.tools)
+        self.assertNotIn("edit_file", child.registry.tools)
+        decision = child.policy.check("terminal", {"command": "bash scripts/check.sh"}, risk="execute")
+        self.assertTrue(decision.needs_approval)
+
+    def test_duplicate_roles_and_dependency_cycles_are_rejected(self):
+        agent = Agent(self.config(), home=self.home)
+        with self.assertRaises(OrchestratorError):
+            agent.orchestrator._plan_tasks("x", roles=["researcher", "researcher"])
+        with self.assertRaises(OrchestratorError):
+            agent.orchestrator._plan_tasks(
+                "x",
+                roles=[
+                    {"role": "researcher", "depends_on": ["reviewer"]},
+                    {"role": "reviewer", "depends_on": ["researcher"]},
+                ],
+            )
+
     def test_sequential_dependency_execution(self):
         events = []
         lock = threading.Lock()
