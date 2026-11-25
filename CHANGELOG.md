@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added
+- Load bounded repository-root project context from AGENTS.md and compatible instruction files with symlink, traversal, binary, encoding, and size protections.
+- Add structured specialist-output contracts and an independent-verification gate based on the verifier's own successful test/check tool evidence.
+- Expand automatic dependency-aware orchestration across planner, researcher, architect, developer, debugger, tester, security auditor, verifier, reviewer, analyst, and documentation roles.
+- Add a Python 3.10–3.14 GitHub Actions matrix and scoped Copilot custom-agent workstream profiles.
+
+### Changed
+- Implementation, debugging, and documentation workflows include a separate verifier; unverified work remains partial instead of being reported as fully verified.
+
+
+
 ### Changed
 - Refresh the interactive CLI with an acid-blue 3D-style masthead, framed session overview, labeled streamed responses, and a clearer prompt.
 - Add configurable terminal themes and ASCII/NO_COLOR fallbacks without adding runtime dependencies.

@@ -118,3 +118,16 @@ Release only when all of the following are true:
 - limitations are published honestly
 - benchmark evidence supports every comparative claim, or no comparative claim is made
 - the working checkpoint is clean and fully verified before publication
+
+
+## Hermes-competitive capability tracks
+
+The parity foundation branch adds project context, broader specialist planning, an evidence-gated verifier, structured output contracts, CI, and scoped custom-agent profiles. Remaining work is split into independent streams:
+
+1. Browser automation and MCP: a real local browser runtime, isolated profiles, lazy tool discovery, MCP server configuration, and schema validation.
+2. Messaging and voice/media: optional Telegram/Discord and other channel adapters, webhook authentication, local voice I/O, and media tools.
+3. Coding workflows: repository indexing, symbol/navigation support, patch application, and test-driven edit/verify loops.
+4. Execution backends: local subprocess, Docker, and optional SSH/remote sandboxes with clear permission and credential boundaries.
+5. Learning and evaluation: autonomous but reviewable skill proposals, curation/rollback, reproducible task suites, and opt-in same-model Hermes comparisons.
+
+Do not mark these tracks complete from design documents or custom-agent profiles. Require implementation, tests, installation checks, and evidence artifacts.
