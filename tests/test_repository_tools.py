@@ -91,6 +91,28 @@ class RepositoryToolTests(TempHomeTest):
         self.assertTrue(all(item["path"].endswith((".py", ".ts")) for item in result["symbols"]))
         self.assertTrue(all(item["line"] >= 1 for item in result["symbols"]))
 
+    def test_index_symbol_search_supports_lua_go_and_rust(self):
+        (self.workspace / "player.lua").write_text(
+            "local function spawnPlayer(character)\\n"
+            "function PlayerController:reset()\\n",
+            encoding="utf-8",
+        )
+        (self.workspace / "player.go").write_text(
+            "type PlayerService struct {}\\n"
+            "func (s *PlayerService) SpawnPlayer() {}\\n",
+            encoding="utf-8",
+        )
+        (self.workspace / "player.rs").write_text(
+            "pub struct PlayerState;\\n"
+            "pub async fn update_player() {}\\n",
+            encoding="utf-8",
+        )
+
+        result = repo_index({"action": "symbols", "query": "player"}, self.context())
+        names = {item["name"] for item in result["symbols"]}
+        expected = {"spawnPlayer", "PlayerController:reset", "PlayerService", "SpawnPlayer", "PlayerState", "update_player"}
+        self.assertTrue(expected.issubset(names), f"Found symbols: {sorted(names)}")
+
     def test_index_symbol_search_requires_query(self):
         with self.assertRaises(ToolError):
             repo_index({"action": "symbols"}, self.context())
