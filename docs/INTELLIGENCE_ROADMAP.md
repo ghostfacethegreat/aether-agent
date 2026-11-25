@@ -187,7 +187,7 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 
 - Implemented on `feat/aether-parity-foundation`: bounded on-demand repository indexing/search, unified-diff preview, approval-gated edits to existing UTF-8 files, and a fixed-argument test runner.
 - CI checkpoint `45667891886` passed the full Python 3.10–3.14 matrix and clean-checkout install/uninstall checks for the Phase F baseline.
-- Remaining work includes persistent/incremental indexing, nested ignore rules, symbol/LSP navigation, create/delete/rename patch operations, a mock-provider end-to-end TDD controller, and independent semantic diff review. See [issue #4](https://github.com/ghostfacethegreat/aether-agent/issues/4) and [known limitations](KNOWN_LIMITATIONS.md).
+- Remaining work includes persistent/incremental indexing, symbol/LSP navigation, create/delete/rename patch operations, a mock-provider end-to-end TDD controller, and independent semantic diff review. See [issue #4](https://github.com/ghostfacethegreat/aether-agent/issues/4) and [known limitations](KNOWN_LIMITATIONS.md).
 
 ## Phase G — research and evidence
 
