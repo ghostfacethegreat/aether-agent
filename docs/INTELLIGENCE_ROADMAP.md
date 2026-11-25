@@ -26,11 +26,11 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 | C | Layered memory | working, episodic, semantic, procedural, and user layers | complete and locally verified |
 | D | Learning loop and skill quality | experience records, skill review, versions, rollback, curator | complete and locally verified |
 | E | Model capability routing | task-aware provider/model selection with existing cost controls | implemented on this feature branch and locally verified (26 focused / 179 total tests); not released |
-| F | Coding workflow | repository indexing, progressive retrieval, patches, tests, diff review | pending |
+| F | Coding workflow | repository indexing, progressive retrieval, patches, tests, diff review | partial: on-demand index, guarded existing-file patches, and fixed test runner implemented; remaining acceptance work tracked in [#4](https://github.com/ghostfacethegreat/aether-agent/issues/4) |
 | G | Research and evidence | query planning, sources, citations, contradictions, confidence | pending |
 | H | Tool intelligence | capability search, preflight, result verification, analytics | pending |
-| I | Specialist orchestration | larger role catalog, team selection, verifier, conflict handling | pending |
-| J | Verification and recovery | independent completion checks, repair loops, long-running resume | pending |
+| I | Specialist orchestration | larger role catalog, team selection, verifier, conflict handling | partial: eleven specialist roles, dependency-aware team selection, structured contracts, and verifier baseline implemented; richer coordination remains open |
+| J | Verification and recovery | independent completion checks, repair loops, long-running resume | partial: command-evidence verifier and resumable execution checkpoints implemented; durable long-running supervisor and repair loop remain open |
 | K | Benchmark harness | reproducible task runs, scoring, stored evidence, comparisons | pending |
 | L | Release hardening | docs, tests, CI, versioning, release candidate checks | pending |
 
@@ -182,6 +182,12 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 **Verification:** fixture-repository tests, index freshness tests, patch application/rollback tests, test-selection tests, diff-review tests, regression-detection tests.
 
 **Exit state:** coding tasks produce reviewed diffs and tested claims, not just file writes.
+
+### Phase F baseline (partial)
+
+- Implemented on `feat/aether-parity-foundation`: bounded on-demand repository indexing/search, unified-diff preview, approval-gated edits to existing UTF-8 files, and a fixed-argument test runner.
+- CI checkpoint `45667891886` passed the full Python 3.10–3.14 matrix and clean-checkout install/uninstall checks for the Phase F baseline.
+- Remaining work includes persistent/incremental indexing, nested ignore rules, symbol/LSP navigation, create/delete/rename patch operations, a mock-provider end-to-end TDD controller, and independent semantic diff review. See [issue #4](https://github.com/ghostfacethegreat/aether-agent/issues/4) and [known limitations](KNOWN_LIMITATIONS.md).
 
 ## Phase G — research and evidence
 
