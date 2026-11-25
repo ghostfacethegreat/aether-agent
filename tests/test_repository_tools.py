@@ -93,18 +93,18 @@ class RepositoryToolTests(TempHomeTest):
 
     def test_index_symbol_search_supports_lua_go_and_rust(self):
         (self.workspace / "player.lua").write_text(
-            "local function spawnPlayer(character)\\n"
-            "function PlayerController:reset()\\n",
+            "local function spawnPlayer(character)\n"
+            "function PlayerController:reset()\n",
             encoding="utf-8",
         )
         (self.workspace / "player.go").write_text(
-            "type PlayerService struct {}\\n"
-            "func (s *PlayerService) SpawnPlayer() {}\\n",
+            "type PlayerService struct {}\n"
+            "func (s *PlayerService) SpawnPlayer() {}\n",
             encoding="utf-8",
         )
         (self.workspace / "player.rs").write_text(
-            "pub struct PlayerState;\\n"
-            "pub async fn update_player() {}\\n",
+            "pub struct PlayerState;\n"
+            "pub async fn update_player() {}\n",
             encoding="utf-8",
         )
 
