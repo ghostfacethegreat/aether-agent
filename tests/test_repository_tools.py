@@ -70,24 +70,24 @@ class RepositoryToolTests(TempHomeTest):
 
     def test_index_symbol_search_finds_python_and_typescript_declarations(self):
         (self.workspace / "parser.py").write_text(
-            "class Parser:\\n"
-            "    def parse(self, source):\\n"
-            "        return source\\n"
-            "    async def load(self):\\n"
-            "        return None\\n",
+            "class Parser:\n"
+            "    def parse(self, source):\n"
+            "        return source\n"
+            "    async def load(self):\n"
+            "        return None\n",
             encoding="utf-8",
         )
         (self.workspace / "parser.ts").write_text(
-            "export interface ParseOptions {}\\n"
-            "export function parseSource(input) { return input; }\\n"
-            "export const parseAsync = async (input) => input;\\n"
-            "export class ParserAdapter {}\\n",
+            "export interface ParseOptions {}\n"
+            "export function parseSource(input) { return input; }\n"
+            "export const parseAsync = async (input) => input;\n"
+            "export class ParserAdapter {}\n",
             encoding="utf-8",
         )
 
         result = repo_index({"action": "symbols", "query": "parse"}, self.context())
         names = {item["name"] for item in result["symbols"]}
-        self.assertTrue({"Parser", "parse", "parseSource", "parseAsync", "ParseOptions", "ParserAdapter"}.issubset(names))
+        self.assertTrue({"Parser", "parse", "parseSource", "parseAsync", "ParseOptions", "ParserAdapter"}.issubset(names), f"Found symbols: {sorted(names)}")
         self.assertTrue(all(item["path"].endswith((".py", ".ts")) for item in result["symbols"]))
         self.assertTrue(all(item["line"] >= 1 for item in result["symbols"]))
 
