@@ -30,7 +30,7 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 | G | Research and evidence | query planning, sources, citations, contradictions, confidence | pending |
 | H | Tool intelligence | capability search, preflight, result verification, analytics | pending |
 | I | Specialist orchestration | larger role catalog, team selection, verifier, conflict handling | partial: eleven specialist roles, dependency-aware team selection, structured contracts, and verifier baseline implemented; richer coordination remains open |
-| J | Verification and recovery | independent completion checks, repair loops, long-running resume | partial: command-evidence verifier and resumable execution checkpoints implemented; durable long-running supervisor and repair loop remain open |
+| J | Verification and recovery | independent completion checks, repair loops, long-running resume | partial: strict command-evidence verifier and resumable execution checkpoints implemented; repair loops, requirement coverage, and durable long-running supervisor remain open |
 | K | Benchmark harness | reproducible task runs, scoring, stored evidence, comparisons | pending |
 | L | Release hardening | docs, tests, CI, versioning, release candidate checks | pending |
 
@@ -261,6 +261,13 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 **Verification:** requirement-coverage tests, evidence-trace tests, repair-loop tests, long-task resume tests, cancellation and budget regression tests.
 
 **Exit state:** completion claims require observed evidence and failed work can resume safely.
+
+### Phase J verification evidence checkpoint
+
+- Agent turn verification now accepts only successful `test_run` evidence or strictly parsed deterministic check commands; arbitrary text containing test keywords no longer marks a turn verified.
+- Added deterministic tests for keyword-only false positives, shell-command chaining, and `test_run` command evidence.
+- Focused verification: 28 tests in `tests.test_model_routing`; full verification: 235 tests; all required local checks passed. Exact commands and results are in [RELEASE_CHECKS.md](RELEASE_CHECKS.md).
+- Remaining: requirement-coverage checks, bounded repair/reverify loops, and durable event-driven long-running goals.
 
 ## Phase K — benchmark harness
 

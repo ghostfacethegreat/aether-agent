@@ -75,11 +75,11 @@ For each run, record:
 ## Current known baseline (2026-11-25)
 
 - The advanced development PR is open and draft; it is not merged or released.
-- The latest recorded AETHER CI run on the PR head passed the Python 3.10–3.14 matrix, including project checks and clean-checkout install/uninstall checks.
+- PR #8 is open and draft at head `8f15419c4810f8e87c0992dc43ad2521754f4027`; CI run `45701971906` passed the Python 3.10–3.14 matrix, including project checks and clean-checkout install/uninstall checks. The local checkpoint `bf66d6c` is unpushed and has no CI result yet.
 - The current coding workflow is a guarded foundation with persistent incremental retrieval, not a complete autonomous TDD system.
 - `repo_index` now handles common root and nested `.gitignore` patterns, with regression coverage for scope and ordered negation.
 - `repo_index action="symbols"` provides bounded lexical declaration search for Python, JavaScript/TypeScript, Lua, Go, and Rust. A separate persistent cache is refreshed incrementally with size/mtime/ctime/hash invalidation and bounded symbol storage.
-- Local verification at this checkpoint passed 233 tests, `scripts/check.sh`, `scripts/test_install.sh`, and `git diff --check`; CI at the later checkpoint requires a fresh PR run.
+- Local verification at checkpoint `bf66d6c` passed 233 tests, `scripts/check.sh`, `scripts/test_install.sh`, and `git diff --check`; a fresh PR/CI run is required after the owner pushes that commit.
 - Research does not yet provide a full source/citation/contradiction/confidence report.
 - Browser automation/MCP, messaging/voice, isolated durable background execution, full task-quality benchmarks, and advanced skill curation remain open workstreams.
 - No same-model task-quality comparison has established Hermes parity.

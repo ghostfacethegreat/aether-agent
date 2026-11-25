@@ -1,5 +1,6 @@
 import json
 import re
+import shlex
 import threading
 import time
 from dataclasses import dataclass, field
@@ -26,6 +27,7 @@ from aether.tools import PermissionPolicy, ToolExecutor, default_registry
 from aether.utils import make_id, truncate, utc_now
 
 CHILD_TOOLS = ["list_directory", "read_file", "web_fetch", "web_search", "session_search", "skill", "todo"]
+_CHECK_MODULE = re.compile(r"^test_[A-Za-z0-9_]{1,100}$")
 
 
 @dataclass
@@ -241,20 +243,58 @@ class Agent:
         except (TypeError, ValueError):
             return None
 
+    @staticmethod
+    def _result_data(record: dict) -> dict | None:
+        result = record.get("result")
+        if isinstance(result, dict):
+            return result
+        try:
+            data = json.loads(str(result or ""))
+        except (TypeError, ValueError):
+            return None
+        return data if isinstance(data, dict) else None
+
+    @staticmethod
+    def _recognized_check_command(command: str) -> tuple[str, ...]:
+        try:
+            parts = shlex.split(str(command or ""))
+        except ValueError:
+            return ()
+        if not parts:
+            return ()
+        if parts[0] in ("python", "python3"):
+            if parts[1:6] == ["-m", "unittest", "discover", "-s", "tests"]:
+                if all(part in ("-v", "-q") for part in parts[6:]):
+                    return ("tests",)
+            if len(parts) == 4 and parts[1:3] == ["-m", "unittest"]:
+                module = parts[3]
+                if module.startswith("tests.") and _CHECK_MODULE.fullmatch(module.split(".", 1)[1]):
+                    return ("tests",)
+            if parts[1:] == ["-m", "compileall", "-q", "aether", "tests"]:
+                return ("verification",)
+        if parts[0] == "bash" and parts[1:] == ["scripts/check.sh"]:
+            return ("check",)
+        if parts == ["aether", "doctor"]:
+            return ("verification",)
+        return ()
+
     def _verification_from_state(self, state) -> dict:
         sources = []
         for record in state.tool_log:
             if not bool(record.get("ok")) or self._tool_exit_code(record) != 0:
                 continue
+            name = str(record.get("name") or "")
             arguments = record.get("arguments") if isinstance(record.get("arguments"), dict) else {}
-            command = " ".join(str(arguments.get(key) or "") for key in ("command", "code", "script", "path"))
-            text = f"{record.get('name', '')} {command}".lower()
-            if "unittest" in text or "pytest" in text:
-                sources.append("tests")
-            if "scripts/check.sh" in text:
-                sources.append("check")
-            if "compileall" in text or "aether doctor" in text:
-                sources.append("verification")
+            data = self._result_data(record)
+            if name == "test_run":
+                command = data.get("command") if data else None
+                if isinstance(command, (list, tuple)):
+                    command = " ".join(str(part) for part in command)
+                sources.extend(self._recognized_check_command(command))
+            elif name == "terminal":
+                sources.extend(self._recognized_check_command(arguments.get("command")))
+            elif name == "python":
+                continue
         unique = sorted(set(sources))
         return {
             "status": "verified" if unique else "unverified",

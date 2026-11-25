@@ -165,6 +165,23 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - `ResourceWarning` notices for pre-existing unclosed SQLite connections remain non-failing in verbose output; the new index closes its own connections explicitly.
 - No lint/typecheck command is configured, so none is claimed. No model/network/billable calls were made. No task-quality benchmark was run; no Hermes parity or superiority claim is made.
 
+## Verification evidence hardening checkpoint
+
+- Changed implementation file: `aether/core/agent.py`.
+- Changed test file: `tests/test_model_routing.py`.
+- Changed documentation: `README.md`, `docs/DEVELOPMENT_STATUS.md`, `docs/KNOWN_LIMITATIONS.md`, `docs/RELEASE_CHECKS.md`, and `docs/WORKSTATION_ACCEPTANCE_GATE.md`.
+- `Agent._verification_from_state()` no longer treats arbitrary tool text containing `unittest`, `pytest`, `compileall`, `scripts/check.sh`, or `aether doctor` as evidence. It accepts only successful `test_run` results with a recognized deterministic command, or strictly parsed `terminal` commands for `python -m unittest`, `python -m compileall -q aether tests`, `bash scripts/check.sh`, and `aether doctor`. `python` tool snippets are never accepted as verification evidence.
+- Focused verification: `python3 -m unittest tests.test_model_routing -v` — 28 tests passed in `0.292s`.
+- Full verification: `python3 -m unittest discover -s tests -v` — 235 tests passed in `2.459s`.
+- `python3 -m compileall -q aether tests` — passed with no output.
+- `bash scripts/check.sh` — all checks passed; its in-script suite ran 235 tests in `2.461s`; 3 cold starts, median wall time `0.132s`, peak child RSS `34.8 MiB`.
+- `bash scripts/test_install.sh` — `0.1.0`; local git-remote install test passed.
+- `git diff --check` — passed.
+- Failure found and fixed: the first strict command parser used the wrong token slice for `python -m unittest discover`, so two verification tests failed; the slice was corrected and the focused suite passed.
+- Five read-only specialist audits were run before the change. Their reports were treated as data; the implementation and tests were reconciled and verified locally.
+- Remaining critical work: default approval for memory/skill/scheduler writes, forced child approval for `patch_apply`, scheduled-run cancellation and tool restrictions, persistent-index corruption recovery, symbol-version/budget invalidation, and the end-to-end mock-provider coding loop.
+- No lint/typecheck command is configured, so none is claimed. No model/network/billable calls were made. No Hermes parity or task-quality claim is made.
+
 ## Secrets
 
 - No `.env` file was created in the repository.

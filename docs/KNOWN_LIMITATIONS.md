@@ -13,7 +13,7 @@ This document records what Aether does not yet prove or does not yet do. It is i
 
 ## Intelligence gaps
 
-- Adaptive planning is implemented with deterministic classification and inspectable plans; it does not generate plans with a model or verify completion independently yet.
+- Adaptive planning is implemented with deterministic classification and inspectable plans; it does not generate plans with a model. Verification status is derived only from successful `test_run` evidence or strictly recognized check commands; arbitrary text containing test keywords is treated as unverified.
 - Plan checkpoints are durable in SQLite and resume avoids completed or non-idempotent tasks, but they are local single-process state with no cross-process locking or event-driven resume. Bounded project-context files are loaded from the workspace root without recursion, symlink following, or network access.
 - High-risk plans record an approval requirement; planning does not yet add a separate approval gate beyond existing tool permissions.
 - Planner tool selection is a coarse keyword-to-tool map, not capability search or verified tool-result interpretation.

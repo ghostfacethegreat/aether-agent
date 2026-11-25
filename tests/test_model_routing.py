@@ -340,6 +340,59 @@ class ModelRoutingTests(TempHomeTest):
         self.assertTrue(verification["verified"])
         self.assertIn("tests", verification["sources"])
 
+    def test_verification_rejects_test_keywords_in_arbitrary_tool_text(self):
+        agent = Agent(self.config(), home=self.home, persist=False, enable_subagents=False)
+        state = SimpleNamespace(
+            tool_log=[
+                {
+                    "name": "terminal",
+                    "arguments": {"command": "echo pytest && true"},
+                    "ok": True,
+                    "result": '{"exit_code": 0, "output": "pytest"}',
+                },
+                {
+                    "name": "python",
+                    "arguments": {"code": "# unittest passed\nprint('ok')"},
+                    "ok": True,
+                    "result": '{"exit_code": 0, "output": "ok"}',
+                },
+                {
+                    "name": "terminal",
+                    "arguments": {"command": "python3 -m unittest discover -s tests -q; echo done"},
+                    "ok": True,
+                    "result": '{"exit_code": 0, "output": "OK"}',
+                },
+            ],
+            final_text="tests definitely passed",
+        )
+        verification = agent._verification_from_state(state)
+        self.assertEqual(verification["status"], "unverified")
+        self.assertFalse(verification["verified"])
+        self.assertEqual(verification["sources"], [])
+
+    def test_verification_accepts_test_run_command_evidence(self):
+        agent = Agent(self.config(), home=self.home, persist=False, enable_subagents=False)
+        state = SimpleNamespace(
+            tool_log=[
+                {
+                    "name": "test_run",
+                    "arguments": {"mode": "suite"},
+                    "ok": True,
+                    "result": {
+                        "command": ["python3", "-m", "unittest", "discover", "-s", "tests", "-q"],
+                        "exit_code": 0,
+                        "timed_out": False,
+                        "output": "OK",
+                    },
+                }
+            ],
+            final_text="tests passed",
+        )
+        verification = agent._verification_from_state(state)
+        self.assertEqual(verification["status"], "verified")
+        self.assertTrue(verification["verified"])
+        self.assertEqual(verification["sources"], ["tests"])
+
     def test_context_budget_uses_capability_window_with_safety_margin(self):
         config = self.config(
             context_tokens=8192,

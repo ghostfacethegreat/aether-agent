@@ -191,14 +191,14 @@ See [parallel agent workstreams](docs/AGENT_WORKSTREAMS.md) for scoped Copilot p
 
 ## Repository coding workflow
 
-Aether now includes a local, on-demand repository index and a guarded unified-diff workflow:
+Aether includes a local repository index with an opt-out persistent incremental cache and a guarded unified-diff workflow:
 
 - `repo_index` summarizes files, searches filenames/source snippets, and finds common Python, JavaScript/TypeScript, Lua, Go, and Rust declarations by name. It respects root and nested `.gitignore` patterns and skips symlinks, generated/vendor directories, binary files, and oversized files. Symbol search is lexical, not LSP.
 - `patch_preview` validates a unified diff and reports affected files and hashes without writing.
 - `patch_apply` applies modifications only to existing UTF-8 files after complete preflight. It rejects path escapes, symlinks, binary files, renames, and file creation/deletion. Tool execution requires explicit approval.
 - `test_run` executes a bounded set of fixed test commands (unittest suite, one `test_*.py` module, compileall, or `scripts/check.sh`) without accepting an arbitrary shell command string. Test execution requires approval.
 
-The index is rebuilt on demand; it is not a persistent symbol database or LSP. This provides a coding-agent foundation, not yet a fully autonomous IDE-grade TDD loop. See [configuration](docs/CONFIGURATION.md) and [known limitations](docs/KNOWN_LIMITATIONS.md).
+By default, `repo_index action="symbols"` refreshes an incremental `repo_index.db` cache under `AETHER_HOME` before bounded lexical retrieval, and `action="index"` refreshes it explicitly. The cache is single-process and lexical, not an LSP or call graph; setting `repository_index.persistent=false` restores strictly on-demand behavior (`action="index"` then fails explicitly). This is a coding-agent foundation, not an autonomous IDE-grade TDD loop; LSP/cross-reference navigation, create/delete/rename patches, binary patches, and semantic diff review remain open. See [configuration](docs/CONFIGURATION.md) and [known limitations](docs/KNOWN_LIMITATIONS.md).
 
 ## Sessions and tasks
 
@@ -229,7 +229,7 @@ Inside chat, use `/plan status`, `/plan checkpoints`, `/plan resume <plan-id>`, 
 
 ## Multi-agent orchestration
 
-Aether can split an objective across specialized `researcher`, `developer`, `debugger`, and `reviewer` agents. The orchestrator builds a dependency plan, runs ready tasks in parallel by default, passes structured results between tasks, consolidates the final report, and keeps child permissions inside the parent's allow-list. Expanding the role catalog, automatic team selection, output contracts, and an independent verifier are planned intelligence work, not shipped behavior.
+Aether can split an objective across specialized agents. The default registry contains eleven roles: planner, researcher, architect, developer, debugger, tester, security auditor, independent verifier, reviewer, data analyst, and documentation writer. The orchestrator selects dependency-aware teams for implementation, debugging, documentation, and security work, runs ready tasks in parallel by default, passes structured results between tasks, consolidates the final report, and keeps child permissions inside the parent's allow-list. Structured output contracts for non-verifier roles are opt-in via `orchestrator.strict_output_contracts=true`; verifier contracts and its test/check-evidence gate are always enforced. Richer conflict handling, bounded correction turns, and Hermes-scale dynamic role spawning remain open.
 
 ```bash
 aether agents list
@@ -262,7 +262,7 @@ bash scripts/check.sh
 bash scripts/test_install.sh
 ```
 
-Phase E local verification: `python3 -W ignore::ResourceWarning -m unittest tests.test_model_routing -q` passes 26 focused tests, covering HTTP 400 context-length detection/recovery and orchestrator role preferred/fallback entries among other routing behavior, and `python3 -W ignore::ResourceWarning -m unittest discover -s tests -q` passes 179 tests. `bash scripts/check.sh && bash scripts/test_install.sh` passed with 3 cold starts, median wall time `0.114s`, peak child RSS `34.4 MiB`, and a local git-remote install test pass. `python3 scripts/benchmark.py` recorded 3 cold starts, median wall time `0.112s`, and peak child RSS `34.9 MiB`. `git diff --check` passed. `ResourceWarning` notices for unclosed SQLite connections are non-failing. No lint/typecheck command is configured, so none is claimed. These are startup measurements, not task-quality results.
+Local verification after the verification-evidence hardening slice: `python3 -m unittest tests.test_model_routing -v` passes 28 focused tests and `python3 -m unittest discover -s tests -v` passes 235 tests. `python3 -m compileall -q aether tests`, `bash scripts/check.sh`, `bash scripts/test_install.sh`, and `git diff --check` pass; the check run recorded 3 cold starts, median wall time `0.132s`, and peak child RSS `34.8 MiB`. PR #8 head `8f15419` passed the Python 3.10–3.14 CI matrix and clean-install checks; newer local commits require a fresh CI run. `ResourceWarning` notices for pre-existing unclosed SQLite connections are non-failing. No lint/typecheck command is configured, so none is claimed. These are startup measurements, not task-quality results.
 
 `scripts/check.sh` includes tests, doctor and mock CLI smoke checks, secret scanning, the local startup benchmark, and Markdown link checks. It does not measure task quality; see [benchmarks/README.md](benchmarks/README.md) for that protocol.
 
