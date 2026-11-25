@@ -6,8 +6,12 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 cp -R "$ROOT" "$TMP/source"
-git -C "$TMP/source" add -A >/dev/null
-git -C "$TMP/source" -c user.name="Aether Test" -c user.email="test@example.invalid" commit -q -m "test install snapshot" >/dev/null
+# Build a real clean source remote. Copying the checkout's existing .git directory
+# leaves the copied worktree clean, so a second snapshot commit would fail.
+rm -rf "$TMP/source/.git"
+git -C "$TMP/source" init -q
+git -C "$TMP/source" add -A
+git -C "$TMP/source" -c user.name="Aether Test" -c user.email="test@example.invalid" commit -q -m "test install snapshot"
 git clone -q "$TMP/source" "$TMP/clone"
 
 AETHER_HOME="$TMP/home" "$TMP/clone/scripts/install.sh" >/dev/null
