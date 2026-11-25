@@ -66,9 +66,9 @@ def _root_path(context, raw="."):
     return resolved
 
 
-def _ignore_rules(root):
-    """Read root .gitignore patterns; nested ignore files are deliberately not evaluated."""
-    path = root / ".gitignore"
+def _ignore_rules(directory, base):
+    """Read one bounded .gitignore file and retain the directory it applies to."""
+    path = directory / ".gitignore"
     if not path.is_file() or path.is_symlink():
         return []
     try:
@@ -77,6 +77,7 @@ def _ignore_rules(root):
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return []
+
     rules = []
     for line in lines:
         value = line.strip()
@@ -89,38 +90,57 @@ def _ignore_rules(root):
             continue
         directory_only = value.endswith("/")
         value = value.strip("/")
-        if value:
-            rules.append((value, negated, directory_only))
+        if not value:
+            continue
+        # Git treats slash-containing patterns as relative to this ignore file.
+        # A leading slash is also anchored to this directory.
+        anchored = line.lstrip().startswith("/")
+        rules.append((base, value, negated, directory_only, anchored or "/" in value))
     return rules
 
 
 def _matches_ignore(relative, is_dir, rules):
-    parts = relative.split("/")
+    """Evaluate inherited root/nested rules in order, including directory ancestors."""
     ignored = False
-    for pattern, negated, directory_only in rules:
-        if directory_only and not is_dir and not any(
-            fnmatch.fnmatchcase("/".join(parts[:index]), pattern)
-            for index in range(1, len(parts))
-        ):
-            continue
-        if "/" in pattern:
-            matched = fnmatch.fnmatchcase(relative, pattern) or any(
-                fnmatch.fnmatchcase("/".join(parts[:index]), pattern)
-                for index in range(1, len(parts))
-            )
+    for base, pattern, negated, directory_only, path_pattern in rules:
+        if base:
+            prefix = base + "/"
+            if not relative.startswith(prefix):
+                continue
+            scoped = relative[len(prefix):]
         else:
-            matched = any(fnmatch.fnmatchcase(part, pattern) for part in parts)
+            scoped = relative
+
+        parts = scoped.split("/")
+        candidates = ["/".join(parts[:index]) for index in range(1, len(parts) + 1)]
+        # A directory-only rule matches directory ancestors, never a same-named file.
+        if directory_only and not is_dir:
+            candidates = candidates[:-1]
+        if not candidates:
+            continue
+
+        if path_pattern:
+            matched = any(fnmatch.fnmatchcase(candidate, pattern) for candidate in candidates)
+        else:
+            matched = any(
+                fnmatch.fnmatchcase(part, pattern)
+                for candidate in candidates
+                for part in candidate.split("/")
+            )
         if matched:
             ignored = not negated
     return ignored
 
 
 def _walk_files(root, max_files):
-    rules = _ignore_rules(root)
-    stack = [root]
+    stack = [(root, [])]
     emitted = 0
     while stack and emitted < max_files:
-        directory = stack.pop()
+        directory, inherited_rules = stack.pop()
+        base = directory.relative_to(root).as_posix()
+        if base == ".":
+            base = ""
+        rules = inherited_rules + _ignore_rules(directory, base)
         try:
             with os.scandir(directory) as iterator:
                 entries = sorted(iterator, key=lambda item: item.name, reverse=True)
@@ -137,7 +157,7 @@ def _walk_files(root, max_files):
                 if entry.is_dir(follow_symlinks=False):
                     if entry.name in _IGNORED_DIRS or _matches_ignore(relative, True, rules):
                         continue
-                    stack.append(path)
+                    stack.append((path, rules))
                 elif entry.is_file(follow_symlinks=False) and not _matches_ignore(relative, False, rules):
                     emitted += 1
                     yield path, relative
