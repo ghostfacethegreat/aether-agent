@@ -77,6 +77,8 @@ For each run, record:
 - The advanced development PR is open and draft; it is not merged or released.
 - The latest recorded AETHER CI run on the PR head passed the Python 3.10–3.14 matrix, including project checks and clean-checkout install/uninstall checks.
 - The current coding workflow is a guarded foundation, not a complete autonomous TDD system.
+- `repo_index` now handles common root and nested `.gitignore` patterns, with regression coverage for scope and ordered negation.
+- `repo_index action="symbols"` provides bounded lexical declaration search for Python and JavaScript/TypeScript; that checkpoint passed the Python 3.10–3.14 CI matrix. Lua, Go, and Rust patterns/tests have since been added, but their latest combined head is still awaiting a fresh complete CI run.
 - Research does not yet provide a full source/citation/contradiction/confidence report.
 - Browser automation/MCP, messaging/voice, isolated durable background execution, full task-quality benchmarks, and advanced skill curation remain open workstreams.
 - No same-model task-quality comparison has established Hermes parity.
