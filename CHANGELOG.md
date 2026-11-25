@@ -3,6 +3,15 @@
 ## Unreleased
 
 ### Added
+- Add a bounded local repository index/search tool with root .gitignore handling and generated/vendor, symlink, binary, and size exclusions.
+- Add unified-diff preview and approval-gated patch application with full preflight, path protections, existing-file-only policy, and rollback attempt on filesystem errors.
+- Add fixed-argument repository test runner for unittest suite/module, compileall, and scripts/check.sh; include successful test_run evidence in independent verification.
+
+### Changed
+- Developer, debugger, tester, and verifier roles can use the repository coding workflow; patch writes and test execution require approval.
+
+
+### Added
 - Load bounded repository-root project context from AGENTS.md and compatible instruction files with symlink, traversal, binary, encoding, and size protections.
 - Add structured specialist-output contracts and an independent-verification gate based on the verifier's own successful test/check tool evidence.
 - Expand automatic dependency-aware orchestration across planner, researcher, architect, developer, debugger, tester, security auditor, verifier, reviewer, analyst, and documentation roles.

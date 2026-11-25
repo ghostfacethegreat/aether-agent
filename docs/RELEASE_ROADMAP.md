@@ -122,26 +122,15 @@ Release only when all of the following are true:
 
 ## Hermes-competitive capability tracks
 
-The parity foundation branch adds project context, broader specialist planning, an evidence-gated verifier, structured output contracts, CI, and scoped custom-agent profiles. Remaining work is split into independent streams:
+**Phase F coding workflow now has a tested baseline:** bounded repository indexing/search, unified-diff preview/application, and an approval-gated fixed-command test runner. It is not a full IDE-grade TDD controller.
 
-1. Browser automation and MCP: a real local browser runtime, isolated profiles, lazy tool discovery, MCP server configuration, and schema validation.
-2. Messaging and voice/media: optional Telegram/Discord and other channel adapters, webhook authentication, local voice I/O, and media tools.
-3. Coding workflows: repository indexing, symbol/navigation support, patch application, and test-driven edit/verify loops.
-4. Execution backends: local subprocess, Docker, and optional SSH/remote sandboxes with clear permission and credential boundaries.
-5. Learning and evaluation: autonomous but reviewable skill proposals, curation/rollback, reproducible task suites, and opt-in same-model Hermes comparisons.
+Remaining tracks, in priority order:
 
-Do not mark these tracks complete from design documents or custom-agent profiles. Require implementation, tests, installation checks, and evidence artifacts.
-
-
-## Hermes-competitive capability tracks
-
-The parity-foundation branch adds bounded project context, expanded dependency-aware specialist planning, structured agent contracts, an evidence-gated verifier, CI, and scoped coding-agent workstreams. The remaining Hermes-inspired work is split into independently scoped streams:
-
-1. **Browser and MCP:** local browser runtime with isolated profiles; secure URL/navigation controls; MCP servers, schema validation, and lazy tool discovery.
+1. **Browser and MCP:** local browser runtime with isolated profiles; secure URL/navigation controls; MCP stdio/HTTP servers, schema validation, and lazy tool discovery.
 2. **Messaging and voice/media:** optional channel adapters, webhook authentication, user/session isolation, local-first speech input/output, and media tools.
-3. **Coding workflows:** ignore-aware repository index, symbol navigation, patch preview/application, focused test loops, and independent diff verification.
-4. **Execution backends:** optional Docker isolation first, then SSH/remote backends; durable background runs with cancellation, restart recovery, and bounded concurrency.
-5. **Learning and curation:** model-assisted but reviewable skill drafting, duplicate/stale-skill detection, lifecycle states, isolated validation, and rollback.
-6. **Evaluation:** reproducible task-quality fixtures, recorded tool traces, token/cost/time accounting, opt-in same-model Hermes comparisons, and regression gates.
+3. **Execution backends:** optional Docker isolation first, then SSH/remote backends; durable background runs with cancellation, restart recovery, and bounded concurrency.
+4. **Learning and curation:** model-assisted but reviewable skill drafting, duplicate/stale-skill detection, lifecycle states, isolated validation, and rollback.
+5. **Evaluation:** reproducible task-quality fixtures, recorded tool traces, token/cost/time accounting, opt-in same-model Hermes comparisons, and regression gates.
+6. **Coding completion:** persistent/incremental repository index, symbol navigation/LSP, create/delete patches, multi-turn TDD orchestration, and semantic diff review.
 
-Do not mark a track complete from agent-profile files, issue creation, or design docs. Completion requires implementation, tests, clean-install checks, security review, and reproducible evidence artifacts. All hosted integrations and live model evaluations remain opt-in; no paid provider is required for default local operation.
+Do not mark a track complete from agent-profile files, issue creation, or design docs. Completion requires implementation, tests, clean-install checks, security review, and reproducible evidence artifacts. Hosted integrations and live model evaluations remain opt-in; no paid provider is required for default local operation.

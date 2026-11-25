@@ -117,6 +117,28 @@ These files are lower-priority workspace guidance. They cannot change tool permi
 
 `orchestrator.strict_output_contracts` defaults to `false` to preserve compatibility with older and custom models. When enabled, deterministic contracts validate required JSON fields and basic types for specialist roles. The independent verifier contract and test-command evidence gate are always enforced.
 
+## Repository index and coding tools
+
+The repository tools are local-only and use bounded defaults:
+
+```json
+{
+  "repository_index": {
+    "max_files": 3000,
+    "max_file_bytes": 262144,
+    "max_total_bytes": 8388608,
+    "max_results": 40,
+    "test_timeout": 300
+  }
+}
+```
+
+`repo_index` reads from the configured workspace (or a subdirectory) and searches the root `.gitignore` patterns. It skips symlinks and known generated/vendor folders. Nested `.gitignore` files, persistent indexing, symbol graphs, and LSP are not implemented.
+
+`patch_preview` is read-only. `patch_apply` requires approval and can modify existing UTF-8 files only; it rejects new/deleted files, renames, symlinks, binary files, and paths outside the workspace. It preflights every target before writing and attempts rollback on filesystem write failure.
+
+`test_run` requires approval and accepts only the fixed `suite`, `module`, `compile`, or `check` modes. It does not accept arbitrary shell command strings. These safeguards do not make subprocess execution an OS sandbox.
+
 ## Tool permissions
 
 ```json

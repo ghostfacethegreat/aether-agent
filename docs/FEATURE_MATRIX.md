@@ -18,18 +18,7 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | Structured role contracts | Implemented baseline | Deterministic required-field/type/enum checks; strict validation for other specialist roles is opt-in. |
 | Independent verification | Implemented bounded baseline | Requires verifier's own successful recognized test/check command in terminal log; not formal proof or task-quality benchmark. |
 | Parallel agent profiles | Prepared | Four custom Copilot profiles and workstream instructions are included; they do not start automatically. |
-| Task-quality evaluation | Planned | CI and unit checks are added on this branch; no comparable live-model task-quality benchmark is claimed. |
-
-## Intelligence and agent execution
-
-| Capability | AETHER status on parity-foundation branch | Notes |
-|---|---|---|
-| Repository context files | Implemented baseline | Bounded workspace-root AGENTS.md-compatible context; no recursion, symlinks, or network fetches. |
-| Dynamic specialist planning | Implemented baseline | Dependency-aware planner/researcher/architect/developer/tester/verifier/reviewer chain, with debugging, documentation, and security variants. |
-| Structured role contracts | Implemented baseline | Deterministic required-field/type/enum checks; strict validation for other specialist roles is opt-in. |
-| Independent verification | Implemented bounded baseline | Requires verifier's own successful recognized test/check command in terminal log; not formal proof or task-quality benchmark. |
-| Parallel agent profiles | Prepared | Four custom Copilot profiles and workstream instructions are included; they do not start automatically. |
-| Task-quality evaluation | Planned | CI and unit checks are added on this branch; no comparable live-model task-quality benchmark is claimed. |
+| Task-quality evaluation | Planned | CI is green on the latest verified parity checkpoint; no comparable live-model task-quality benchmark or quality-parity claim exists. |
 
 ## AI core
 
@@ -58,9 +47,12 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | File read/write/edit | Rich file tools with guards | Done | `read_file`, `write_file`, `edit_file`, `list_directory`. |
 | Terminal execution | Sandboxed/backed terminal tool | Done | `terminal` with timeout, output cap, approval for destructive commands. Not a sandbox. |
 | Git integration | Several git helpers | Done | `git status/diff/log/add/commit` through one tool; git actions require approval by default. |
+| Repository index and search | Codebase navigability and search tools | Partial | `repo_index` builds a bounded local index on demand, honors root `.gitignore` patterns, and returns filename/source snippets. No persistent symbol graph, LSP, or incremental cache. |
+| Patch preview and apply | `patch` tool with checkpoints | Partial | `patch_preview` validates and hashes changes; `patch_apply` modifies existing UTF-8 files only after full preflight and explicit approval. No new/deleted files, rename, binary patch, or OS sandbox. |
+| Constrained test execution | Terminal/code execution workflows | Partial | `test_run` supports unittest suite/module, compileall, and the repository check script with fixed argv and approval. It is not yet an autonomous multi-turn TDD controller. |
 | Web research | Exa/Firecrawl/Parallel plus fetch | Partial | Key-free `web_fetch` and DuckDuckGo HTML `web_search`; optional paid keys supported but not required. M2.2 rejects private URL targets and unsafe redirects. |
 | Browser automation | Local CDP, cloud Browserbase, desktop control | Partial | Configurable `browser` command template; no bundled browser runtime. Disabled by default. |
-| Code generation / debugging | Full coding agent | Done | Tool-driven editing plus built-in `debug` and `code-review` skills. |
+| Code generation / debugging | Full coding agent | Partial | Existing file tools plus repository search, patch preview/apply, and bounded test runner; end-to-end autonomous TDD, symbol navigation, and independent diff-review loop remain incomplete. |
 | Task history and recovery | Durable sessions, delegation ledgers | Done | SQLite `tasks` table with `/tasks` and in-chat `/resume`; M2.1 preserves assistant tool calls and tool result IDs across reload. |
 | Local scheduling | Cron jobs with delivery and audit logs | Partial | M2.3 executes due prompts in-process, claims jobs before runs, records `cron/executions.jsonl`, reports due/executed/skipped/failed, and supports update/pause/resume/cancel. No daemon, delivery targets, or cron syntax. |
 

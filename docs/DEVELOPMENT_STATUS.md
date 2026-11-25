@@ -127,7 +127,9 @@ The combined check/install run recorded 3 cold starts, `0.109s` median wall time
 
 ## Active work
 
-Phase F — coding workflow — is next. Phase E is implemented on this feature branch; implementation is committed separately from documentation; not pushed, merged, tagged, or released.
+Phase F — repository coding workflow — has an implemented baseline on `feat/aether-parity-foundation`: bounded repository indexing/search, unified-diff preview/application, and an approval-gated fixed-command test runner. CI verification is recorded per commit. Remaining work in this track is persistent/incremental indexing, symbol navigation, new-file patches, and a fully orchestrated multi-turn TDD/diff-review loop.
+
+The next major parity tracks are browser automation/MCP, messaging and voice, isolated execution backends, skill curation/rollback, and task-quality evaluation.
 
 ## Per-phase record
 
@@ -144,31 +146,20 @@ Record these items before marking any phase complete:
 
 ## Publication status
 
-- Push: not attempted.
-- Pull request: not created.
-- CI: no GitHub Actions workflow exists yet.
-- Merge: not attempted.
-- Tag: none created.
-- Release: none published.
-
-No task-quality benchmark results exist. No Hermes parity or superiority claim is permitted.
-
-
-## Parity foundation implementation checkpoint
-
 - Branch: `feat/aether-parity-foundation`.
-- Added bounded root-only project-context loading for `AGENTS.md` and compatible workspace files.
-- Added eleven-role contracts and dependency-aware automatic team plans for implementation, debugging, documentation, and security objectives.
-- Added a separate verifier role. Its verified state requires its own terminal log to show exit code zero for a recognized test/check command and a valid structured pass response.
-- Added a Python 3.10–3.14 GitHub Actions matrix and four scoped Copilot custom-agent profiles.
-- The branch is not released or merged. Full test execution and the first hosted CI run are still required; no Hermes task-quality parity claim is made.
+- Draft PR: [#8](https://github.com/ghostfacethegreat/aether-agent/pull/8); open, not merged.
+- CI: latest confirmed green checkpoints include the Python 3.10–3.14 matrix and clean-install test. Each new commit must be checked independently.
+- Main branch: unchanged by this development work.
+- Release/tag: none created; package version remains `0.1.0`.
+- No task-quality benchmark or Hermes parity/superiority claim is supported.
 
+## Phase F — repository coding workflow
 
-## Parity foundation implementation checkpoint
+- Added `repo_index`: bounded, on-demand workspace indexing and filename/source snippet search, with root `.gitignore` support and symlink/generated/binary/size exclusions.
+- Added `patch_preview`: unified-diff validation with affected-file paths, byte counts, and SHA-256 before/after hashes; no file writes.
+- Added `patch_apply`: approval-gated modifications to existing UTF-8 files, path/symlink/binary safeguards, whole-patch preflight, and best-effort rollback on write failures. New/deleted files and renames are not supported yet.
+- Added `test_run`: fixed-argument unittest suite/module, compileall, and project check modes with timeouts; refuses empty test suites and requires approval.
+- Developer, debugger, tester, and verifier roles have the relevant repository tools; successful `test_run` evidence can satisfy the independent-verifier gate.
+- Added regression tests for ignore rules, search results, workspace escapes, symlinks, patch preview/apply, preflight atomicity, approval, header-like source lines, test-run allowlists, and empty suites.
+- Remaining: persistent/incremental index, symbol navigation/LSP, file-create/delete patches, autonomous TDD loop orchestration, and semantic independent diff review.
 
-- Branch: `feat/aether-parity-foundation`.
-- Added bounded root-only project-context loading for `AGENTS.md` and compatible workspace files.
-- Added eleven-role contracts and dependency-aware automatic team plans for implementation, debugging, documentation, and security objectives.
-- Added a separate verifier role. Its verified state requires its own terminal log to show exit code zero for a recognized test/check command and a valid structured pass response.
-- Added a Python 3.10–3.14 GitHub Actions matrix and four scoped Copilot custom-agent profiles.
-- The branch is not released or merged. Full test execution and the first hosted CI run are still required; no Hermes task-quality parity claim is made.

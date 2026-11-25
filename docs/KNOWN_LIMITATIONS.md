@@ -6,9 +6,9 @@ This document records what Aether does not yet prove or does not yet do. It is i
 
 - Version `0.1.0` is the current published alpha baseline.
 - No `0.2.0` release, tag, merge, or publication has been completed; the package version remains `0.1.0`.
-- Phase E is implemented on this feature branch and locally verified (26 focused / 179 total tests); implementation is committed separately from documentation, and its `scripts/check.sh`, install, and `git diff --check` gates passed locally. It is not released.
+- Phases B–F have implementation baselines on `feat/aether-parity-foundation`; the latest verified CI checkpoint passed the Python 3.10–3.14 matrix, including unit/check and clean-install gates. The branch is in a draft PR and has not been merged or released.
 - There are no release tags in the repository at this checkpoint.
-- A GitHub Actions CI matrix is included on the parity-foundation branch; its first hosted run must pass before the workflow is considered verified.
+- GitHub Actions CI is configured for Python 3.10–3.14. A green run applies only to its recorded commit; later commits require a fresh run.
 - Push, PR, merge, tag, and release status must be confirmed before being claimed.
 
 ## Intelligence gaps
@@ -34,7 +34,7 @@ This document records what Aether does not yet prove or does not yet do. It is i
 - Explicit `--provider`/`--model` or `Agent(provider_name=..., model=...)` selections are authoritative; there is no `routing.manual` override switch.
 - Role spend shares apply per turn to a child's portion of the shared budget; they do not raise the shared limit.
 - Verified performance recommendations require `mark_model_performance_verified()` evidence; bare success text is not verified.
-- Coding work does not yet build a repository index or produce verified diff reviews.
+- Coding workflow baseline: `repo_index` performs bounded on-demand filename/source search; `patch_preview` validates existing-file unified diffs; `patch_apply` performs preflighted, approval-gated edits; and `test_run` runs a fixed set of repository checks. This is not yet a persistent symbol index, LSP, IDE integration, automatic patch generation, multi-turn TDD controller, or independent semantic diff review. Patch application intentionally refuses file creation/deletion, renames, and binary files.
 - Research work does not yet produce structured evidence, citation, contradiction, and confidence reports.
 - Tool schemas are not deferred behind capability search.
 - The default role registry now includes eleven specialist roles and automatic dependency-aware team planning. It remains a bounded role library, not Hermes-scale dynamic agent spawning.
@@ -42,7 +42,7 @@ This document records what Aether does not yet prove or does not yet do. It is i
 
 ## Benchmark and comparison gaps
 
-- No task-quality benchmark harness exists yet; the Phase E runner is a deterministic routing simulation over fixed fixtures, not task-result evidence.
+- No task-quality benchmark harness exists yet; the Phase E runner is a deterministic routing simulation over fixed fixtures, not task-result evidence. The repository test runner and CI validate engineering regressions, not comparative model task success.
 - No benchmark result artifacts exist under `benchmarks/results/`; the routing runner prints JSON to stdout and has no `--output` or file writes.
 - The startup benchmark measures cold start time and memory, not task success. Routing-simulation fixture eligibility is not model quality or task-quality parity.
 - No live Aether/Hermes comparison was run.
