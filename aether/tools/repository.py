@@ -13,6 +13,23 @@ from pathlib import Path, PurePosixPath
 
 from aether.errors import ToolError
 
+_SYMBOL_PATTERNS = {
+    ".py": (
+        (re.compile(r"^\\s*(?:async\\s+)?def\\s+([A-Za-z_]\\w*)\\b"), "function"),
+        (re.compile(r"^\\s*class\\s+([A-Za-z_]\\w*)\\b"), "class"),
+    ),
+    ".js": (
+        (re.compile(r"^\\s*(?:export\\s+)?(?:default\\s+)?(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)\\b"), "function"),
+        (re.compile(r"^\\s*(?:export\\s+)?(?:default\\s+)?(?:abstract\\s+)?class\\s+([A-Za-z_$][\\w$]*)\\b"), "class"),
+        (re.compile(r"^\\s*(?:export\\s+)?interface\\s+([A-Za-z_$][\\w$]*)\\b"), "interface"),
+        (re.compile(r"^\\s*(?:export\\s+)?type\\s+([A-Za-z_$][\\w$]*)\\b"), "type"),
+        (re.compile(r"^\\s*(?:export\\s+)?enum\\s+([A-Za-z_$][\\w$]*)\\b"), "enum"),
+        (re.compile(r"^\\s*(?:export\\s+)?(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:async\\s*)?(?:function\\b|\\([^)]*\\)\\s*=>|[A-Za-z_$][\\w$]*\\s*=>)"), "function"),
+    ),
+}
+_SYMBOL_PATTERNS[".jsx"] = _SYMBOL_PATTERNS[".js"]
+_SYMBOL_PATTERNS[".ts"] = _SYMBOL_PATTERNS[".js"]
+_SYMBOL_PATTERNS[".tsx"] = _SYMBOL_PATTERNS[".js"]
 _IGNORED_DIRS = {
     ".git", ".hg", ".svn", "__pycache__", ".venv", "venv", "env", "node_modules",
     ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", ".nox", "dist", "build", ".idea",
@@ -172,18 +189,18 @@ def repo_index(args, context):
     config = context.get("config") or {}
     root = _root_path(context, args.get("root") or ".")
     action = str(args.get("action") or "summary").strip().lower()
-    if action not in ("summary", "search"):
-        raise ToolError("repo_index action must be 'summary' or 'search'")
+    if action not in ("summary", "search", "symbols"):
+        raise ToolError("repo_index action must be 'summary', 'search', or 'symbols'")
     query = str(args.get("query") or "").strip()
-    if action == "search" and not query:
-        raise ToolError("repo_index search requires a non-empty query")
+    if action in ("search", "symbols") and not query:
+        raise ToolError(f"repo_index {action} requires a non-empty query")
 
     max_files = _bounded_int(config, "repository_index.max_files", 3000, 1, 20000)
     max_file_bytes = _bounded_int(config, "repository_index.max_file_bytes", 262144, 256, 4 * 1024 * 1024)
     max_total_bytes = _bounded_int(config, "repository_index.max_total_bytes", 8 * 1024 * 1024, 1024, 64 * 1024 * 1024)
     result_limit = _bounded_int(config, "repository_index.max_results", 40, 1, 100)
     query_lower = query.casefold()
-    indexed, matches = [], []
+    indexed, matches, symbol_matches = [], [], []
     total_bytes = skipped_large = skipped_binary = 0
     truncated = False
 
@@ -225,6 +242,23 @@ def repo_index(args, context):
                 if len(matches) >= result_limit:
                     truncated = True
                     break
+        elif action == "symbols":
+            for number, line in enumerate(lines, start=1):
+                for pattern, kind in _SYMBOL_PATTERNS.get(path.suffix.lower(), ()):
+                    match = pattern.match(line)
+                    if match and query_lower in match.group(1).casefold():
+                        symbol_matches.append({
+                            "name": match.group(1),
+                            "kind": kind,
+                            "path": relative,
+                            "line": number,
+                        })
+                        break
+                if len(symbol_matches) >= result_limit:
+                    truncated = True
+                    break
+            if truncated:
+                break
 
     result = {
         "root": str(root),
@@ -237,6 +271,8 @@ def repo_index(args, context):
     }
     if action == "search":
         result.update({"query": query, "matches": matches, "match_count": len(matches)})
+    elif action == "symbols":
+        result.update({"query": query, "symbols": symbol_matches, "match_count": len(symbol_matches)})
     else:
         result["files"] = indexed[: min(result_limit, 100)]
         result["file_list_truncated"] = len(indexed) > len(result["files"])
