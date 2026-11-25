@@ -127,7 +127,7 @@ class CoreTests(TempHomeTest):
             {"content": "Done."},
         ]
         config = self.config(providers={"mock": {"script": script}})
-        agent = Agent(config, home=self.home, enable_subagents=False)
+        agent = Agent(config, home=self.home, enable_subagents=False, approve_callback=lambda *args: "once")
         deltas = []
         result = agent.run_turn("Create a file", on_delta=lambda text, kind="content": deltas.append(text))
         self.assertEqual(result.text, "Done.")

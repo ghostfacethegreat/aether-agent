@@ -46,15 +46,21 @@ def redact(value) -> str:
     return text
 
 
+def _redact_value(value):
+    if isinstance(value, dict):
+        return redact_mapping(value)
+    if isinstance(value, (list, tuple)):
+        return [_redact_value(item) for item in value]
+    return redact(value)
+
+
 def redact_mapping(mapping) -> dict:
     result = {}
     for key, value in mapping.items():
         if _SECRET_KEY.search(str(key)):
             result[key] = "[REDACTED]"
-        elif isinstance(value, dict):
-            result[key] = redact_mapping(value)
         else:
-            result[key] = redact(value)
+            result[key] = _redact_value(value)
     return result
 
 

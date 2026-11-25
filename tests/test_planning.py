@@ -155,7 +155,7 @@ class PlanningIntegrationTests(TempHomeTest):
             }
         ]
         config = self.config(max_iterations=1, providers={"mock": {"script": script}})
-        agent = Agent(config, home=self.home, enable_subagents=False)
+        agent = Agent(config, home=self.home, enable_subagents=False, approve_callback=lambda *args: "once")
         first = agent.run_turn("Create a file")
 
         self.assertEqual(first.exit_reason, "max_iterations")
@@ -168,6 +168,7 @@ class PlanningIntegrationTests(TempHomeTest):
             home=self.home,
             session_id=first.session_id,
             enable_subagents=False,
+            approve_callback=lambda *args: "once",
         )
         second = resumed.run_turn("resume")
 

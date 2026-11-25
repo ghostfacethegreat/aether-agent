@@ -127,6 +127,29 @@ class TaskTests(TempHomeTest):
             with self.assertRaises(RuntimeError):
                 runner("check status")
 
+    def test_scheduled_runner_ignores_true_paid_environment(self):
+        config = self.config(provider="openai", model="gpt-4o-mini", scheduler={"allow_paid": False})
+        runner = scheduled_runner(config, self.home)
+        with patch.dict(os.environ, {"AETHER_CONFIRM_PAID": "1"}):
+            with self.assertRaises(RuntimeError) as raised:
+                runner("check status")
+        self.assertIn("scheduler.allow_paid=true", str(raised.exception))
+
+    def test_scheduled_runner_limits_tools_to_read_only(self):
+        config = self.config(provider="mock", model="mock-standard", scheduler={"allow_paid": False})
+        runner = scheduled_runner(config, self.home)
+        with patch("aether.cli.app.Agent") as agent_class:
+            agent_class.return_value.run_turn.return_value = SimpleNamespace(text="ok", exit_reason="complete")
+            self.assertEqual(runner("check status"), "ok")
+
+        run_config = agent_class.call_args.args[0]
+        self.assertTrue(set(run_config.get("tool_permissions.allow_tools", [])) <= {"list_directory", "read_file"})
+        denied = set(run_config.get("tool_permissions.deny_tools", []))
+        self.assertTrue({"write_file", "edit_file", "terminal", "patch_apply", "test_run", "memory", "skill", "scheduler", "delegate_task", "orchestrate_task"} <= denied)
+        self.assertFalse(run_config.get("learning.enabled"))
+        self.assertFalse(run_config.get("memory.enabled"))
+        self.assertFalse(run_config.get("skills.enabled"))
+
     def test_scheduled_runner_treats_cost_limit_as_failure(self):
         config = self.config(provider="mock", model="mock-standard")
         runner = scheduled_runner(config, self.home)

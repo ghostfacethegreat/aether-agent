@@ -16,6 +16,7 @@ from aether.home import aether_home, env_path
 from aether.logging import get_logger, set_level
 from aether.memory import LAYERS, LayeredMemory, MemoryStore
 from aether.orchestration import ROLE_NAMES, Orchestrator, resolved_roles
+from aether.orchestration.roles import FORCED_APPROVAL_TOOLS, FORCED_DENY_TOOLS
 from aether.persistence import Store
 from aether.providers.catalog import PROVIDERS, provider_is_billable
 from aether.routing import classify_task
@@ -24,6 +25,8 @@ from aether.utils import parse_bool, read_json, redact, redact_mapping, truncate
 
 from . import render
 
+
+SCHEDULED_TOOLS = ["list_directory", "read_file"]
 
 SLASH_COMMANDS = [
     "/help", "/quit", "/exit", "/new", "/clear", "/status", "/provider", "/model",
@@ -369,10 +372,17 @@ def prepare(args):
 
 
 def make_approver():
-    def approve(subject, reason, rule_key):
+    def approve(subject, reason, rule_key, details=None):
         print("\n" + render.paint(subject, "yellow"))
         print("  " + str(reason))
         print("  rule: " + str(rule_key))
+        info = details or {}
+        if info.get("action"):
+            print("  action: " + str(info["action"]))
+        for name, value in (info.get("arguments") or {}).items():
+            print("    " + str(name) + ": " + truncate(redact(str(value)), 240))
+        if info.get("fresh"):
+            print("  fresh approval required; session/always are treated as once")
         try:
             answer = input("  Allow? [y] once / [s] session / [a] always / [n] no: ").strip().lower()
         except EOFError:
@@ -767,6 +777,7 @@ def _agent_command(agent, parts):
             print(render.error_line(f"session '{args[0]}' not found"))
             return False
         agent.session_id = args[0]
+        agent.policy.clear_session_approvals()
         agent.history = agent._load_history()
         agent._refresh_executor_context()
         print(render.success_line(f"resumed {args[0]}"))
@@ -1339,7 +1350,7 @@ def scheduled_runner(config, home):
     def run(prompt):
         provider = str(config.get("provider") or "unknown")
         model = str(config.get("model") or "")
-        allow_paid = parse_bool(config.get("scheduler.allow_paid"), False) or parse_bool(os.environ.get("AETHER_CONFIRM_PAID"), False)
+        allow_paid = parse_bool(config.get("scheduler.allow_paid"), False)
         if provider_is_billable(provider, model) and not allow_paid:
             raise RuntimeError(
                 f"Scheduled execution with billable provider '{provider}' is disabled by default; "
@@ -1349,16 +1360,29 @@ def scheduled_runner(config, home):
         run_config.set("costs.confirm_paid", not allow_paid)
         run_config.set("orchestrator.allow_paid", False)
         run_config.set("orchestrator.enabled", False)
-        run_config.set("tool_permissions.allow_tools", None)
-        agent = Agent(
-            run_config,
-            home=home,
-            persist=False,
-            approve_callback=None,
-            enable_subagents=False,
-            enable_orchestrator=False,
+        run_config.set("learning.enabled", False)
+        run_config.set("memory.enabled", False)
+        run_config.set("skills.enabled", False)
+        run_config.set("tool_permissions.allow_tools", list(SCHEDULED_TOOLS))
+        run_config.set(
+            "tool_permissions.deny_tools",
+            sorted(FORCED_DENY_TOOLS | FORCED_APPROVAL_TOOLS | {"write_file", "edit_file", "patch_apply", "test_run", "memory", "skill", "scheduler"}),
         )
-        result = agent.run_turn(prompt)
+        run_config.set("tool_permissions.require_approval", sorted(FORCED_APPROVAL_TOOLS))
+        previous_confirmation = os.environ.pop("AETHER_CONFIRM_PAID", None)
+        try:
+            agent = Agent(
+                run_config,
+                home=home,
+                persist=False,
+                approve_callback=None,
+                enable_subagents=False,
+                enable_orchestrator=False,
+            )
+            result = agent.run_turn(prompt)
+        finally:
+            if previous_confirmation is not None:
+                os.environ["AETHER_CONFIRM_PAID"] = previous_confirmation
         if result.exit_reason in ("provider_error", "cost_limit"):
             raise RuntimeError(f"scheduled run stopped: {result.exit_reason}")
         return result.text

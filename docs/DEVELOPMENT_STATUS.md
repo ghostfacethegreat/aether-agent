@@ -131,9 +131,11 @@ The combined check/install run recorded 3 cold starts, `0.109s` median wall time
 
 ## Active work
 
+Authorization hardening has a verified baseline on `feat/aether-parity-foundation`: forced approval is enforced by the policy layer, state-changing tool calls require fresh action-bound approval, child agents inherit a strict tool ceiling, scheduled runs are read-only, and approval prompts show recursively redacted action details. Focused verification ran 109 tests; full verification ran 251 tests; `compileall`, `check.sh`, `test_install.sh`, and `git diff --check` passed. Independent security and reviewer agents approved the final diff. See [RELEASE_CHECKS.md](RELEASE_CHECKS.md) for the evidence record.
+
 Phase F — repository coding workflow — has a verified baseline on `feat/aether-parity-foundation`: bounded repository indexing/search, root and nested ignore handling, persistent incremental lexical symbol retrieval, unified-diff preview/application, and an approval-gated fixed-command test runner. Remaining work in this track is LSP/cross-reference navigation, new/delete/rename patch operations, binary patch handling, and a fully orchestrated multi-turn TDD/diff-review loop.
 
-The next major parity tracks are browser automation/MCP, messaging and voice, isolated execution backends, skill curation/rollback, and task-quality evaluation.
+The next major parity tracks are durable structured audit logging, cancellation beyond executor boundaries, browser automation/MCP, messaging and voice, isolated execution backends, skill curation/rollback, and task-quality evaluation.
 
 ## Per-phase record
 

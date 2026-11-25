@@ -43,7 +43,7 @@ DEFAULTS = {
         "allow_tools": None,
         "deny_tools": [],
         "allowed_roots": [],
-        "require_approval": ["terminal", "write_file", "edit_file", "python", "git", "browser", "patch_apply", "test_run"],
+        "require_approval": ["terminal", "write_file", "edit_file", "python", "git", "browser", "patch_apply", "test_run", "memory", "skill", "scheduler", "delegate_task", "orchestrate_task"],
         "allow_destructive": False,
         "approval_cache": "session",
     },

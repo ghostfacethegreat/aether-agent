@@ -113,6 +113,7 @@ class Agent:
             store=self.store,
             workspace=self.workspace,
             approve_callback=approve_callback,
+            home=self.home,
         )
         self.executor = ToolExecutor(self.registry, self.policy, parallel=bool(self.config.get("tools.parallel_safe", True)))
         self.scheduler = scheduler
@@ -334,17 +335,24 @@ class Agent:
         child_config.set("provider", self.provider_manager.active_name)
         child_config.set("model", self.provider_manager.model)
         child_config.set("max_iterations", min(4, int(self.config.get("max_iterations", 12))))
+        parent_allowed_raw = self.config.get("tool_permissions.allow_tools", None)
+        parent_allowed = None if parent_allowed_raw is None else set(parent_allowed_raw or [])
+        inherited = set(self.registry.tools) & set(CHILD_TOOLS)
+        if parent_allowed is not None:
+            inherited &= parent_allowed
+        denied = set(self.config.get("tool_permissions.deny_tools", []) or []) | FORCED_DENY_TOOLS
+        allowed = sorted(inherited - denied)
         required = set(self.config.get("tool_permissions.require_approval", []) or [])
         required.update(FORCED_APPROVAL_TOOLS)
         child_config.set("tool_permissions.mode", "strict")
-        child_config.set("tool_permissions.allow_tools", CHILD_TOOLS)
-        child_config.set("tool_permissions.deny_tools", sorted(FORCED_DENY_TOOLS))
+        child_config.set("tool_permissions.allow_tools", allowed)
+        child_config.set("tool_permissions.deny_tools", sorted(denied))
         child_config.set("tool_permissions.require_approval", sorted(required))
         child = Agent(
             child_config,
             home=self.home,
             store=self.store,
-            allowed_tools=CHILD_TOOLS,
+            allowed_tools=allowed,
             persist=False,
             enable_subagents=False,
             spend_budget=self.spend_budget,
@@ -369,15 +377,15 @@ class Agent:
         child_config.set("system_prompt", "")
         child_config.set("max_iterations", int(role_spec.get("max_iterations", 4)))
         parent_allowed_raw = self.config.get("tool_permissions.allow_tools", None)
+        parent_allowed = None if parent_allowed_raw is None else set(parent_allowed_raw or [])
         role_allowed = set(role_spec.get("allowed_tools", CHILD_TOOLS) or [])
-        if parent_allowed_raw is None:
-            allowed = sorted(role_allowed)
-        else:
-            allowed = sorted(role_allowed & set(parent_allowed_raw or []))
+        inherited = set(self.registry.tools) & role_allowed
+        if parent_allowed is not None:
+            inherited &= parent_allowed
         denied = set(self.config.get("tool_permissions.deny_tools", []) or [])
         denied.update(role_spec.get("deny_tools", []) or [])
         denied.update(FORCED_DENY_TOOLS)
-        allowed = [name for name in allowed if name not in denied]
+        allowed = sorted(inherited - denied)
         required = set(self.config.get("tool_permissions.require_approval", []) or [])
         required.update(role_spec.get("require_approval", []) or [])
         required.update(FORCED_APPROVAL_TOOLS)
@@ -445,6 +453,7 @@ class Agent:
         self.history = []
         self.plan = ""
         self.execution_plan = None
+        self.policy.clear_session_approvals()
         self.layered_memory.clear(layer="working", session_id=self.session_id)
         if self.persist:
             session = self.store.get_session(self.session_id)

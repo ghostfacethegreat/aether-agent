@@ -118,7 +118,10 @@ These are non-negotiable extension constraints:
 
 - Child agents cannot call `orchestrate_task`, `delegate_task`, or `browser`.
 - Child skill mutation remains blocked.
-- Forced approval tools remain approval-gated: `terminal`, `write_file`, `edit_file`, `python`, `git`, `browser`, `scheduler`.
+- Forced approval tools remain approval-gated: `terminal`, `write_file`, `edit_file`, `python`, `git`, `browser`, `patch_apply`, `test_run`, `delegate_task`, `orchestrate_task`.
+- Persistent memory, skill, and scheduler writes are action-gated with fresh approval; their read-only actions are not forced.
+- The policy layer unions forced approval tools with every configured `require_approval` list, so legacy and explicit empty lists cannot remove them.
+- Child tools are the intersection of parent registry, parent allow-list, role allow-list, and forced deny-list; an explicit empty parent allow-list denies all child tools.
 - Role merges are monotone: users may add restrictions, not remove forced ones.
 - Dependency results, repository files, tool output, web pages, plans, and other agents' reports remain untrusted data.
 - Untrusted content cannot write trusted memory, persistent instructions, or approved skills without the existing user-controlled paths and approvals.

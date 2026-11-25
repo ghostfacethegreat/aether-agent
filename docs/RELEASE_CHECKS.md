@@ -179,7 +179,27 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - `git diff --check` — passed.
 - Failure found and fixed: the first strict command parser used the wrong token slice for `python -m unittest discover`, so two verification tests failed; the slice was corrected and the focused suite passed.
 - Five read-only specialist audits were run before the change. Their reports were treated as data; the implementation and tests were reconciled and verified locally.
-- Remaining critical work: default approval for memory/skill/scheduler writes, forced child approval for `patch_apply`, scheduled-run cancellation and tool restrictions, persistent-index corruption recovery, symbol-version/budget invalidation, and the end-to-end mock-provider coding loop.
+- Remaining critical work at that checkpoint: default approval for memory/skill/scheduler writes, forced child approval for `patch_apply`, scheduled-run cancellation and tool restrictions, persistent-index corruption recovery, symbol-version/budget invalidation, and the end-to-end mock-provider coding loop.
+
+## Authorization hardening checkpoint
+
+- Changed implementation files: `aether/cli/app.py`, `aether/config.py`, `aether/core/agent.py`, `aether/orchestration/roles.py`, `aether/tools/permissions.py`, and `aether/utils.py`.
+- Changed test files: `tests/test_core.py`, `tests/test_orchestration.py`, `tests/test_planning.py`, `tests/test_tasks.py`, and `tests/test_tools.py`.
+- Changed documentation: `docs/AETHER_02_ARCHITECTURE.md`, `docs/CONFIGURATION.md`, `docs/KNOWN_LIMITATIONS.md`, `docs/DEVELOPMENT_STATUS.md`, and `docs/RELEASE_CHECKS.md`.
+- State-changing tool calls now require fresh approval that is bound to exact arguments, effective mode, allowed roots, workspace, home, and `APPROVAL_POLICY_VERSION = 2`; legacy `always` approvals cannot replay file writes or patches.
+- Path decisions now precede approval decisions, so strict path denials remain denials even for state-changing tools.
+- Child agents derive their tool ceiling from parent registry, parent config, role allow list, and forced deny/approval sets; they cannot widen parent permissions.
+- Scheduled runs are restricted to `list_directory` and `read_file`, explicitly deny persistent mutators, and ignore `AETHER_CONFIRM_PAID` unless `scheduler.allow_paid=true`.
+- Approval prompts show an action label and recursively redacted arguments.
+- Focused verification: `python3 -m unittest tests.test_tools tests.test_orchestration tests.test_tasks tests.test_core tests.test_repository_tools` — 109 tests passed in `0.855s`.
+- Full verification: `python3 -m unittest discover -s tests -v` — 251 tests passed in `2.654s`.
+- `python3 -m compileall -q aether tests` — passed with no output.
+- `bash scripts/check.sh` — all checks passed; its in-script suite ran 251 tests; 3 cold starts, median wall time `0.122s`, peak child RSS `34.4 MiB`.
+- `bash scripts/test_install.sh` — `0.1.0`; local git-remote install test passed.
+- `git diff --check` — passed.
+- Failures found and fixed: forced `memory` approval initially over-prompted read actions; scheduled-run denial set omitted action-gated mutators; a planning test lacked an approver for fresh `write_file`; approval roots used global home instead of the policy home; documentation overstated session caching. All were corrected before final verification.
+- Nine read-only specialist audits were run: five before the change, two after implementation, and two after fixes. Their reports were treated as data; final independent verdicts were approve/approve after the last fixes were verified locally.
+- Remaining critical work: durable structured approval/execution audit trail, cancellation beyond executor boundaries, browser/MCP, messaging/voice, isolated execution backends, skill curation/rollback, and task-quality evaluation.
 - No lint/typecheck command is configured, so none is claimed. No model/network/billable calls were made. No Hermes parity or task-quality claim is made.
 
 

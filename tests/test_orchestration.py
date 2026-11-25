@@ -10,7 +10,7 @@ from aether.core import Agent, TurnResult
 from aether.core.loop import TurnState, _cost_limit, new_spend_budget
 from aether.errors import OrchestratorError, ProviderError, ToolError
 from aether.orchestration import OrchestrationRun, OrchestrationTask, SharedTaskState
-from aether.orchestration.roles import resolved_roles
+from aether.orchestration.roles import FORCED_APPROVAL_TOOLS, resolved_roles
 from aether.orchestration.orchestrator import ActiveRun, Orchestrator
 from aether.tools.builtins import skill_tool
 
@@ -243,6 +243,29 @@ class OrchestrationTests(TempHomeTest):
         self.assertTrue(child.policy.check("read_file", {}, risk="low").allowed)
         self.assertIn("orchestrate_task", child.config.get("tool_permissions.deny_tools", []))
 
+    def test_child_delegate_inherits_parent_registry_ceiling(self):
+        config = self.config(
+            tool_permissions={"allow_tools": ["read_file", "delegate_task"], "deny_tools": ["session_search"], "require_approval": []}
+        )
+        agent = Agent(config, home=self.home, allowed_tools=["read_file", "delegate_task"])
+        child = agent._child_agent({}, {})
+        self.assertNotIn("session_search", child.registry.tools)
+        self.assertNotIn("skill", child.registry.tools)
+        self.assertFalse(child.policy.check("session_search", {}, risk="low").allowed)
+        self.assertTrue(child.policy.check("read_file", {}, risk="low").allowed)
+
+    def test_orchestration_child_inherits_constructor_tool_ceiling(self):
+        config = self.config(tool_permissions={"require_approval": []})
+        agent = Agent(config, home=self.home, allowed_tools=["read_file", "orchestrate_task"])
+        role = {
+            "allowed_tools": ["read_file", "web_search", "session_search", "skill"],
+            "deny_tools": [],
+            "system_prompt": "Focused worker",
+            "max_iterations": 2,
+        }
+        child = agent._orchestration_child(role, {}, {}, threading.Event())
+        self.assertEqual(set(child.registry.tools), {"read_file"})
+
     def test_concurrent_task_isolation_and_communication(self):
         state = SharedTaskState("run_shared", "Objective")
         first = OrchestrationTask(id="task_first", role="researcher", goal="Research")
@@ -365,7 +388,7 @@ class OrchestrationTests(TempHomeTest):
             orchestrator={
                 "roles": {
                     "researcher": {
-                        "allowed_tools": ["terminal"],
+                        "allowed_tools": ["terminal", "memory"],
                         "deny_tools": [],
                         "require_approval": [],
                     }
@@ -377,6 +400,8 @@ class OrchestrationTests(TempHomeTest):
         child = agent._orchestration_child(role, {}, {}, threading.Event())
         decision = child.policy.check("terminal", {"command": "echo ok"}, risk="execute")
         self.assertTrue(decision.needs_approval)
+        self.assertTrue(FORCED_APPROVAL_TOOLS <= set(role["require_approval"]))
+        self.assertTrue(child.policy.check("memory", {"action": "add", "text": "x"}, "write").needs_approval)
 
     def test_child_cannot_mutate_persistent_skills(self):
         agent = Agent(self.config(), home=self.home)

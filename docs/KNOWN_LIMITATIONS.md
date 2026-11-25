@@ -77,6 +77,8 @@ This document records what Aether does not yet prove or does not yet do. It is i
 - Web, file, tool, and agent output is data, not trusted instruction.
 - Untrusted content must never modify persistent instructions or skills.
 - Approval, permission, strict-root, and redaction controls must be re-tested after every feature that touches tools or child agents.
+- Fresh approval covers persistent mutators, patch application, destructive operations, and delegation; cancellation is still checked at executor boundaries rather than inside every mutating tool.
+- Approval decisions and tool executions emit transient audit lines; there is no durable structured approval/execution audit trail yet.
 - No third-party security audit has been performed.
 - Secret scanning is local and pattern-based, not a proof that no secret exists.
 
