@@ -2,7 +2,6 @@ import os
 import shutil
 import sys
 import threading
-import time
 
 NO_COLOR = bool(os.environ.get("NO_COLOR")) or not sys.stdout.isatty()
 
@@ -106,10 +105,10 @@ def banner(version):
         rows = _glyph_rows()
         logo = []
         for row in rows:
-            line = "  " + row
+            line = paint("  " + row, "bright_blue")
             if _USE_UNICODE:
                 line += paint(" ░", "cyan")
-            logo.append(paint(line, "bright_blue"))
+            logo.append(line)
         if _USE_UNICODE:
             logo.append(paint("   " + "░" * min(len(rows[0]), max(8, width - 12)), "blue"))
     else:
