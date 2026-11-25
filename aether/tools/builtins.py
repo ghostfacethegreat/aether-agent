@@ -606,7 +606,7 @@ def scheduler_tool(args, context):
 TOOLS = [
     Tool(
         "repo_index",
-        "Index the local workspace with root and nested .gitignore handling; search filenames, source snippets, or common Python/JavaScript/TypeScript declarations. Bounded, on-demand, local-only; symbol search is lexical, not LSP.",
+        "Index the local workspace with root and nested .gitignore handling; search filenames, source snippets, or common Python/JavaScript/TypeScript/Lua/Go/Rust declarations. Bounded, on-demand, local-only; symbol search is lexical, not LSP.",
         {"type": "object", "properties": {"root": {"type": "string"}, "action": {"type": "string", "enum": ["summary", "search", "symbols"]}, "query": {"type": "string"}}, "required": []},
         repo_index, "read", True, timeout=45,
     ),
