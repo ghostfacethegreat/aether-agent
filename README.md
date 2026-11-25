@@ -8,7 +8,7 @@ Aether works with no paid account: the defaults target local Ollama, and a built
 
 Version `0.1.0` is an alpha release. A working core, screenshots, installer scripts, and source publication are complete. The project priority for `0.2+` is intelligence first: planning, memory, learning, routing, coding, research, coordination, verification, recovery, and measured task success. Adaptive planning, risk/alternatives records, resumable execution checkpoints, additive layered memory, an evidence-based learning loop with versioned skills, and capability-aware model routing are implemented and locally verified on a feature branch; `0.2.0` has not been released. See the [development status](docs/DEVELOPMENT_STATUS.md), [release roadmap](docs/RELEASE_ROADMAP.md), [known limitations](docs/KNOWN_LIMITATIONS.md), [intelligence audit](docs/INTELLIGENCE_AUDIT.md), [intelligence roadmap](docs/INTELLIGENCE_ROADMAP.md), [model routing](docs/MODEL_ROUTING.md), [Phase D learning](docs/PHASE_D_LEARNING.md), and [source-evidenced Hermes comparison](docs/HERMES_COMPARISON.md). No Hermes parity or superiority is claimed. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
 
-Terminal appearance is frozen. The existing ASCII artwork and colored rendering are preserved; only functional visual regressions will be fixed. Do not expect a theme selector, font system, animated title, or visual redesign in `0.2+`.
+The interactive CLI now uses an `acid-blue` presentation with a 3D block-letter masthead, framed runtime summary, distinct response labels, and a clearer prompt. It keeps the lightweight Python runtime and degrades to plain ASCII/`NO_COLOR` terminals. See [CLI presentation](docs/CLI_PRESENTATION.md) for customization and design notes. The exact ACID 3D Blue TheDraw font file is not bundled because its redistribution rights are unclear; Aether uses an original block-letter treatment rather than copying TAAG's bundled site code.
 
 Benchmark protocol and result rules are in [benchmarks/README.md](benchmarks/README.md). No task-quality benchmark results exist yet. `aether models benchmark` is an offline deterministic routing simulation that prints JSON and makes no model, network, or billable calls; it is not task-quality evidence.
 
@@ -66,6 +66,20 @@ Real terminal captures from a local mock-provider run; no network request or pai
 - [Doctor diagnostics](docs/screenshots/04-doctor.txt)
 
 Branding assets are in `assets/logo.svg` and `assets/banner.svg`; they are preserved as part of the visual freeze, not a roadmap for redesign.
+
+## Terminal presentation
+
+The interactive CLI defaults to the blue 3D-style theme. Customize it without installing a UI dependency:
+
+```bash
+aether config set terminal.theme "classic"          # acid-blue, classic, or mono
+aether config set terminal.unicode false            # use ASCII-safe glyphs
+aether config set terminal.show_banner false        # hide the startup masthead
+aether config set terminal.show_dashboard false     # hide the session overview
+aether config set terminal.show_response_labels false
+```
+
+Set `NO_COLOR=1` to disable ANSI colors or `AETHER_ASCII=1` to force ASCII characters. See [CLI presentation](docs/CLI_PRESENTATION.md).
 
 ## Providers
 

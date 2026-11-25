@@ -397,6 +397,8 @@ def make_agent(args, config, home, scheduler=None):
 def stream_turn(agent, text, args=None, quiet=False):
     spinner = render.Spinner("thinking")
     first_content = [False]
+    reasoning_started = [False]
+    response_started = [False]
     reasoning = []
     show_reasoning = bool(args and args.reasoning)
     debug = bool(args and args.debug)
@@ -408,12 +410,23 @@ def stream_turn(agent, text, args=None, quiet=False):
                 if not first_content[0]:
                     spinner.stop()
                     first_content[0] = True
-                sys.stdout.write(render.paint(str(delta), "yellow"))
-                sys.stdout.flush()
+                if not reasoning_started[0]:
+                    if not quiet:
+                        sys.stdout.write(render.reasoning_prefix())
+                        sys.stdout.flush()
+                    reasoning_started[0] = True
+                if not quiet:
+                    sys.stdout.write(render.paint(str(delta), "yellow"))
+                    sys.stdout.flush()
             return
         if not first_content[0]:
             spinner.stop()
             first_content[0] = True
+        if not response_started[0]:
+            if not quiet:
+                sys.stdout.write(render.assistant_prefix())
+                sys.stdout.flush()
+            response_started[0] = True
         if not quiet:
             sys.stdout.write(str(delta))
             sys.stdout.flush()
@@ -841,12 +854,17 @@ def _agent_command(agent, parts):
 
 def cmd_chat(args, config, home, scheduler=None):
     agent = make_agent(args, config, home, scheduler)
-    print(render.banner(__version__))
-    print(render.dashboard(agent.status_summary()))
+    header = render.banner(__version__)
+    if header:
+        print(header)
+    overview = render.dashboard(agent.status_summary())
+    if overview:
+        print(overview)
+    print(render.hint_line())
     setup_completer()
     while True:
         try:
-            raw = input(render.paint("aether> ", "cyan"))
+            raw = input(render.prompt())
         except (EOFError, KeyboardInterrupt):
             print()
             break
@@ -1419,6 +1437,7 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     try:
         config, home = prepare(args)
+        render.configure(config.get("terminal", {}))
         scheduler = None
         if getattr(args, "command", None) not in ("version", "update") and parse_bool(config.get("scheduler.enabled"), False):
             scheduler = Scheduler(config, home, runner=scheduled_runner(config, home))

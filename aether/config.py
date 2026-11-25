@@ -19,6 +19,13 @@ DEFAULTS = {
     "reasoning_effort": None,
     "planning": {"enabled": True, "persist_checkpoints": True},
     "personality": "You are Aether, a precise, pragmatic engineering assistant. Be concise and verify claims.",
+    "terminal": {
+        "theme": "acid-blue",
+        "unicode": True,
+        "show_banner": True,
+        "show_dashboard": True,
+        "show_response_labels": True,
+    },
     "system_prompt": "",
     "streaming": True,
     "request_timeout": 60,

@@ -77,6 +77,24 @@ aether models benchmark [--samples N] [--confirm-billable]
 
 `aether models benchmark` is an offline deterministic routing simulation that prints JSON, writes no files, and makes no model/network/billable calls; `--confirm-billable` is acknowledgement only.
 
+## Terminal presentation
+
+The terminal renderer is configurable through the `terminal` object:
+
+```json
+{
+  "terminal": {
+    "theme": "acid-blue",
+    "unicode": true,
+    "show_banner": true,
+    "show_dashboard": true,
+    "show_response_labels": true
+  }
+}
+```
+
+Themes are `acid-blue`, `classic`, and `mono`. Set `unicode` to `false` for ASCII-only output. The `show_*` settings independently control the startup masthead, session overview, and response labels. The environment variables `NO_COLOR=1` and `AETHER_ASCII=1` provide terminal-level overrides.
+
 ## Tool permissions
 
 ```json

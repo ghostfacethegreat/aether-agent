@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Refresh the interactive CLI with an acid-blue 3D-style masthead, framed session overview, labeled streamed responses, and a clearer prompt.
+- Add configurable terminal themes and ASCII/NO_COLOR fallbacks without adding runtime dependencies.
+- Document the TAAG/TheDraw inspiration and font redistribution limitation.
+
+
 ## Phase E capability-aware model routing
 
 - Added an evidence-aware capability registry with capability, context-window, pricing, source, and freshness facts; unknown facts and prices remain unknown.
