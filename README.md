@@ -169,6 +169,26 @@ Inside chat, use `/skills discover`, `/skills proposals`, `/skills validate <ski
 
 Built-in tools cover file reads/writes, terminal and git commands, Python execution, web fetch/search, memory, skills, task delegation, multi-agent orchestration, plans, session search, and scheduling. Write/execute/network actions can require approval; destructive shell patterns are detected and can be rejected in strict mode.
 
+## Project context
+
+Aether can load bounded repository-root guidance from `AGENTS.md`, `AETHER.md`, `.aether.md`, `CLAUDE.md`, `SOUL.md`, `.cursorrules`, and `.hermes.md`. It reads only direct children of the workspace root, skips symlinks, nested paths, binary/invalid files, and applies file-count, byte, and total-character limits. This is lower-priority workspace guidance; it cannot override tool permissions, approvals, safety rules, or the current user request.
+
+```bash
+aether config set context_files.enabled false
+aether config set context_files.max_total_chars 12000
+aether config set context_files.filenames '["AGENTS.md", "AETHER.md"]'
+```
+
+## Specialist teams and verification
+
+Aether's default role registry includes planner, researcher, architect, developer, debugger, tester, security auditor, independent verifier, reviewer, data analyst, and documentation writer. Automatic orchestration selects dependency-aware teams for implementation, debugging, documentation, and security work. Implementation teams include an independent verifier.
+
+The verifier cannot modify files or approve itself. A run is marked independently verified only when the verifier's own terminal log contains an exit-code-zero run of a recognized test/check command and its structured result satisfies the verifier contract. Terminal commands still follow configured approval rules.
+
+Set `orchestrator.strict_output_contracts=true` to validate structured outputs from all specialist roles. This is opt-in for compatibility; verifier output contracts and its tool-evidence gate are always enforced.
+
+See [parallel agent workstreams](docs/AGENT_WORKSTREAMS.md) for scoped Copilot profiles and the next parity milestones.
+
 ## Sessions and tasks
 
 ```bash

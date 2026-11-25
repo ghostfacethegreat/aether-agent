@@ -95,6 +95,28 @@ The terminal renderer is configurable through the `terminal` object:
 
 Themes are `acid-blue`, `classic`, and `mono`. Set `unicode` to `false` for ASCII-only output. The `show_*` settings independently control the startup masthead, session overview, and response labels. The environment variables `NO_COLOR=1` and `AETHER_ASCII=1` provide terminal-level overrides.
 
+## Project context files
+
+Aether loads selected guidance files directly from the workspace root at the start of each turn. It does not recurse, search parent directories, follow symlinks, or fetch files over the network.
+
+```json
+{
+  "context_files": {
+    "enabled": true,
+    "filenames": ["AGENTS.md", "AETHER.md", ".aether.md", "CLAUDE.md", "SOUL.md", ".cursorrules", ".hermes.md"],
+    "max_files": 8,
+    "max_file_bytes": 32768,
+    "max_total_chars": 12000
+  }
+}
+```
+
+These files are lower-priority workspace guidance. They cannot change tool permissions, approvals, safety rules, or override the current user request. Set `context_files.enabled=false` to disable them.
+
+## Specialist output contracts
+
+`orchestrator.strict_output_contracts` defaults to `false` to preserve compatibility with older and custom models. When enabled, deterministic contracts validate required JSON fields and basic types for specialist roles. The independent verifier contract and test-command evidence gate are always enforced.
+
 ## Tool permissions
 
 ```json

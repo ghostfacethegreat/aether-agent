@@ -8,13 +8,13 @@ This document records what Aether does not yet prove or does not yet do. It is i
 - No `0.2.0` release, tag, merge, or publication has been completed; the package version remains `0.1.0`.
 - Phase E is implemented on this feature branch and locally verified (26 focused / 179 total tests); implementation is committed separately from documentation, and its `scripts/check.sh`, install, and `git diff --check` gates passed locally. It is not released.
 - There are no release tags in the repository at this checkpoint.
-- There is no GitHub Actions CI workflow yet.
+- A GitHub Actions CI matrix is included on the parity-foundation branch; its first hosted run must pass before the workflow is considered verified.
 - Push, PR, merge, tag, and release status must be confirmed before being claimed.
 
 ## Intelligence gaps
 
 - Adaptive planning is implemented with deterministic classification and inspectable plans; it does not generate plans with a model or verify completion independently yet.
-- Plan checkpoints are durable in SQLite and resume avoids completed or non-idempotent tasks, but they are local single-process state with no cross-process locking or event-driven resume.
+- Plan checkpoints are durable in SQLite and resume avoids completed or non-idempotent tasks, but they are local single-process state with no cross-process locking or event-driven resume. Bounded project-context files are loaded from the workspace root without recursion, symlink following, or network access.
 - High-risk plans record an approval requirement; planning does not yet add a separate approval gate beyond existing tool permissions.
 - Planner tool selection is a coarse keyword-to-tool map, not capability search or verified tool-result interpretation.
 - Planning-specific cancellation and cost-limit scenarios are not separately tested; general core cancellation and cost tests still pass.
@@ -37,8 +37,8 @@ This document records what Aether does not yet prove or does not yet do. It is i
 - Coding work does not yet build a repository index or produce verified diff reviews.
 - Research work does not yet produce structured evidence, citation, contradiction, and confidence reports.
 - Tool schemas are not deferred behind capability search.
-- Specialist orchestration has four roles, not the planned 18.
-- Independent completion verification and long-running goal supervision are not implemented.
+- The default role registry now includes eleven specialist roles and automatic dependency-aware team planning. It remains a bounded role library, not Hermes-scale dynamic agent spawning.
+- An independent verifier is used in implementation, debugging, and documentation workflows. It recognizes only successful test/check commands recorded in its own terminal tool log; it is not a formal proof of correctness or a long-running goal supervisor.
 
 ## Benchmark and comparison gaps
 
