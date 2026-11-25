@@ -175,7 +175,7 @@ def repo_index(args, context):
                 truncated = True
                 break
             raw = path.read_bytes()
-            if b"\x00" in raw[:8192]:
+            if b"\x00" in raw:
                 skipped_binary += 1
                 continue
             content = raw.decode("utf-8", "replace")
@@ -323,8 +323,10 @@ def _parse_patch(patch):
             index += 1
             hunk_lines, old_seen, new_seen = [], 0, 0
             while index < len(lines):
+                if old_seen >= old_count and new_seen >= new_count:
+                    break
                 line = lines[index]
-                if line.startswith("@@ ") or line.startswith("--- "):
+                if line.startswith("@@ "):
                     break
                 if line.startswith("\\ No newline at end of file"):
                     index += 1
@@ -355,6 +357,8 @@ def _prepare_patch(patch, context):
     for item in _parse_patch(patch):
         target = _resolve_patch_file(workspace, item["path"])
         try:
+            if target.stat().st_size > 4 * 1024 * 1024:
+                raise ToolError(f"Patch target exceeds the 4 MiB safety limit: {item['relative']}")
             raw = target.read_bytes()
             original = raw.decode("utf-8")
         except UnicodeDecodeError as exc:
@@ -445,6 +449,18 @@ def test_run(args, context):
     timeout = _bounded_int(config, "repository_index.test_timeout", 300, 5, 600)
     python = sys.executable
     if mode == "suite":
+        tests_dir = workspace / "tests"
+        if tests_dir.is_symlink() or not tests_dir.is_dir():
+            raise ToolError("tests/ directory is missing or is a symlink")
+        try:
+            has_tests = any(
+                item.is_file() and not item.is_symlink() and item.name.startswith("test_") and item.suffix == ".py"
+                for item in tests_dir.iterdir()
+            )
+        except OSError as exc:
+            raise ToolError(f"Could not inspect tests/: {exc}") from exc
+        if not has_tests:
+            raise ToolError("No top-level test_*.py modules were found; refusing a zero-test pass")
         command = [python, "-m", "unittest", "discover", "-s", "tests"]
     elif mode == "compile":
         command = [python, "-m", "compileall", "-q", "aether", "tests"]
