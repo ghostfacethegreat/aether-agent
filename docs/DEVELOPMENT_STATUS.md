@@ -162,3 +162,13 @@ No task-quality benchmark results exist. No Hermes parity or superiority claim i
 - Added a separate verifier role. Its verified state requires its own terminal log to show exit code zero for a recognized test/check command and a valid structured pass response.
 - Added a Python 3.10–3.14 GitHub Actions matrix and four scoped Copilot custom-agent profiles.
 - The branch is not released or merged. Full test execution and the first hosted CI run are still required; no Hermes task-quality parity claim is made.
+
+
+## Parity foundation implementation checkpoint
+
+- Branch: `feat/aether-parity-foundation`.
+- Added bounded root-only project-context loading for `AGENTS.md` and compatible workspace files.
+- Added eleven-role contracts and dependency-aware automatic team plans for implementation, debugging, documentation, and security objectives.
+- Added a separate verifier role. Its verified state requires its own terminal log to show exit code zero for a recognized test/check command and a valid structured pass response.
+- Added a Python 3.10–3.14 GitHub Actions matrix and four scoped Copilot custom-agent profiles.
+- The branch is not released or merged. Full test execution and the first hosted CI run are still required; no Hermes task-quality parity claim is made.

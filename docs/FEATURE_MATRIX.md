@@ -20,6 +20,17 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | Parallel agent profiles | Prepared | Four custom Copilot profiles and workstream instructions are included; they do not start automatically. |
 | Task-quality evaluation | Planned | CI and unit checks are added on this branch; no comparable live-model task-quality benchmark is claimed. |
 
+## Intelligence and agent execution
+
+| Capability | AETHER status on parity-foundation branch | Notes |
+|---|---|---|
+| Repository context files | Implemented baseline | Bounded workspace-root AGENTS.md-compatible context; no recursion, symlinks, or network fetches. |
+| Dynamic specialist planning | Implemented baseline | Dependency-aware planner/researcher/architect/developer/tester/verifier/reviewer chain, with debugging, documentation, and security variants. |
+| Structured role contracts | Implemented baseline | Deterministic required-field/type/enum checks; strict validation for other specialist roles is opt-in. |
+| Independent verification | Implemented bounded baseline | Requires verifier's own successful recognized test/check command in terminal log; not formal proof or task-quality benchmark. |
+| Parallel agent profiles | Prepared | Four custom Copilot profiles and workstream instructions are included; they do not start automatically. |
+| Task-quality evaluation | Planned | CI and unit checks are added on this branch; no comparable live-model task-quality benchmark is claimed. |
+
 ## AI core
 
 | Capability | Upstream Hermes | Aether | Notes |
