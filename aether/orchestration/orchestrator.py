@@ -211,7 +211,7 @@ class Orchestrator:
                     id=ids[name],
                     role=name,
                     goal=goals.get(name, f"Complete the assigned objective: {objective}"),
-                    context=f"Role: {name}\\nObjective: {objective}",
+                    context=f"Role: {name}\nObjective: {objective}",
                     dependencies=[ids[item] for item in dependencies.get(name, [])],
                 )
             )

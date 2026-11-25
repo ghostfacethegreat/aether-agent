@@ -67,8 +67,13 @@ def load_project_context(workspace, config) -> str:
             continue
         if not body:
             continue
-        remaining = max_total_chars - total_chars
-        section = f"--- project context: {name} ---\\n{body[:remaining].rstrip()}"
+        header = f"--- project context: {name} ---\n"
+        body_budget = max_total_chars - total_chars - len(header)
+        if body_budget <= 0:
+            break
+        section = header + body[:body_budget].rstrip()
+        if not section.strip():
+            continue
         sections.append(section)
         total_chars += len(section)
-    return "\\n\\n".join(sections)
+    return "\n\n".join(sections)
