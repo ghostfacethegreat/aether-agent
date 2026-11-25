@@ -28,6 +28,42 @@ class RepositoryToolTests(TempHomeTest):
         self.assertNotIn("cache/hidden.py", paths)
         self.assertNotIn("__pycache__/compiled.pyc", paths)
 
+    def test_index_respects_nested_gitignore_scope_and_negation(self):
+        source = self.workspace / "src"
+        nested = source / "nested"
+        nested.mkdir(parents=True)
+        (source / ".gitignore").write_text(
+            "private.py\nlogs/\ngenerated/output.txt\n",
+            encoding="utf-8",
+        )
+        (nested / ".gitignore").write_text("!private.py\n", encoding="utf-8")
+
+        (self.workspace / "private.py").write_text("root is visible\n", encoding="utf-8")
+        (source / "private.py").write_text("ignored in src\n", encoding="utf-8")
+        (source / "keep.py").write_text("visible\n", encoding="utf-8")
+        (nested / "private.py").write_text("re-included in nested scope\n", encoding="utf-8")
+        (nested / "keep.py").write_text("also visible\n", encoding="utf-8")
+
+        logs = nested / "logs"
+        logs.mkdir()
+        (logs / "hidden.txt").write_text("ignored by inherited directory rule\n", encoding="utf-8")
+        generated = source / "generated"
+        generated.mkdir()
+        (generated / "output.txt").write_text("ignored by scoped slash rule\n", encoding="utf-8")
+        (generated / "other.txt").write_text("visible\n", encoding="utf-8")
+
+        result = repo_index({}, self.context())
+        paths = {item["path"] for item in result["files"]}
+        self.assertIn("private.py", paths)
+        self.assertIn("src/keep.py", paths)
+        self.assertIn("src/nested/private.py", paths)
+        self.assertIn("src/nested/keep.py", paths)
+        self.assertIn("src/generated/other.txt", paths)
+        self.assertNotIn("src/private.py", paths)
+        self.assertNotIn("src/nested/logs/hidden.txt", paths)
+        self.assertNotIn("src/generated/output.txt", paths)
+
+
     def test_index_search_returns_filename_and_line_matches(self):
         (self.workspace / "agent.py").write_text("alpha\nunique_symbol()\nomega\n", encoding="utf-8")
         result = repo_index({"action": "search", "query": "unique_symbol"}, self.context())
