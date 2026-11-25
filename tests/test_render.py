@@ -13,6 +13,7 @@ class RenderTests(unittest.TestCase):
         output = render.banner("0.1.0")
         self.assertIn("AETHER", output)
         self.assertIn("0.1.0", output)
+        self.assertIn("AETHER", output)
         self.assertIn("LOCAL-FIRST AGENT", output)
 
     def test_banner_can_be_disabled(self):
@@ -64,6 +65,9 @@ class RenderTests(unittest.TestCase):
     def test_prompt_and_response_prefix_are_distinct(self):
         render.configure({})
         self.assertIn("aether", render.prompt())
+        ascii_status = render.status_line({"kind": "routing_fallback", "from": "local", "to": "hosted"})
+        self.assertNotIn("→", ascii_status)
+        self.assertNotIn("·", ascii_status)
         self.assertIn("AETHER", render.assistant_prefix())
         self.assertIn("REASONING", render.reasoning_prefix())
 

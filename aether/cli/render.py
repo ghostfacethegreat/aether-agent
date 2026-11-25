@@ -75,7 +75,8 @@ def _clip(value, width):
         return text
     if width <= 3:
         return text[:width]
-    return text[: width - 1] + "…"
+    suffix = "…" if _USE_UNICODE else "..."
+    return text[: max(0, width - len(suffix))] + suffix if width >= len(suffix) else text[:width]
 
 
 def _glyph_rows():
@@ -115,7 +116,7 @@ def banner(version):
         logo = [paint("  AETHER", "bright_blue" if _THEME != "classic" else "cyan")]
 
     dot = " · " if _USE_UNICODE else " | "
-    tagline = _clip("  LOCAL-FIRST AGENT" + dot + "MEMORY / TOOLS / LEARNING", max(12, width - 4))
+    tagline = _clip("  AETHER" + dot + "LOCAL-FIRST AGENT" + dot + "MEMORY / TOOLS / LEARNING", max(12, width - 4))
     divider = "─" if _USE_UNICODE else "-"
     footer = _clip(f"  v{version}  {dot.strip()}  /help for commands", max(12, width - 4))
     rule = paint("  " + divider * min(58, max(24, width - 4)), "blue")
@@ -126,11 +127,12 @@ def dashboard(status):
     if not _SHOW_DASHBOARD:
         return ""
     kind = status.get("kind", "unknown")
+    separator = " · " if _USE_UNICODE else " | "
     rows = [
         ("PROVIDER", f"{status.get('provider')} ({kind})"),
         ("MODEL", str(status.get("model"))),
         ("SESSION", str(status.get("session"))),
-        ("CONTEXT", f"{status.get('messages')} messages · {status.get('tools')} tools · {status.get('skills')} skills"),
+        ("CONTEXT", f"{status.get('messages')} messages{separator}{status.get('tools')} tools{separator}{status.get('skills')} skills"),
         ("MEMORY", f"{status.get('memories')} entries"),
         ("WORKSPACE", str(status.get("workspace"))),
         ("COST", str(status.get("cost"))),
@@ -210,27 +212,28 @@ def tool_line(execution):
 
 def status_line(payload):
     kind = payload.get("kind")
+    bullet = "·" if _USE_UNICODE else "-"
     if kind == "provider_call":
-        return paint(f"  · calling {payload.get('provider')}/{payload.get('model')}", "dim")
+        return paint(f"  {bullet} calling {payload.get('provider')}/{payload.get('model')}", "dim")
     if kind == "provider_error":
         return paint(f"  ! {payload.get('provider')}: {payload.get('error')}", "red")
     if kind == "routing_decision":
         decision = payload.get("decision") or {}
-        return paint(f"  · routed to {decision.get('provider')}/{decision.get('model')}", "dim")
+        return paint(f"  {bullet} routed to {decision.get('provider')}/{decision.get('model')}", "dim")
     if kind == "routing_limitation":
         return paint("  ! no suitable configured model for this task", "yellow")
     if kind == "routing_fallback":
         arrow = "→" if _USE_UNICODE else "->"
-        return paint(f"  · fallback {payload.get('from')} {arrow} {payload.get('to')}", "yellow")
+        return paint(f"  {bullet} fallback {payload.get('from')} {arrow} {payload.get('to')}", "yellow")
     if kind == "context_overflow":
         return paint(f"  ! context overflow on {payload.get('provider')}; recovering", "yellow")
     if kind == "context_recovered":
-        return paint(f"  · context recovered ({payload.get('restored_tool_results')} tool results restored)", "yellow")
+        return paint(f"  {bullet} context recovered ({payload.get('restored_tool_results')} tool results restored)", "yellow")
     if kind == "context_compressed":
-        return paint(f"  · context compressed ({payload.get('removed')} messages)", "yellow")
+        return paint(f"  {bullet} context compressed ({payload.get('removed')} messages)", "yellow")
     if kind == "model_response":
         count = payload.get("tool_calls", 0)
-        return paint(f"  · response received ({count} tool call{'s' if count != 1 else ''})", "dim")
+        return paint(f"  {bullet} response received ({count} tool call{'s' if count != 1 else ''})", "dim")
     return ""
 
 
