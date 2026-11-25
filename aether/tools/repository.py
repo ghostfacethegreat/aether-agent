@@ -231,7 +231,7 @@ def repo_index(args, context):
         "skipped_large": skipped_large,
         "skipped_binary": skipped_binary,
         "truncated": truncated,
-        "ignore_source": "root .gitignore plus built-in generated/vendor directories",
+        "ignore_source": "root and nested .gitignore files plus built-in generated/vendor directories",
     }
     if action == "search":
         result.update({"query": query, "matches": matches, "match_count": len(matches)})
