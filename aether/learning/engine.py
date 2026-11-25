@@ -6,7 +6,7 @@ from collections import defaultdict
 from aether.errors import LearningError, SkillError
 from aether.learning.models import Experience, SkillMetrics, SkillProposal, SkillVersion
 from aether.skills import parse_skill_text
-from aether.skills.engine import VALID_NAME
+from aether.skills.engine import Skill, VALID_NAME
 from aether.utils import make_id, redact, truncate, utc_now
 
 STOPWORDS = {
@@ -532,7 +532,7 @@ class LearningEngine:
             return
         raise LearningError("Explicit approval is required for persistent skill changes")
 
-    def _prepare_version(self, name: str) -> tuple[SkillEngine, int]:
+    def _prepare_version(self, name: str) -> tuple[Skill | None, int]:
         skill = self.skills.discover().get(name)
         latest = self.store.latest_skill_version(name)
         if skill is not None and self.skills.user_dir.resolve() not in skill.path.resolve().parents:
