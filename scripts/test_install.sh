@@ -7,7 +7,9 @@ trap 'rm -rf "$TMP"' EXIT
 
 cp -R "$ROOT" "$TMP/source"
 git -C "$TMP/source" add -A >/dev/null
-git -C "$TMP/source" -c user.name="Aether Test" -c user.email="test@example.invalid" commit -q -m "test install snapshot" >/dev/null
+if ! git -C "$TMP/source" diff --cached --quiet; then
+  git -C "$TMP/source" -c user.name="Aether Test" -c user.email="test@example.invalid" commit -q -m "test install snapshot" >/dev/null
+fi
 git clone -q "$TMP/source" "$TMP/clone"
 
 AETHER_HOME="$TMP/home" "$TMP/clone/scripts/install.sh" >/dev/null
