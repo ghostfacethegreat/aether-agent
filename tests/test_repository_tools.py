@@ -1,6 +1,8 @@
 import unittest
 
 from aether.errors import ToolError
+from aether.providers.base import ToolCall
+from aether.tools import PermissionPolicy, ToolExecutor, default_registry
 from aether.tools.repository import patch_apply, patch_preview, repo_index, test_run
 from tests.base import TempHomeTest
 
@@ -117,6 +119,36 @@ class RepositoryToolTests(TempHomeTest):
         self.assertFalse(result["timed_out"])
         with self.assertRaises(ToolError):
             test_run({"mode": "module", "module": "../../outside"}, self.context())
+
+
+    def test_patch_parser_accepts_removed_line_that_looks_like_file_header(self):
+        target = self.workspace / "sample.py"
+        target.write_text("-- legacy\nvalue = 1\n", encoding="utf-8")
+        patch = (
+            "--- a/sample.py\n+++ b/sample.py\n@@ -1,2 +1,2 @@\n"
+            "--- legacy\n+++ current\n value = 1\n"
+        )
+        patch_apply({"patch": patch}, self.context())
+        self.assertEqual(target.read_text(encoding="utf-8"), "++ current\nvalue = 1\n")
+
+    def test_patch_apply_requires_explicit_tool_approval(self):
+        target = self.workspace / "sample.py"
+        target.write_text("value = 1\n", encoding="utf-8")
+        patch = "--- a/sample.py\n+++ b/sample.py\n@@ -1 +1 @@\n-value = 1\n+value = 2\n"
+        config = self.config()
+        config.set("tool_permissions.require_approval", ["patch_apply"])
+        context = self.context(config)
+        policy = PermissionPolicy(config, workspace=self.workspace)
+        executor = ToolExecutor(default_registry(), policy, context)
+        _, execution = executor.execute_call(ToolCall("patch-approval", "patch_apply", {"patch": patch}))
+        self.assertFalse(execution.ok)
+        self.assertIn("Approval required", execution.error)
+        self.assertEqual(target.read_text(encoding="utf-8"), "value = 1\n")
+
+    def test_test_run_refuses_an_empty_suite(self):
+        (self.workspace / "tests").mkdir()
+        with self.assertRaises(ToolError):
+            test_run({"mode": "suite"}, self.context())
 
     def test_test_run_compile_mode(self):
         (self.workspace / "aether").mkdir()
