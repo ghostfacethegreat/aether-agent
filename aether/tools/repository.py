@@ -3,48 +3,22 @@ from __future__ import annotations
 
 import fnmatch
 import hashlib
+import json
 import os
 import re
 import stat
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path, PurePosixPath
 
+from aether.coding.index import PersistentRepositoryIndex
+from aether.coding.symbols import SYMBOL_INDEX_VERSION, extract_symbols
 from aether.errors import ToolError
+from aether.home import aether_home
+from aether.utils import parse_bool
 
-_SYMBOL_PATTERNS = {
-    ".py": (
-        (re.compile(r"^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)\b"), "function"),
-        (re.compile(r"^\s*class\s+([A-Za-z_]\w*)\b"), "class"),
-    ),
-    ".js": (
-        (re.compile(r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\b"), "function"),
-        (re.compile(r"^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)\b"), "class"),
-        (re.compile(r"^\s*(?:export\s+)?interface\s+([A-Za-z_$][\w$]*)\b"), "interface"),
-        (re.compile(r"^\s*(?:export\s+)?type\s+([A-Za-z_$][\w$]*)\b"), "type"),
-        (re.compile(r"^\s*(?:export\s+)?enum\s+([A-Za-z_$][\w$]*)\b"), "enum"),
-        (re.compile(r"^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:function\b|\([^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)"), "function"),
-    ),
-}
-_SYMBOL_PATTERNS[".jsx"] = _SYMBOL_PATTERNS[".js"]
-_SYMBOL_PATTERNS[".ts"] = _SYMBOL_PATTERNS[".js"]
-_SYMBOL_PATTERNS[".tsx"] = _SYMBOL_PATTERNS[".js"]
-_SYMBOL_PATTERNS[".mjs"] = _SYMBOL_PATTERNS[".js"]
-_SYMBOL_PATTERNS[".cjs"] = _SYMBOL_PATTERNS[".js"]
-_SYMBOL_PATTERNS[".mts"] = _SYMBOL_PATTERNS[".js"]
-_SYMBOL_PATTERNS[".cts"] = _SYMBOL_PATTERNS[".js"]
-_SYMBOL_PATTERNS[".lua"] = (
-    (re.compile(r"^\s*(?:local\s+)?function\s+([A-Za-z_]\w*(?:[.:][A-Za-z_]\w*)*)\b"), "function"),
-    (re.compile(r"^\s*([A-Za-z_]\w*(?:[.:][A-Za-z_]\w*)*)\s*=\s*function\b"), "function"),
-)
-_SYMBOL_PATTERNS[".go"] = (
-    (re.compile(r"^\s*func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)\b"), "function"),
-    (re.compile(r"^\s*type\s+([A-Za-z_]\w*)\s+(?:struct|interface)\b"), "type"),
-)
-_SYMBOL_PATTERNS[".rs"] = (
-    (re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:(?:async|unsafe|const)\s+)*(?:fn|struct|enum|trait|type)\s+([A-Za-z_]\w*)\b"), "declaration"),
-)
 _IGNORED_DIRS = {
     ".git", ".hg", ".svn", "__pycache__", ".venv", "venv", "env", "node_modules",
     ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", ".nox", "dist", "build", ".idea",
@@ -53,6 +27,7 @@ _HUNK_HEADER = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(?:.*)$")
 _TEST_MODULE = re.compile(r"^test_[A-Za-z0-9_]{1,100}$")
 _MAX_PATCH_BYTES = 256 * 1024
 _MAX_PATCH_FILES = 16
+_INDEX_LOCK = threading.Lock()
 
 
 def _bounded_int(config, key, default, minimum, maximum):
@@ -200,12 +175,12 @@ def _walk_files(root, max_files):
 
 
 def repo_index(args, context):
-    """Build a bounded on-demand index or search filenames and text snippets."""
+    """Build a bounded index or search filenames, snippets, and declarations."""
     config = context.get("config") or {}
     root = _root_path(context, args.get("root") or ".")
     action = str(args.get("action") or "summary").strip().lower()
-    if action not in ("summary", "search", "symbols"):
-        raise ToolError("repo_index action must be 'summary', 'search', or 'symbols'")
+    if action not in ("summary", "search", "symbols", "index"):
+        raise ToolError("repo_index action must be 'summary', 'search', 'symbols', or 'index'")
     query = str(args.get("query") or "").strip()
     if action in ("search", "symbols") and not query:
         raise ToolError(f"repo_index {action} requires a non-empty query")
@@ -214,6 +189,12 @@ def repo_index(args, context):
     max_file_bytes = _bounded_int(config, "repository_index.max_file_bytes", 262144, 256, 4 * 1024 * 1024)
     max_total_bytes = _bounded_int(config, "repository_index.max_total_bytes", 8 * 1024 * 1024, 1024, 64 * 1024 * 1024)
     result_limit = _bounded_int(config, "repository_index.max_results", 40, 1, 100)
+    persistent = parse_bool(config.get("repository_index.persistent"), True)
+    if action == "index" and not persistent:
+        raise ToolError("repo_index action 'index' requires repository_index.persistent")
+    if persistent and action in ("index", "symbols"):
+        return _persistent_repo_index(context, root, action, query, config)
+
     query_lower = query.casefold()
     indexed, matches, symbol_matches = [], [], []
     total_bytes = skipped_large = skipped_binary = 0
@@ -258,20 +239,12 @@ def repo_index(args, context):
                     truncated = True
                     break
         elif action == "symbols":
-            for number, line in enumerate(lines, start=1):
-                for pattern, kind in _SYMBOL_PATTERNS.get(path.suffix.lower(), ()):
-                    match = pattern.match(line)
-                    if match and query_lower in match.group(1).casefold():
-                        symbol_matches.append({
-                            "name": match.group(1),
-                            "kind": kind,
-                            "path": relative,
-                            "line": number,
-                        })
+            for symbol in extract_symbols(relative, content):
+                if query_lower in symbol["name"].casefold():
+                    symbol_matches.append(symbol)
+                    if len(symbol_matches) >= result_limit:
+                        truncated = True
                         break
-                if len(symbol_matches) >= result_limit:
-                    truncated = True
-                    break
             if truncated:
                 break
 
@@ -283,6 +256,7 @@ def repo_index(args, context):
         "skipped_binary": skipped_binary,
         "truncated": truncated,
         "ignore_source": "root and nested .gitignore files plus built-in generated/vendor directories",
+        "persistent": False,
     }
     if action == "search":
         result.update({"query": query, "matches": matches, "match_count": len(matches)})
@@ -292,6 +266,118 @@ def repo_index(args, context):
         result["files"] = indexed[: min(result_limit, 100)]
         result["file_list_truncated"] = len(indexed) > len(result["files"])
     return result
+
+
+def _persistent_repo_index_locked(context, root, action, query, config):
+    max_files = _bounded_int(config, "repository_index.max_files", 3000, 1, 20000)
+    max_file_bytes = _bounded_int(config, "repository_index.max_file_bytes", 262144, 256, 4 * 1024 * 1024)
+    max_total_bytes = _bounded_int(config, "repository_index.max_total_bytes", 8 * 1024 * 1024, 1024, 64 * 1024 * 1024)
+    result_limit = _bounded_int(config, "repository_index.max_results", 40, 1, 100)
+    max_symbols = _bounded_int(config, "repository_index.max_index_symbols", 20000, 1, 200000)
+    signature = json.dumps({
+        "max_files": max_files,
+        "max_file_bytes": max_file_bytes,
+        "max_total_bytes": max_total_bytes,
+        "max_symbols": max_symbols,
+        "symbol_index_version": SYMBOL_INDEX_VERSION,
+    }, sort_keys=True, separators=(",", ":"))
+    cancel_event = context.get("cancel_event")
+
+    def cancelled():
+        return cancel_event is not None and bool(getattr(cancel_event, "is_set", lambda: False)())
+
+    home = context.get("home") or aether_home()
+    index = PersistentRepositoryIndex(Path(home))
+    stored, stale = index.snapshot(str(root), signature)
+    all_stale = stale is None
+    records, changed = [], set()
+    total_bytes = skipped_large = skipped_binary = 0
+    truncated = False
+
+    for path, relative in _walk_files(root, max_files):
+        if cancelled():
+            raise ToolError("repo_index cancelled")
+        info = stored.get(relative)
+        try:
+            metadata = path.stat()
+        except OSError:
+            continue
+        if metadata.st_size > max_file_bytes:
+            skipped_large += 1
+            continue
+        if total_bytes + metadata.st_size > max_total_bytes:
+            truncated = True
+            break
+        is_stale = (
+            all_stale or info is None
+            or int(info["size"]) != metadata.st_size
+            or int(info["mtime_ns"]) != metadata.st_mtime_ns
+            or int(info.get("ctime_ns", 0)) != metadata.st_ctime_ns
+        )
+        if is_stale:
+            if path.is_symlink():
+                continue
+            try:
+                raw = path.read_bytes()
+            except OSError:
+                continue
+            size = len(raw)
+            if size > max_file_bytes:
+                skipped_large += 1
+                continue
+            if total_bytes + size > max_total_bytes:
+                truncated = True
+                break
+            if b"\x00" in raw:
+                skipped_binary += 1
+                continue
+            content = raw.decode("utf-8", "replace")
+            content_hash = hashlib.sha256(raw).hexdigest()
+            if info and info["content_hash"] == content_hash:
+                lines = int(info["lines"])
+                symbols = []
+            else:
+                lines = len(content.splitlines())
+                symbols = extract_symbols(relative, content)
+                changed.add(relative)
+            record = {
+                "path": relative, "size": size, "mtime_ns": metadata.st_mtime_ns,
+                "ctime_ns": metadata.st_ctime_ns, "content_hash": content_hash, "lines": lines,
+                "extension": path.suffix.lower(), "symbols": symbols,
+            }
+        else:
+            record = {
+                "path": relative, "size": int(info["size"]), "mtime_ns": int(info["mtime_ns"]),
+                "ctime_ns": int(info.get("ctime_ns", 0)), "content_hash": info["content_hash"],
+                "lines": int(info["lines"]), "extension": info["extension"], "symbols": [],
+            }
+        total_bytes += record["size"]
+        records.append(record)
+
+    if cancelled():
+        raise ToolError("repo_index cancelled")
+    refresh = index.sync(str(root), signature, records, changed, max_symbols, cancel_event=cancel_event)
+    result = {
+        "root": str(root),
+        "files_indexed": len(records),
+        "bytes_indexed": total_bytes,
+        "skipped_large": skipped_large,
+        "skipped_binary": skipped_binary,
+        "truncated": truncated,
+        "ignore_source": "root and nested .gitignore files plus built-in generated/vendor directories",
+        "persistent": True,
+        "refresh": refresh,
+    }
+    if action == "symbols":
+        symbols, query_truncated = index.query_symbols(str(root), query, result_limit)
+        result["truncated"] = result["truncated"] or query_truncated
+        result.update({"query": query, "symbols": symbols, "match_count": len(symbols)})
+    return result
+
+
+def _persistent_repo_index(context, root, action, query, config):
+    with _INDEX_LOCK:
+        return _persistent_repo_index_locked(context, root, action, query, config)
 
 
 def _patch_path(raw, prefix):

@@ -6,15 +6,15 @@ This is the resume log for the intelligence-first `Aether 0.2+` program. It reco
 
 | Item | Verified value |
 |---|---|
-| Date | 2026-11-24 |
-| Active branch | `feat/aether-020-intelligence-foundation` |
-| Base checkpoint | `d077948e085cb17038b2da245d31e6bf86491120` |
-| Prior checkpoint | `558bd58ec1f15ccf9cf76260d3ab7bfe675e76ce` |
-| Upstream baseline | `01ee003795787cc392f033edffbb98fcb3dd8b35` |
+| Date | 2026-11-25 |
+| Active branch | `feat/aether-parity-foundation` |
+| Integration base | PR #8 head `8f15419c4810f8e87c0992dc43ad2521754f4027` |
+| Upstream tracking | `origin/feat/aether-parity-foundation` at the same commit before this checkpoint |
 | Remote | `https://github.com/ghostfacethegreat/aether-agent.git` |
 | Tags | none |
-| Worktree at branch creation | clean |
-| Pushed commits from this program | none |
+| Worktree at start of this checkpoint | clean |
+| Pushed commits from this checkpoint | none |
+| CI evidence | PR #8 head `8f15419` passed Python 3.10–3.14 checks in run `45701971906`; later commits require a fresh run |
 | Phase B verification | 121 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
 | Phase B checkpoint | `9aef0fb873f6e54bc78f7b587e3fe8709dc07c55` |
 | Phase C verification | 132 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
@@ -24,6 +24,9 @@ This is the resume log for the intelligence-first `Aether 0.2+` program. It reco
 | Phase E focused verification | 26 tests passed in `tests.test_model_routing`; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
 | Phase E full verification | 179 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
 | Phase E status | implemented on this feature branch; implementation is committed separately from documentation; not released |
+| Phase F focused verification | 28 tests passed in repository and persistence index tests |
+| Phase F full verification | 233 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
+| Phase F status | persistent incremental index implemented on this branch; checkpoint pending commit; not released |
 
 The unpushed commits from this program are deliberately preserved. Do not reset, discard, force-push, push, merge, tag, or release until the release gates in [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) pass.
 
@@ -127,7 +130,7 @@ The combined check/install run recorded 3 cold starts, `0.109s` median wall time
 
 ## Active work
 
-Phase F — repository coding workflow — has an implemented baseline on `feat/aether-parity-foundation`: bounded repository indexing/search, unified-diff preview/application, and an approval-gated fixed-command test runner. CI verification is recorded per commit. Remaining work in this track is persistent/incremental indexing, symbol navigation, new-file patches, and a fully orchestrated multi-turn TDD/diff-review loop.
+Phase F — repository coding workflow — has a verified baseline on `feat/aether-parity-foundation`: bounded repository indexing/search, root and nested ignore handling, persistent incremental lexical symbol retrieval, unified-diff preview/application, and an approval-gated fixed-command test runner. Remaining work in this track is LSP/cross-reference navigation, new/delete/rename patch operations, binary patch handling, and a fully orchestrated multi-turn TDD/diff-review loop.
 
 The next major parity tracks are browser automation/MCP, messaging and voice, isolated execution backends, skill curation/rollback, and task-quality evaluation.
 
@@ -155,11 +158,13 @@ Record these items before marking any phase complete:
 
 ## Phase F — repository coding workflow
 
-- Added `repo_index`: bounded, on-demand workspace indexing and filename/source snippet search, with root `.gitignore` support and symlink/generated/binary/size exclusions.
+- Added `repo_index`: bounded workspace indexing and filename/source snippet search, with root and nested `.gitignore` support and symlink/generated/binary/size exclusions.
+- Added a separate persistent index at `repo_index.db` under `AETHER_HOME` with mode `0600`, additive schema creation and migration, bounded file/symbol counts, size/mtime/ctime/hash invalidation, extractor-version signatures, cancellation checks, and a single-process refresh lock.
+- Added `repo_index action="index"` to refresh the cache and made `action="symbols"` refresh incrementally before lexical retrieval; setting `repository_index.persistent` to `false` preserves strictly on-demand behavior.
 - Added `patch_preview`: unified-diff validation with affected-file paths, byte counts, and SHA-256 before/after hashes; no file writes.
 - Added `patch_apply`: approval-gated modifications to existing UTF-8 files, path/symlink/binary safeguards, whole-patch preflight, and best-effort rollback on write failures. New/deleted files and renames are not supported yet.
 - Added `test_run`: fixed-argument unittest suite/module, compileall, and project check modes with timeouts; refuses empty test suites and requires approval.
 - Developer, debugger, tester, and verifier roles have the relevant repository tools; successful `test_run` evidence can satisfy the independent-verifier gate.
-- Added regression tests for ignore rules, search results, workspace escapes, symlinks, patch preview/apply, preflight atomicity, approval, header-like source lines, test-run allowlists, and empty suites.
-- Remaining: persistent/incremental index, symbol navigation/LSP, file-create/delete patches, autonomous TDD loop orchestration, and semantic independent diff review.
+- Added regression tests for ignore rules, search results, workspace escapes, symlinks, patch preview/apply, preflight atomicity, approval, header-like source lines, test-run allowlists, empty suites, persistent refresh, same-size rewrites, symbol budget enforcement, unsafe cached rows, cancellation rollback, and bounds changes.
+- Remaining: LSP/cross-reference navigation, file-create/delete/rename patches, binary patch handling, autonomous TDD loop orchestration, and semantic independent diff review.
 

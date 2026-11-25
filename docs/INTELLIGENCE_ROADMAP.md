@@ -26,7 +26,7 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 | C | Layered memory | working, episodic, semantic, procedural, and user layers | complete and locally verified |
 | D | Learning loop and skill quality | experience records, skill review, versions, rollback, curator | complete and locally verified |
 | E | Model capability routing | task-aware provider/model selection with existing cost controls | implemented on this feature branch and locally verified (26 focused / 179 total tests); not released |
-| F | Coding workflow | repository indexing, progressive retrieval, patches, tests, diff review | partial: on-demand index, guarded existing-file patches, and fixed test runner implemented; remaining acceptance work tracked in [#4](https://github.com/ghostfacethegreat/aether-agent/issues/4) |
+| F | Coding workflow | repository indexing, progressive retrieval, patches, tests, diff review | incremental persistent index and lexical symbol retrieval implemented and locally verified; remaining acceptance work tracked in [#4](https://github.com/ghostfacethegreat/aether-agent/issues/4) |
 | G | Research and evidence | query planning, sources, citations, contradictions, confidence | pending |
 | H | Tool intelligence | capability search, preflight, result verification, analytics | pending |
 | I | Specialist orchestration | larger role catalog, team selection, verifier, conflict handling | partial: eleven specialist roles, dependency-aware team selection, structured contracts, and verifier baseline implemented; richer coordination remains open |
@@ -183,11 +183,16 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 
 **Exit state:** coding tasks produce reviewed diffs and tested claims, not just file writes.
 
-### Phase F baseline (partial)
+### Phase F baseline and incremental index checkpoint
 
-- Implemented on `feat/aether-parity-foundation`: bounded on-demand repository indexing/search, unified-diff preview, approval-gated edits to existing UTF-8 files, and a fixed-argument test runner.
-- CI checkpoint `45667891886` passed the full Python 3.10–3.14 matrix and clean-checkout install/uninstall checks for the Phase F baseline.
-- Remaining work includes persistent/incremental indexing, cross-reference and LSP navigation, create/delete/rename patch operations, a mock-provider end-to-end TDD controller, and independent semantic diff review. See [issue #4](https://github.com/ghostfacethegreat/aether-agent/issues/4) and [known limitations](KNOWN_LIMITATIONS.md).
+- Implemented on `feat/aether-parity-foundation`: bounded repository indexing/search, root and nested `.gitignore` handling, lexical declaration search, unified-diff preview, approval-gated edits to existing UTF-8 files, and a fixed-argument test runner.
+- CI checkpoint `45667891886` passed the full Python 3.10–3.14 matrix and clean-checkout install/uninstall checks for the earlier Phase F baseline. PR #8 head `8f15419` also has passing Python 3.10–3.14 checks in run `45701971906`.
+- Added a separate persistent index at `repo_index.db` under `AETHER_HOME`, with additive schema creation, migration for the `ctime_ns` column, mode `0600`, bounded file/symbol counts, size/mtime/ctime/hash invalidation, signature rebuilds, cancellation checks, and a single-process refresh lock.
+- Changed files for this checkpoint: `aether/coding/__init__.py`, `aether/coding/symbols.py`, `aether/coding/index.py`, `aether/tools/repository.py`, `aether/tools/builtins.py`, `aether/config.py`, `tests/test_repository_index_persistence.py`, and the documentation files listed in the checkpoint record.
+- Focused verification: `python3 -m unittest tests.test_repository_tools tests.test_repository_index_persistence -v` — 28 tests passed in `0.178s`.
+- Full verification: 233 tests passed; `scripts/check.sh`, `scripts/test_install.sh`, and `git diff --check` passed.
+- Failures found and fixed: a `str`/`Path` query bug, missing mtime/ctime invalidation, per-sync instead of per-root symbol budget, unsafe-row filtering after SQL `LIMIT`, a parallel-safe write hazard, and cancellation races during commit. An independent reviewer verified the fixes before this record.
+- Remaining work includes LSP/cross-reference navigation, create/delete/rename patch operations, binary patch handling, a mock-provider end-to-end TDD controller, and independent semantic diff review. See [issue #4](https://github.com/ghostfacethegreat/aether-agent/issues/4) and [known limitations](KNOWN_LIMITATIONS.md).
 
 ## Phase G — research and evidence
 

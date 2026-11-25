@@ -47,7 +47,7 @@ DEFAULTS = {
         "allow_destructive": False,
         "approval_cache": "session",
     },
-    "repository_index": {"max_files": 3000, "max_file_bytes": 262144, "max_total_bytes": 8388608, "max_results": 40, "test_timeout": 300},
+    "repository_index": {"persistent": True, "max_files": 3000, "max_file_bytes": 262144, "max_total_bytes": 8388608, "max_results": 40, "max_index_symbols": 20000, "test_timeout": 300},
     "tools": {
         "timeout": 30,
         "max_result_chars": 16000,

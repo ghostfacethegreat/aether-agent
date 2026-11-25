@@ -124,16 +124,18 @@ The repository tools are local-only and use bounded defaults:
 ```json
 {
   "repository_index": {
+    "persistent": true,
     "max_files": 3000,
     "max_file_bytes": 262144,
     "max_total_bytes": 8388608,
     "max_results": 40,
+    "max_index_symbols": 20000,
     "test_timeout": 300
   }
 }
 ```
 
-`repo_index` reads from the configured workspace (or a subdirectory) and searches the root `.gitignore` patterns. It skips symlinks and known generated/vendor folders. Nested `.gitignore` files, persistent indexing, symbol graphs, and LSP are not implemented.
+`repo_index` reads from the configured workspace (or a subdirectory), honors root and nested `.gitignore` rules, and skips symlinks, binary files, oversized files, and known generated/vendor folders. `action="index"` refreshes the persistent cache; `action="symbols"` refreshes incrementally and retrieves lexical declarations from it. The cache is a separate `repo_index.db` under `AETHER_HOME` with mode `0600`; it stores paths, hashes, metadata, and symbol names, not file contents. Invalidation uses size, mtime, ctime, content hash, index bounds, and a symbol-extractor version. The cache is single-process and lexical, not an LSP or call graph. Set `persistent` to `false` to restore strictly on-demand behavior; `action="index"` then fails explicitly.
 
 `patch_preview` is read-only. `patch_apply` requires approval and can modify existing UTF-8 files only; it rejects new/deleted files, renames, symlinks, binary files, and paths outside the workspace. It preflights every target before writing and attempts rollback on filesystem write failure.
 

@@ -606,9 +606,9 @@ def scheduler_tool(args, context):
 TOOLS = [
     Tool(
         "repo_index",
-        "Index the local workspace with root and nested .gitignore handling; search filenames, source snippets, or common Python/JavaScript/TypeScript/Lua/Go/Rust declarations. Bounded, on-demand, local-only; symbol search is lexical, not LSP.",
-        {"type": "object", "properties": {"root": {"type": "string"}, "action": {"type": "string", "enum": ["summary", "search", "symbols"]}, "query": {"type": "string"}}, "required": []},
-        repo_index, "read", True, timeout=45,
+        "Index the local workspace with root and nested .gitignore handling; refresh a bounded persistent index, search filenames/snippets, or retrieve lexical declarations for Python/JavaScript/TypeScript/Lua/Go/Rust. Symbol search is lexical, not LSP.",
+        {"type": "object", "properties": {"root": {"type": "string"}, "action": {"type": "string", "enum": ["summary", "search", "symbols", "index"]}, "query": {"type": "string"}}, "required": []},
+        repo_index, "read", False, timeout=45,
     ),
     Tool(
         "patch_preview",

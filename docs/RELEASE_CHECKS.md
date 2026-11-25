@@ -146,6 +146,25 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - No model/network/billable calls were made by the routing diagnostics or the deterministic benchmark; no benchmark result artifact was written.
 - The startup timing and memory figures are local startup measurements, not task-quality results. No task-quality benchmark was run; no Hermes parity or superiority claim is made.
 
+## Phase F persistent incremental index checkpoint
+
+- Branch: `feat/aether-parity-foundation`; integration base `8f15419c4810f8e87c0992dc43ad2521754f4027`; PR #8 remains open and draft.
+- Changed implementation files: `aether/coding/__init__.py`, `aether/coding/symbols.py`, `aether/coding/index.py`, `aether/tools/repository.py`, `aether/tools/builtins.py`, `aether/config.py`.
+- Changed test file: `tests/test_repository_index_persistence.py`.
+- Changed documentation: `docs/ARCHITECTURE.md`, `docs/CONFIGURATION.md`, `docs/DEVELOPMENT_STATUS.md`, `docs/FEATURE_MATRIX.md`, `docs/INTELLIGENCE_ROADMAP.md`, `docs/KNOWN_LIMITATIONS.md`, `docs/RELEASE_CHECKS.md`, and `docs/WORKSTATION_ACCEPTANCE_GATE.md`.
+- Added a separate `repo_index.db` cache under `AETHER_HOME` with mode `0600`, additive schema creation, a `ctime_ns` migration, bounded file/symbol counts, cancellation checks, and a single-process refresh lock. `state.db` is unchanged.
+- `python3 -m unittest tests.test_repository_tools tests.test_repository_index_persistence -v` — 28 focused tests passed in `0.178s`.
+- `python3 -m compileall -q aether tests` — passed with no output.
+- `python3 -m unittest discover -s tests -v` — 233 tests passed in `2.494s`.
+- `bash scripts/check.sh` — all checks passed; its in-script suite ran 233 tests in `2.462s`; 3 cold starts, median wall time `0.120s`, peak child RSS `34.8 MiB`.
+- An earlier implementation-only pass of the same five commands used `2.485s`, `2.478s`, `0.123s`, and `35.7 MiB` for the same four measurements. A final check-only rerun after the release-record edit ran 233 tests in `2.631s` with median wall time `0.128s` and peak child RSS `35.6 MiB`; all checks passed.
+- `bash scripts/test_install.sh` — `0.1.0`; local git-remote install test passed.
+- `git diff --check` — passed.
+- Failures found and fixed before the passing run: a `str`/`Path` query bug, absent mtime/ctime invalidation, per-sync instead of per-root symbol budgeting, unsafe cached rows being filtered after SQL `LIMIT`, parallel-safe cache writes, and cancellation races during commit.
+- An independent reviewer inspected the diff twice; the second pass confirmed the resolved items and noted only the accepted single-process cache scope, conservative query oversampling, and the internal-cache classification of home-directory writes.
+- `ResourceWarning` notices for pre-existing unclosed SQLite connections remain non-failing in verbose output; the new index closes its own connections explicitly.
+- No lint/typecheck command is configured, so none is claimed. No model/network/billable calls were made. No task-quality benchmark was run; no Hermes parity or superiority claim is made.
+
 ## Secrets
 
 - No `.env` file was created in the repository.

@@ -174,6 +174,7 @@ All local state is under `AETHER_HOME` (default `~/.aether`):
 config.json          user configuration (no secrets)
 .env                 optional API keys, mode 0600, never committed
 state.db             sessions, messages, tasks, usage
+repo_index.db        workspace file metadata and lexical symbols (mode 0600)
 memories/MEMORY.md   agent notes
 memories/USER.md     user preferences
 skills/              user skills (SKILL.md)
