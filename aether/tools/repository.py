@@ -30,6 +30,21 @@ _SYMBOL_PATTERNS = {
 _SYMBOL_PATTERNS[".jsx"] = _SYMBOL_PATTERNS[".js"]
 _SYMBOL_PATTERNS[".ts"] = _SYMBOL_PATTERNS[".js"]
 _SYMBOL_PATTERNS[".tsx"] = _SYMBOL_PATTERNS[".js"]
+_SYMBOL_PATTERNS[".mjs"] = _SYMBOL_PATTERNS[".js"]
+_SYMBOL_PATTERNS[".cjs"] = _SYMBOL_PATTERNS[".js"]
+_SYMBOL_PATTERNS[".mts"] = _SYMBOL_PATTERNS[".js"]
+_SYMBOL_PATTERNS[".cts"] = _SYMBOL_PATTERNS[".js"]
+_SYMBOL_PATTERNS[".lua"] = (
+    (re.compile(r"^\s*(?:local\s+)?function\s+([A-Za-z_]\w*(?:[.:][A-Za-z_]\w*)*)\b"), "function"),
+    (re.compile(r"^\s*([A-Za-z_]\w*(?:[.:][A-Za-z_]\w*)*)\s*=\s*function\b"), "function"),
+)
+_SYMBOL_PATTERNS[".go"] = (
+    (re.compile(r"^\s*func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)\b"), "function"),
+    (re.compile(r"^\s*type\s+([A-Za-z_]\w*)\s+(?:struct|interface)\b"), "type"),
+)
+_SYMBOL_PATTERNS[".rs"] = (
+    (re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:(?:async|unsafe|const)\s+)*(?:fn|struct|enum|trait|type)\s+([A-Za-z_]\w*)\b"), "declaration"),
+)
 _IGNORED_DIRS = {
     ".git", ".hg", ".svn", "__pycache__", ".venv", "venv", "env", "node_modules",
     ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", ".nox", "dist", "build", ".idea",
