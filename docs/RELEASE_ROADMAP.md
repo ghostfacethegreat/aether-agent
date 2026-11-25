@@ -131,3 +131,17 @@ The parity foundation branch adds project context, broader specialist planning, 
 5. Learning and evaluation: autonomous but reviewable skill proposals, curation/rollback, reproducible task suites, and opt-in same-model Hermes comparisons.
 
 Do not mark these tracks complete from design documents or custom-agent profiles. Require implementation, tests, installation checks, and evidence artifacts.
+
+
+## Hermes-competitive capability tracks
+
+The parity-foundation branch adds bounded project context, expanded dependency-aware specialist planning, structured agent contracts, an evidence-gated verifier, CI, and scoped coding-agent workstreams. The remaining Hermes-inspired work is split into independently scoped streams:
+
+1. **Browser and MCP:** local browser runtime with isolated profiles; secure URL/navigation controls; MCP servers, schema validation, and lazy tool discovery.
+2. **Messaging and voice/media:** optional channel adapters, webhook authentication, user/session isolation, local-first speech input/output, and media tools.
+3. **Coding workflows:** ignore-aware repository index, symbol navigation, patch preview/application, focused test loops, and independent diff verification.
+4. **Execution backends:** optional Docker isolation first, then SSH/remote backends; durable background runs with cancellation, restart recovery, and bounded concurrency.
+5. **Learning and curation:** model-assisted but reviewable skill drafting, duplicate/stale-skill detection, lifecycle states, isolated validation, and rollback.
+6. **Evaluation:** reproducible task-quality fixtures, recorded tool traces, token/cost/time accounting, opt-in same-model Hermes comparisons, and regression gates.
+
+Do not mark a track complete from agent-profile files, issue creation, or design docs. Completion requires implementation, tests, clean-install checks, security review, and reproducible evidence artifacts. All hosted integrations and live model evaluations remain opt-in; no paid provider is required for default local operation.
