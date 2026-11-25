@@ -32,4 +32,4 @@ jobs:
       - name: Compile and run full project checks
         run: bash scripts/check.sh
       - name: Verify clean-checkout installation
-        run: bash scripts/test_install.sh
+        run: bash -x scripts/test_install.sh
