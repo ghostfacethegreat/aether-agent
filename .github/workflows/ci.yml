@@ -33,3 +33,5 @@ jobs:
         run: bash scripts/check.sh
       - name: Verify clean-checkout installation
         run: bash -x scripts/test_install.sh
+
+# Install step uses shell tracing to expose clean-checkout failures in CI.
