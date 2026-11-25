@@ -60,7 +60,7 @@ def load_project_context(workspace, config) -> str:
             if resolved.parent != root or resolved.stat().st_size > max_file_bytes:
                 continue
             raw = resolved.read_bytes()
-            if len(raw) > max_file_bytes or b"\\x00" in raw:
+            if len(raw) > max_file_bytes or b"\x00" in raw:
                 continue
             body = raw.decode("utf-8-sig").strip()
         except (OSError, RuntimeError, UnicodeDecodeError, ValueError):
