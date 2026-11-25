@@ -45,8 +45,8 @@ class ProjectContextTests(unittest.TestCase):
         self.assertEqual(load_project_context(self.root, self.config), "")
 
     def test_oversized_binary_and_invalid_utf8_are_skipped(self):
-        self.config.set("context_files.max_file_bytes", 8)
-        (self.root / "AGENTS.md").write_text("this file is much too large", encoding="utf-8")
+        self.config.set("context_files.max_file_bytes", 32)
+        (self.root / "AGENTS.md").write_text("A" * 100, encoding="utf-8")
         (self.root / "AETHER.md").write_bytes(b"\\x00binary")
         (self.root / ".aether.md").write_bytes(b"\\xffbad utf8")
         self.assertEqual(load_project_context(self.root, self.config), "")
