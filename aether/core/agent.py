@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from aether.config import Config
+from aether.config import Config\nfrom aether.context_files import load_project_context
 from aether.core.context import ContextManager
 from aether.core.loop import TurnState, new_spend_budget, run_turn_loop
 from aether.core.planning import ExecutionPlan, ExecutionStateMachine, build_plan, is_resume_request
@@ -458,11 +458,13 @@ class Agent:
         learning_context = (
             self.learning.context(text) if self.config.get("learning.enabled", True) else ""
         )
+        project_context = load_project_context(self.workspace, self.config)
         system_prompt = self.context_manager.system_prompt(
             memory_context=memory_context,
             skills_context=self.skills.context(int(self.config.get("skills.max_prompt_chars", 3000))),
             plan=plan_context,
             learning_context=learning_context,
+            project_context=project_context,
         )
         messages = [{"role": "system", "content": system_prompt}] + [dict(item) for item in self.history]
         user_message = {"role": "user", "content": text}
