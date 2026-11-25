@@ -193,7 +193,7 @@ See [parallel agent workstreams](docs/AGENT_WORKSTREAMS.md) for scoped Copilot p
 
 Aether now includes a local, on-demand repository index and a guarded unified-diff workflow:
 
-- `repo_index` summarizes files or searches filenames and source snippets, respects root and nested `.gitignore` patterns and skips symlinks, generated/vendor directories, binary files, and oversized files.
+- `repo_index` summarizes files, searches filenames/source snippets, and finds common Python and JavaScript/TypeScript declarations by name. It respects root and nested `.gitignore` patterns and skips symlinks, generated/vendor directories, binary files, and oversized files. Symbol search is lexical, not LSP.
 - `patch_preview` validates a unified diff and reports affected files and hashes without writing.
 - `patch_apply` applies modifications only to existing UTF-8 files after complete preflight. It rejects path escapes, symlinks, binary files, renames, and file creation/deletion. Tool execution requires explicit approval.
 - `test_run` executes a bounded set of fixed test commands (unittest suite, one `test_*.py` module, compileall, or `scripts/check.sh`) without accepting an arbitrary shell command string. Test execution requires approval.
