@@ -68,6 +68,34 @@ class RepositoryToolTests(TempHomeTest):
         self.assertNotIn("src/generated/output.txt", paths)
 
 
+    def test_index_symbol_search_finds_python_and_typescript_declarations(self):
+        (self.workspace / "parser.py").write_text(
+            "class Parser:\\n"
+            "    def parse(self, source):\\n"
+            "        return source\\n"
+            "    async def load(self):\\n"
+            "        return None\\n",
+            encoding="utf-8",
+        )
+        (self.workspace / "parser.ts").write_text(
+            "export interface ParseOptions {}\\n"
+            "export function parseSource(input) { return input; }\\n"
+            "export const parseAsync = async (input) => input;\\n"
+            "export class ParserAdapter {}\\n",
+            encoding="utf-8",
+        )
+
+        result = repo_index({"action": "symbols", "query": "parse"}, self.context())
+        names = {item["name"] for item in result["symbols"]}
+        self.assertTrue({"Parser", "parse", "parseSource", "parseAsync", "ParseOptions", "ParserAdapter"}.issubset(names))
+        self.assertTrue(all(item["path"].endswith((".py", ".ts")) for item in result["symbols"]))
+        self.assertTrue(all(item["line"] >= 1 for item in result["symbols"]))
+
+    def test_index_symbol_search_requires_query(self):
+        with self.assertRaises(ToolError):
+            repo_index({"action": "symbols"}, self.context())
+
+
     def test_index_search_returns_filename_and_line_matches(self):
         (self.workspace / "agent.py").write_text("alpha\nunique_symbol()\nomega\n", encoding="utf-8")
         result = repo_index({"action": "search", "query": "unique_symbol"}, self.context())
