@@ -43,10 +43,11 @@ DEFAULTS = {
         "allow_tools": None,
         "deny_tools": [],
         "allowed_roots": [],
-        "require_approval": ["terminal", "write_file", "edit_file", "python", "git", "browser"],
+        "require_approval": ["terminal", "write_file", "edit_file", "python", "git", "browser", "patch_apply", "test_run"],
         "allow_destructive": False,
         "approval_cache": "session",
     },
+    "repository_index": {"max_files": 3000, "max_file_bytes": 262144, "max_total_bytes": 8388608, "max_results": 40, "test_timeout": 300},
     "tools": {
         "timeout": 30,
         "max_result_chars": 16000,

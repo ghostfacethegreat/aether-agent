@@ -343,11 +343,21 @@ class Orchestrator:
     def _verified_check_evidence(cls, tool_log: list[dict]) -> list[dict]:
         evidence = []
         for record in tool_log or []:
-            if not isinstance(record, dict) or record.get("name") != "terminal" or not record.get("ok"):
+            if not isinstance(record, dict) or not record.get("ok"):
                 continue
+            tool_name = record.get("name")
             arguments = record.get("arguments") if isinstance(record.get("arguments"), dict) else {}
             command = str(arguments.get("command") or "").strip()
-            if not cls._supported_check_command(command):
+            if tool_name == "terminal":
+                if not cls._supported_check_command(command):
+                    continue
+            elif tool_name == "test_run":
+                mode = str(arguments.get("mode") or "").strip().lower()
+                if mode not in ("suite", "module", "compile", "check"):
+                    continue
+                module = str(arguments.get("module") or "").strip()
+                command = f"test_run {mode}" + (f" {module}" if mode == "module" else "")
+            else:
                 continue
             result = record.get("result")
             payload = result if isinstance(result, dict) else {}
@@ -362,7 +372,7 @@ class Orchestrator:
                 exit_code = int(payload.get("exit_code"))
             except (TypeError, ValueError):
                 continue
-            if exit_code == 0:
+            if exit_code == 0 and not payload.get("timed_out"):
                 evidence.append({"command": truncate(command, 240), "exit_code": 0})
         return evidence
 

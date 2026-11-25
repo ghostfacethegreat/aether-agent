@@ -15,6 +15,7 @@ from pathlib import Path
 from aether.errors import ToolError
 
 from .registry import Tool
+from .repository import patch_apply, patch_preview, repo_index, test_run
 
 
 def _workspace(context) -> Path:
@@ -603,6 +604,30 @@ def scheduler_tool(args, context):
 
 
 TOOLS = [
+    Tool(
+        "repo_index",
+        "Index the local workspace (root .gitignore plus generated/vendor exclusions) or search filenames and source snippets. Bounded, on-demand, local-only.",
+        {"type": "object", "properties": {"root": {"type": "string"}, "action": {"type": "string", "enum": ["summary", "search"]}, "query": {"type": "string"}}, "required": []},
+        repo_index, "read", True, timeout=45,
+    ),
+    Tool(
+        "patch_preview",
+        "Validate a unified diff against existing workspace files and preview affected paths and hashes without changing files. New/deleted files, renames, symlinks, binary files and path escapes are rejected.",
+        {"type": "object", "properties": {"patch": {"type": "string"}}, "required": ["patch"]},
+        patch_preview, "read", True, timeout=30,
+    ),
+    Tool(
+        "patch_apply",
+        "Apply a validated unified diff to existing workspace files. Every target is preflighted before writing; explicit approval is required.",
+        {"type": "object", "properties": {"patch": {"type": "string"}}, "required": ["patch"]},
+        patch_apply, "write", timeout=30,
+    ),
+    Tool(
+        "test_run",
+        "Run bounded repository checks with fixed arguments and no user-controlled shell command: unittest suite, one test_*.py module, compileall, or scripts/check.sh. Returns exact argv and exit code.",
+        {"type": "object", "properties": {"mode": {"type": "string", "enum": ["suite", "module", "compile", "check"]}, "module": {"type": "string"}}, "required": ["mode"]},
+        test_run, "execute", timeout=610,
+    ),
     Tool(
         "list_directory",
         "List files and directories. Use before reading unknown paths.",

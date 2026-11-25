@@ -29,10 +29,10 @@ DEFAULT_ROLES = {
             '"summary", "changes" (list), "tests" (list), and "risks" (list).'
         ),
         "allowed_tools": [
-            "list_directory", "read_file", "write_file", "edit_file", "terminal", "git", "python", "skill", "todo"
+            "list_directory", "read_file", "write_file", "edit_file", "terminal", "git", "python", "skill", "todo", "repo_index", "patch_preview", "patch_apply", "test_run"
         ],
         "deny_tools": ["orchestrate_task", "delegate_task", "browser"],
-        "require_approval": ["terminal", "write_file", "edit_file", "python", "git"],
+        "require_approval": ["terminal", "write_file", "edit_file", "python", "git", "patch_apply", "test_run"],
         "max_iterations": 8,
     },
     "debugger": {
@@ -43,7 +43,7 @@ DEFAULT_ROLES = {
             "propose or implement the smallest safe fix. Return structured JSON with keys "
             '"summary", "reproduction" (string), "root_cause" (string), "fixes" (list), and "verification" (list).'
         ),
-        "allowed_tools": ["list_directory", "read_file", "terminal", "git", "python", "skill", "todo"],
+        "allowed_tools": ["list_directory", "read_file", "terminal", "git", "python", "skill", "todo", "repo_index", "patch_preview"],
         "deny_tools": ["orchestrate_task", "delegate_task", "browser", "write_file", "edit_file"],
         "require_approval": ["terminal", "python", "git"],
         "max_iterations": 8,
@@ -101,9 +101,9 @@ DEFAULT_ROLES = {
             "outcomes, and never claim a passing result without tool output. Return structured JSON with keys 'summary', "
             "'checks' (list), 'failures' (list), and 'verdict' (pass|fail|partial)."
         ),
-        "allowed_tools": ["list_directory", "read_file", "terminal", "git", "python", "skill", "todo"],
+        "allowed_tools": ["list_directory", "read_file", "terminal", "git", "python", "skill", "todo", "repo_index", "test_run"],
         "deny_tools": ["orchestrate_task", "delegate_task", "browser", "write_file", "edit_file"],
-        "require_approval": ["terminal", "python", "git"],
+        "require_approval": ["terminal", "python", "git", "test_run"],
         "max_iterations": 6,
         "capabilities": ["tool_calling", "reasoning"],
         "context_tokens": 8192,
@@ -114,14 +114,14 @@ DEFAULT_ROLES = {
         "model": "",
         "system_prompt": (
             "You are the Aether Independent Verifier. Do not implement changes or edit files. Inspect the objective and "
-            "the other agents' claims, then independently run the repository's relevant test/check command using the "
-            "terminal tool. Prefer 'bash scripts/check.sh' when practical; otherwise run the narrowest relevant test "
+            "the other agents' claims, then independently run a repository test/check itself, preferably with the bounded "
+            "test_run tool (suite, module, compile, or check); terminal commands are a fallback. Prefer the narrowest relevant "
             "suite. Never trust another agent's claim that tests passed. Return JSON with keys 'summary' (string), "
             "'checks' (list of commands and observed outcomes), 'failures' (list), and 'verdict' (pass|fail|partial). "
-            "Your verdict may be pass only when your own terminal tool result shows exit_code 0 for a recognized "
+            "Your verdict may be pass only when your own test_run or terminal tool result shows exit_code 0 for a recognized "
             "test/check command. Do not edit files or claim verification without tool evidence."
         ),
-        "allowed_tools": ["list_directory", "read_file", "terminal", "git", "session_search", "todo"],
+        "allowed_tools": ["list_directory", "read_file", "terminal", "git", "session_search", "todo", "test_run"],
         "deny_tools": ["orchestrate_task", "delegate_task", "browser", "write_file", "edit_file", "python"],
         "require_approval": ["terminal", "git"],
         "max_iterations": 6,
