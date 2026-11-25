@@ -33,7 +33,7 @@ class RepositoryToolTests(TempHomeTest):
         nested = source / "nested"
         nested.mkdir(parents=True)
         (source / ".gitignore").write_text(
-            "private.py\nlogs/\ngenerated/output.txt\n",
+            "private.py\nlogs/\ngenerated/output.txt\n*.tmp\n!/keep.tmp\n",
             encoding="utf-8",
         )
         (nested / ".gitignore").write_text("!private.py\n", encoding="utf-8")
@@ -41,8 +41,10 @@ class RepositoryToolTests(TempHomeTest):
         (self.workspace / "private.py").write_text("root is visible\n", encoding="utf-8")
         (source / "private.py").write_text("ignored in src\n", encoding="utf-8")
         (source / "keep.py").write_text("visible\n", encoding="utf-8")
+        (source / "keep.tmp").write_text("re-included by anchored negation\n", encoding="utf-8")
         (nested / "private.py").write_text("re-included in nested scope\n", encoding="utf-8")
         (nested / "keep.py").write_text("also visible\n", encoding="utf-8")
+        (nested / "keep.tmp").write_text("still ignored outside anchored path\n", encoding="utf-8")
 
         logs = nested / "logs"
         logs.mkdir()
@@ -56,10 +58,12 @@ class RepositoryToolTests(TempHomeTest):
         paths = {item["path"] for item in result["files"]}
         self.assertIn("private.py", paths)
         self.assertIn("src/keep.py", paths)
+        self.assertIn("src/keep.tmp", paths)
         self.assertIn("src/nested/private.py", paths)
         self.assertIn("src/nested/keep.py", paths)
         self.assertIn("src/generated/other.txt", paths)
         self.assertNotIn("src/private.py", paths)
+        self.assertNotIn("src/nested/keep.tmp", paths)
         self.assertNotIn("src/nested/logs/hidden.txt", paths)
         self.assertNotIn("src/generated/output.txt", paths)
 
