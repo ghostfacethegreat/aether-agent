@@ -127,6 +127,6 @@ Cancellation is covered by deterministic unit tests in the 274-test suite, not b
 - No merge, tag, or release.
 - Engineering gates 2 and 4 above (task-quality evidence, parallel-run and cutover) remain open, gate 3 has not had an external security review, and the full-replacement claim in the release rule is not made.
 
-Integration base `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (run IDs `45737098740` / `45737090789`) with 238 tests on Python 3.10–3.14, `scripts/check.sh`, and clean-checkout install/uninstall. That is Linux CI evidence for the base only; later local changes are not yet CI-verified, fresh CI is required for the exact final pushed SHA, and Actions is authoritative.
+Final pushed CLI Preview candidate `939208dc0622e9bfc661ece1eb3f4faf83f2b6db` passed exact-head GitHub Actions push run [#91](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45893216507) and PR run [#92](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45893225173). Both runs completed successfully across Python 3.10–3.14; all matrix jobs passed `scripts/check.sh` and clean-checkout install/uninstall. The recorded Python 3.14 push-job log reports 274 tests and all checks passed. These are Linux CI results; the macOS 15.0.1 Apple M1 workstation acceptance is recorded separately above.
 
 This status section must be refreshed from the actual branch, CI, release metadata, and workstation runs before any replacement claim.
