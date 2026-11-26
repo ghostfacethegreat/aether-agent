@@ -60,7 +60,7 @@ source .venv-voice/bin/activate
 python -m pip install "kokoro-mlx[audio]"
 ```
 
-AETHER does not yet include a finished speech interface. This is a local TTS component that can later be wired into the CLI; it does not add voice calling or phone messaging.
+Kokoro-MLX currently requires macOS 14 or later, Apple Silicon, and Python 3.10–3.12. On older macOS versions, use the built-in `say` command as a zero-install fallback. AETHER does not yet include a finished speech interface. This is a local TTS component that can later be wired into the CLI; it does not add voice calling or phone messaging.
 
 ## Trust and income boundaries
 
