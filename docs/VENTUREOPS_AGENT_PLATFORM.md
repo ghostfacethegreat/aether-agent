@@ -1,6 +1,6 @@
 # VentureOps — Local-First Business Operations for AETHER
 
-> Status: proposed implementation plan, not an implemented runtime feature.
+> Status: early preview. The initial local ledger and CLI are implemented in the draft PR; autonomous business workflows remain planned.
 >
 > Related work: [AETHER issue #16](https://github.com/ghostfacethegreat/aether-agent/issues/16), [ClipForge issue #1](https://github.com/ghostfacethegreat/clipforge/issues/1).
 
