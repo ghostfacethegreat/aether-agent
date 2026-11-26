@@ -121,7 +121,7 @@ class PermissionPolicy:
         """Require human approval for persistent writes, independent of config overrides."""
         action = str(args.get("action") or "").strip().lower()
         if tool == "patch_apply":
-            return "Applying a repository patch changes workspace files"
+            return "Applying a repository patch changes persistent workspace files"
         if tool == "memory":
             if action in {"add", "replace", "delete", "import"}:
                 return f"Memory action '{action}' changes persistent memory"
