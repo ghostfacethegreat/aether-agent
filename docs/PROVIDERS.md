@@ -89,3 +89,7 @@ aether models explain "Debug this traceback"
 ```
 
 Explicit `--provider`/`--model` or `Agent(provider_name=..., model=...)` choices always win; there is no `routing.manual` setting. Diagnostics never call a model. `aether models benchmark [--samples N] [--confirm-billable]` is an offline deterministic routing simulation that prints JSON, writes no files, and makes no model/network/billable calls; `--confirm-billable` is acknowledgement only. See [MODEL_ROUTING.md](MODEL_ROUTING.md) and [CONFIGURATION.md](CONFIGURATION.md).
+
+## Troubleshooting
+
+For a copy-paste diagnostic flow for Ollama, LM Studio, and llama.cpp, see [Local provider troubleshooting](PROVIDER_TROUBLESHOOTING.md). It covers the offline mock-provider check, connection and model-ID errors, and safe redaction when reporting problems.
