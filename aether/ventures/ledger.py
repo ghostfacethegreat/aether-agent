@@ -313,6 +313,6 @@ class VentureLedger:
             "pipeline_cents": total("quote", {"draft", "sent", "proposed"}),
             "booked_cents": total("quote", {"accepted"}),
             "invoiced_cents": total("invoice", {"invoiced", "sent", "overdue", "paid"}),
-            "received_cents": total("receipt"),
-            "expense_cents": total("expense"),
+            "received_cents": total("receipt", {"paid"}),
+            "expense_cents": total("expense", {"paid"}),
         }
