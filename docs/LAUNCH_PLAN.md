@@ -190,3 +190,57 @@ Enable GitHub Discussions for design questions, usage patterns, and contributor 
 - Never invent testimonials, benchmark results, security claims, or contributor numbers.
 - Thank people for useful bug reports even when they are not ready to contribute code.
 - Keep the project welcoming to first-time contributors, but require tests and review for changes that affect permissions, persistence, provider billing, or execution.
+
+
+## 10. 🚀 Recruit the next development cohort
+
+The contributor call is open at [issue #15](https://github.com/ghostfacethegreat/aether-agent/issues/15). Use it as the public interest thread and coordination point; keep actual implementation scoped to roadmap issues and pull requests.
+
+### Recruitment timing
+
+**Before the next development sprint**
+- Keep the project status, install path, known limitations, and contributor guide accurate.
+- Invite interested developers to introduce themselves in #15; ask about their preferred area, relevant experience, and realistic availability.
+- Start with review, testing, documentation, and small issues. Do not hand new contributors an unbounded core refactor.
+- Label beginner-sized work `good first issue` and meaningful, scoped project work `help wanted`.
+
+**When the preview is reviewed and the next phase is announced**
+- Publish one clear kickoff post linking the roadmap, contributor guide, CI results, and issue #15.
+- Name the first two or three concrete workstreams, owners, and acceptance criteria.
+- Hold an async kickoff in the issue thread so contributors in different time zones can participate.
+- Create a short milestone or project board only when there is enough active contributor interest to maintain it.
+
+**During the first month**
+- Acknowledge first-time issue comments and PRs promptly.
+- Offer a small starter task to each new contributor and help them get tests running before they change core behavior.
+- Keep PRs focused, review permissions/persistence/provider changes carefully, and publish a short weekly progress note.
+- Thank contributors in release notes and the GitHub contributor history; ask before using anyone's name or work as a testimonial.
+
+### What the project needs
+
+| Contributor profile | Best first contribution |
+| --- | --- |
+| Python / CLI developer | Small issue in the runtime or command UX; add a regression test |
+| LLM / local-inference developer | Provider compatibility, model metadata, and local setup documentation |
+| Evaluation / testing developer | Reproducible task fixtures, scoring criteria, and benchmark reports |
+| Security-minded engineer | Permission-boundary review, threat modeling, and regression tests |
+| Documentation / UX contributor | Setup guide, terminal screenshots, examples, and onboarding improvements |
+
+### Recruiting post draft
+
+Use this only when the preview's default-branch install path and release decision are ready. Adapt it to each community's rules and disclose that you maintain AETHER.
+
+> 🚀 **AETHER is looking for open-source collaborators**
+>
+> I'm building AETHER, an independent local-first Python AI agent focused on inspectable memory, provider choice, specialist workflows, and approval-gated coding tools.
+>
+> I'm preparing the next development phase and would love to meet developers interested in Python, local LLMs, agent evaluation, security, integrations, or developer experience. You can start with a small issue, test the CLI, review a design, or help with docs—there is no minimum time commitment.
+>
+> AETHER is still alpha, and I'm looking for honest technical feedback and collaborators, not empty stars or hype. This is an open-source volunteer collaboration, not a paid job offer.
+>
+> Start here: https://github.com/ghostfacethegreat/aether-agent/issues/15
+
+### Healthy first-cohort goals
+
+Aim for a handful of recurring contributors rather than a large roster of inactive names. Track first-time contributors, review turnaround, merged external PRs, repeat testers, and useful issue reports. Do not manufacture activity, promise paid roles, or pressure people to contribute more than they can.
+
