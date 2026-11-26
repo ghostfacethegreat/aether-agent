@@ -1,11 +1,14 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Read the contributor guide
-    url: https://github.com/ghostfacethegreat/aether-agent/blob/main/CONTRIBUTING.md
+  - name: 🤝 Join the AETHER contributor call
+    url: https://github.com/ghostfacethegreat/aether-agent/issues/15
+    about: Introduce yourself and help shape the next development phase.
+  - name: 📘 Read the contributor guide
+    url: https://github.com/ghostfacethegreat/aether-agent/blob/feat/aether-parity-foundation/CONTRIBUTING.md
     about: Check setup, testing, design principles, and pull request expectations.
-  - name: Read known limitations
-    url: https://github.com/ghostfacethegreat/aether-agent/blob/main/docs/KNOWN_LIMITATIONS.md
+  - name: 🧭 Read known limitations
+    url: https://github.com/ghostfacethegreat/aether-agent/blob/feat/aether-parity-foundation/docs/KNOWN_LIMITATIONS.md
     about: Confirm whether a capability is implemented, partial, or planned.
-  - name: Security reporting
-    url: https://github.com/ghostfacethegreat/aether-agent/blob/main/SECURITY.md
+  - name: 🔒 Security reporting
+    url: https://github.com/ghostfacethegreat/aether-agent/blob/feat/aether-parity-foundation/SECURITY.md
     about: Do not publish vulnerability details in a public issue.
