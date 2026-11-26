@@ -36,12 +36,12 @@ Goal: make Aether understand objectives, plan, execute, remember, learn, route m
 | D | learning loop and skill quality | complete and locally verified |
 | E | model capability routing | implemented on this feature branch; included in the current 274-test local suite; not released |
 | F | coding workflow | tested baseline implemented and included in the current 274-test local suite; autonomous TDD/LSP/diff review incomplete |
-| G | research and evidence | pending |
-| H | tool intelligence | pending |
-| I | specialist orchestration | partial: specialist roles, dependency-aware teams, contracts, verifier baseline |
-| J | verification and recovery | partial: evidence-gated verifier and resumable checkpoints; long-running supervision/repair loops incomplete |
-| K | benchmark harness | pending |
-| L | release hardening | pending |
+| G | research and evidence | pending — [issue #10](https://github.com/ghostfacethegreat/aether-agent/issues/10) |
+| H | tool intelligence | pending — [issue #11](https://github.com/ghostfacethegreat/aether-agent/issues/11) |
+| I | specialist orchestration | partial: specialist roles, dependency-aware teams, contracts, verifier baseline; isolated durable execution tracked in [issue #5](https://github.com/ghostfacethegreat/aether-agent/issues/5) |
+| J | verification and recovery | partial: evidence-gated verifier and resumable checkpoints; long-running supervision/repair loops incomplete; see [issues #4](https://github.com/ghostfacethegreat/aether-agent/issues/4) and [#5](https://github.com/ghostfacethegreat/aether-agent/issues/5) |
+| K | benchmark harness | pending — [issue #6](https://github.com/ghostfacethegreat/aether-agent/issues/6) |
+| L | release hardening | pending — [issue #12](https://github.com/ghostfacethegreat/aether-agent/issues/12) |
 
 Release gates:
 
@@ -126,11 +126,13 @@ Release only when all of the following are true:
 
 Remaining tracks, in priority order:
 
-1. **Browser and MCP:** local browser runtime with isolated profiles; secure URL/navigation controls; MCP stdio/HTTP servers, schema validation, and lazy tool discovery.
-2. **Messaging and voice/media:** optional channel adapters, webhook authentication, user/session isolation, local-first speech input/output, and media tools.
-3. **Execution backends:** optional Docker isolation first, then SSH/remote backends; durable background runs with cancellation, restart recovery, and bounded concurrency.
-4. **Learning and curation:** model-assisted but reviewable skill drafting, duplicate/stale-skill detection, lifecycle states, isolated validation, and rollback.
-5. **Evaluation:** reproducible task-quality fixtures, recorded tool traces, token/cost/time accounting, opt-in same-model Hermes comparisons, and regression gates.
-6. **Coding completion:** persistent/incremental repository index, symbol navigation/LSP, create/delete patches, multi-turn TDD orchestration, and semantic diff review.
+1. **Research and evidence (Phase G):** source metadata, claim-level citations, contradiction/staleness detection, confidence rationale, and traceable reports ([issue #10](https://github.com/ghostfacethegreat/aether-agent/issues/10)).
+2. **Tool intelligence (Phase H):** capability catalog, query-based discovery, staged schema loading, strict argument validation, permission-aware selection, and tool-health recovery ([issue #11](https://github.com/ghostfacethegreat/aether-agent/issues/11)).
+1. **Browser and MCP:** local browser runtime with isolated profiles; secure URL/navigation controls; MCP stdio/HTTP servers, schema validation, and lazy tool discovery ([issue #2](https://github.com/ghostfacethegreat/aether-agent/issues/2)).
+2. **Messaging and voice/media:** optional channel adapters, webhook authentication, user/session isolation, local-first speech input/output, and media tools ([issue #3](https://github.com/ghostfacethegreat/aether-agent/issues/3)).
+3. **Execution backends:** optional Docker isolation first, then SSH/remote backends; durable background runs with cancellation, restart recovery, and bounded concurrency ([issue #5](https://github.com/ghostfacethegreat/aether-agent/issues/5)).
+4. **Learning and curation:** model-assisted but reviewable skill drafting, duplicate/stale-skill detection, lifecycle states, isolated validation, and rollback ([issue #7](https://github.com/ghostfacethegreat/aether-agent/issues/7)).
+5. **Evaluation:** reproducible task-quality fixtures, recorded tool traces, token/cost/time accounting, opt-in same-model Hermes comparisons, and regression gates ([issue #6](https://github.com/ghostfacethegreat/aether-agent/issues/6)).
+6. **Coding completion:** persistent/incremental repository index, symbol navigation/LSP, create/delete patches, multi-turn TDD orchestration, and semantic diff review ([issue #4](https://github.com/ghostfacethegreat/aether-agent/issues/4)).
 
 Do not mark a track complete from agent-profile files, issue creation, or design docs. Completion requires implementation, tests, clean-install checks, security review, and reproducible evidence artifacts. Hosted integrations and live model evaluations remain opt-in; no paid provider is required for default local operation.
