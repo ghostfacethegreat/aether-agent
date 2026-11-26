@@ -80,7 +80,7 @@ These are documented capabilities of the preview candidate, not a claim that eve
 
 > **Stage: Alpha / CLI Preview candidate.** PR #8 is still draft and unmerged. No tagged release or binary installer is being advertised.
 
-The implementation checkpoint at [`939208d`](https://github.com/ghostfacethegreat/aether-agent/commit/939208dc0622e9bfc661ece1eb3f4faf83f2b6db) passed the recorded GitHub Actions matrix on Python 3.10–3.14: [push CI #91](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45893216507) and [PR CI #92](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45893225173). That checkpoint reports 274 tests, the repository check script, and a clean-checkout install test. The latest documentation, contributor-onboarding, and launch-plan head is [\`4447b4b\`](https://github.com/ghostfacethegreat/aether-agent/commit/4447b4b872f4a184853d5219f215091a6e2b5bb9); both exact-head [push CI #116](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45895191550) and [PR CI #117](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45895195225) passed on that SHA.
+The latest documentation, contributor-onboarding, and launch-plan head is [commit 4447b4b](https://github.com/ghostfacethegreat/aether-agent/commit/4447b4b872f4a184853d5219f215091a6e2b5bb9); both exact-head [push CI #116](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45895191550) and [PR CI #117](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45895195225) passed on that SHA.
 
 **What this evidence does and does not show:**
 
