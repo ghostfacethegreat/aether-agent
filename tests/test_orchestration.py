@@ -427,6 +427,20 @@ class OrchestrationTests(TempHomeTest):
         self.assertFalse(state.try_mark_running(task.id))
         self.assertEqual(task.status, "cancelled")
 
+    def test_patch_apply_is_forced_approval_for_orchestration_children(self):
+        agent = Agent(self.config(tool_permissions={"require_approval": []}), home=self.home)
+        role = resolved_roles(agent.config)["developer"]
+        child = agent._orchestration_child(
+            role,
+            {"id": "task_patch_approval", "role": "developer", "goal": "Apply a patch"},
+            {},
+            threading.Event(),
+        )
+        self.assertIn("patch_apply", child.config.get("tool_permissions.require_approval", []))
+        decision = child.policy.check("patch_apply", {"patch": "diff"}, risk="write")
+        self.assertTrue(decision.allowed)
+        self.assertTrue(decision.needs_approval)
+
 
 if __name__ == "__main__":
     unittest.main()
