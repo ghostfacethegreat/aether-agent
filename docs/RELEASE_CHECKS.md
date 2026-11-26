@@ -20,7 +20,7 @@ Focused verification before the full suite: 182 tests passed across tools, model
 
 ### CI base (not current local verification)
 
-Integration base `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (run IDs `45737098740` / `45737090789`): 238 tests on each of Python 3.10–3.14, `scripts/check.sh`, and clean-checkout install/uninstall. Later local changes are not yet CI-verified; fresh CI is required for the exact final pushed SHA, and GitHub Actions is authoritative. No final HEAD SHA is recorded because it does not exist until this work is committed.
+Final pushed candidate `939208dc0622e9bfc661ece1eb3f4faf83f2b6db` passed exact-head GitHub Actions push run [#91](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45893216507) and PR run [#92](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45893225173). Both runs completed successfully on this exact SHA across Python 3.10–3.14. The Python 3.14 push-job log records 274 tests, `scripts/check.sh` all checks passed, and `scripts/test_install.sh` local git-remote install test passed. The local macOS workstation acceptance record is in [WORKSTATION_ACCEPTANCE_GATE.md](WORKSTATION_ACCEPTANCE_GATE.md).
 
 ### Security and reliability fixes after the CI base
 
