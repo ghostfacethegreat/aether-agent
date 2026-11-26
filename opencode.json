@@ -1,4 +1,246 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "default_agent": "aether-lead"
+  "default_agent": "aether-lead",
+  "agents": {
+    "aether-lead": {
+      "description": "Coordinates AETHER development, delegates bounded work, and requires evidence before declaring tasks complete.",
+      "mode": "primary",
+      "steps": 30,
+      "permissions": [
+        {
+          "action": "subagent",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "subagent",
+          "resource": "architect",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "implementer",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "qa",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "reviewer",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "git push *",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "git tag *",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "gh pr merge *",
+          "effect": "deny"
+        }
+      ]
+    },
+    "architect": {
+      "description": "Read-only architect that maps AETHER code, dependencies, roadmap gaps, and safe implementation boundaries.",
+      "mode": "subagent",
+      "steps": 12,
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    },
+    "implementer": {
+      "description": "Implements one approved AETHER work package with scoped edits and local verification.",
+      "mode": "subagent",
+      "steps": 24,
+      "permissions": [
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "edit",
+          "resource": "aether/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "tests/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "docs/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "README.md",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "shell",
+          "resource": "git status *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git diff *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python3 -m compileall *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python3 -m unittest *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "bash scripts/check.sh",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git push *",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "git tag *",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "gh pr merge *",
+          "effect": "deny"
+        }
+      ]
+    },
+    "qa": {
+      "description": "Runs AETHER's deterministic tests and CI-relevant checks; diagnoses failures without changing production code.",
+      "mode": "subagent",
+      "steps": 16,
+      "permissions": [
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "shell",
+          "resource": "git status *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git diff *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python3 -m compileall *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python3 -m unittest *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "bash scripts/check.sh",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "bash scripts/test_install.sh",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git push *",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "gh pr merge *",
+          "effect": "deny"
+        }
+      ]
+    },
+    "reviewer": {
+      "description": "Independent read-only reviewer for correctness, security, test coverage, and documentation accuracy.",
+      "mode": "subagent",
+      "steps": 14,
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    }
+  }
 }
