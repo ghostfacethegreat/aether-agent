@@ -17,7 +17,7 @@ This roadmap tracks the intelligence-first path from the current `0.1.0` alpha c
 | Version | Theme | Status |
 |---|---|---|
 | `0.1.0` | local-first provider-agnostic CLI alpha | published baseline |
-| `0.2.0` | intelligence foundation | in development; Phases A-E complete and locally verified, no `0.2.x` release or tag |
+| `0.2.0` | intelligence foundation | in development; Phases A-E complete/implemented, Phase F coding baseline implemented and CI-verified; G/H/K/L pending and I/J partial; no `0.2.x` release or tag |
 | `0.3.0` | autonomous software development | pending |
 | `0.4.0` | messaging, voice, and improved automation | pending |
 | `0.5.0` | desktop and website applications | pending |
@@ -35,11 +35,11 @@ Goal: make Aether understand objectives, plan, execute, remember, learn, route m
 | C | layered memory | complete and locally verified |
 | D | learning loop and skill quality | complete and locally verified |
 | E | model capability routing | implemented on this feature branch and locally verified (26 focused / 179 total tests); not released |
-| F | coding workflow | pending |
+| F | coding workflow | tested baseline implemented; autonomous TDD/LSP/diff review incomplete |
 | G | research and evidence | pending |
 | H | tool intelligence | pending |
-| I | specialist orchestration | pending |
-| J | verification and recovery | pending |
+| I | specialist orchestration | partial: specialist roles, dependency-aware teams, contracts, verifier baseline |
+| J | verification and recovery | partial: evidence-gated verifier and resumable checkpoints; long-running supervision/repair loops incomplete |
 | K | benchmark harness | pending |
 | L | release hardening | pending |
 
@@ -122,7 +122,7 @@ Release only when all of the following are true:
 
 ## Hermes-competitive capability tracks
 
-**Phase F coding workflow now has a tested baseline:** bounded repository indexing/search, unified-diff preview/application, and an approval-gated fixed-command test runner. It is not a full IDE-grade TDD controller.
+**Phase F coding workflow now has a tested baseline:** bounded persistent repository indexing/search, lexical symbol retrieval, unified-diff preview/application, and an approval-gated fixed-command test runner. Candidate `aebbaef` passed 238 tests in every Python 3.10–3.14 CI job plus clean-checkout installation. This is not a full IDE-grade TDD controller, and the macOS workstation acceptance gate remains separate.
 
 Remaining tracks, in priority order:
 
