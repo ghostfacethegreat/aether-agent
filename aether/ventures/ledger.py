@@ -285,7 +285,7 @@ class VentureLedger:
             raise ValueError("limit must be between 1 and 500")
         with self.store.connection() as db:
             rows = db.execute(
-                "SELECT * FROM venture_events WHERE record_id=? ORDER BY created_at DESC LIMIT ?",
+                "SELECT * FROM venture_events WHERE record_id=? ORDER BY created_at DESC, rowid DESC LIMIT ?",
                 (str(record_id), limit),
             ).fetchall()
         result = []
