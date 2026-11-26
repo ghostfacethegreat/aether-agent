@@ -34,6 +34,10 @@ aether venture brief
 
 See [the VentureOps operating plan](docs/VENTUREOPS_AGENT_PLATFORM.md) for recordkeeping, agent roles, approval boundaries, and current limitations. This is an early local ledger, not a CRM or a guarantee of income.
 
+## 🤖 Free development team
+
+AETHER includes an OpenCode lead agent plus architect, implementer, QA, and reviewer subagents. Start with [the free agent-team guide](docs/FREE_AGENT_TEAM.md) for setup, permission boundaries, free/local model options, and a local soft-voice path.
+
 ## 🧭 Why AETHER is worth evaluating
 
 | Design priority | What it means in practice |
