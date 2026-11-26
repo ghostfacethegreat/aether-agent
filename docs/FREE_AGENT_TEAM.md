@@ -1,6 +1,6 @@
 # Free AETHER development agent team
 
-AETHER includes OpenCode project configuration for a small, owner-controlled coding team. It is designed for a zero-upfront-cost workflow and works with OpenCode's free model options, with local inference as an optional fallback.
+AETHER includes current OpenCode project configuration for a small, owner-controlled coding team. Agent metadata and permissions live in `opencode.json`; the system prompts live in `.opencode/agents/`. It is designed for a zero-upfront-cost workflow. OpenCode's hosted free-model availability and limits can change, so verify the model selector before relying on a specific model; local inference is the fallback.
 
 ## What is free, and what is limited
 
@@ -19,7 +19,7 @@ AETHER includes OpenCode project configuration for a small, owner-controlled cod
 | `qa` | Subagent | Runs checks and diagnoses regressions; cannot edit |
 | `reviewer` | Subagent | Independent read-only final review |
 
-The lead delegates only to the named roles. The agents are instructed not to push, merge, tag, publish, contact users, spend money, or change accounts. Parallel work should be limited to non-overlapping files; implementation and test/review stages should run sequentially when they touch the same area.
+The lead delegates only to the named roles. The current configuration denies repository edits to the lead, architect, QA, and reviewer; the implementer receives scoped edit permissions. Push, tag, and PR-merge commands are denied to the lead and implementer. Review the permission rules in `opencode.json` before broadening any authority. The agents are instructed not to publish, contact users, spend money, or change accounts. Parallel work should be limited to non-overlapping files; implementation and test/review stages should run sequentially when they touch the same area.
 
 ## Start
 
@@ -29,7 +29,7 @@ From the AETHER repository root:
 opencode
 ```
 
-The project config selects `aether-lead` as the default primary agent. In OpenCode, check the agent selector and choose the available free model. Ask:
+The project config selects `aether-lead` as the default primary agent. OpenCode reads agent metadata from `opencode.json` and each agent's prompt from `.opencode/agents/`. In OpenCode, check the agent selector and select a model currently marked free, if one is offered in your region/account. Ask:
 
 ```text
 Inspect the open AETHER roadmap. Delegate a read-only audit to architect.
