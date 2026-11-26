@@ -176,6 +176,8 @@ class VentureLedger:
             raise ValueError(f"status must be one of: {', '.join(STATUSES)}")
         if not re.fullmatch(r"[A-Z]{3}", currency):
             raise ValueError("currency must be a three-letter ISO-style code such as USD")
+        if currency != "USD":
+            raise ValueError("the VentureOps MVP currently supports USD records only")
         amount_cents = _validate_amount(amount_cents)
         details = _json_details(details)
         record_id = make_id("venture")
