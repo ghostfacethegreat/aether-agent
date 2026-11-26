@@ -12,6 +12,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB.svg" alt="Python 3.10 and later"></a>
   <a href="docs/DEVELOPMENT_STATUS.md"><img src="https://img.shields.io/badge/status-alpha-orange.svg" alt="Alpha"></a>
+  <a href="https://github.com/ghostfacethegreat/aether-agent/actions/workflows/ci.yml"><img src="https://github.com/ghostfacethegreat/aether-agent/actions/workflows/ci.yml/badge.svg?branch=feat%2Faether-parity-foundation" alt="AETHER CI"></a>
 </p>
 
 AETHER is an independent, provider-agnostic agent that runs from your terminal. It connects local or hosted language models to persistent memory, reusable skills, guarded tools, project-aware coding workflows, and specialist agents.
