@@ -182,7 +182,7 @@ DEFAULT_ROLES = {
 
 ROLE_NAMES = tuple(DEFAULT_ROLES)
 FORCED_DENY_TOOLS = {"orchestrate_task", "delegate_task", "browser"}
-FORCED_APPROVAL_TOOLS = {"terminal", "write_file", "edit_file", "python", "git", "browser", "scheduler"}
+FORCED_APPROVAL_TOOLS = {"terminal", "write_file", "edit_file", "python", "git", "browser", "scheduler", "patch_apply"}
 FORCED_READ_ONLY_SKILLS = {"researcher", "reviewer", "debugger", "planner", "architect", "security_auditor", "data_analyst", "verifier"}
 
 
