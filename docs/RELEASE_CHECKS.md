@@ -182,6 +182,15 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - Remaining critical work: default approval for memory/skill/scheduler writes, forced child approval for `patch_apply`, scheduled-run cancellation and tool restrictions, persistent-index corruption recovery, symbol-version/budget invalidation, and the end-to-end mock-provider coding loop.
 - No lint/typecheck command is configured, so none is claimed. No model/network/billable calls were made. No Hermes parity or task-quality claim is made.
 
+
+## Thanksgiving preview candidate — operation-level write approval
+
+- Code checkpoint: `aebbaef27ede626b2b7c2d057d21f16b49bfa428` on `feat/aether-parity-foundation`; PR #8 remains open and draft.
+- Added operation-aware approval checks for persistent Markdown/layered memory mutations, skill creation/editing, scheduler add/remove operations, and all `patch_apply` calls. These checks still apply when a config override empties `tool_permissions.require_approval`.
+- Added regression coverage that verifies mutating operations request approval, read-only operations remain usable without approval, and orchestration children cannot bypass `patch_apply` approval.
+- GitHub Actions run [`45736577255`](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45736577255) — passed on Python 3.10, 3.11, 3.12, 3.13, and 3.14. Each matrix job ran 238 tests, `scripts/check.sh` reported all checks passed, and `scripts/test_install.sh` reported the local git-remote install test passed.
+- This is CI evidence only. macOS/Apple Silicon workstation acceptance, live provider checks, external security review, task-quality benchmarks, merge, tag, and release are not claimed.
+
 ## Secrets
 
 - No `.env` file was created in the repository.
