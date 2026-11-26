@@ -3,6 +3,8 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
 from aether.cli.app import main
+from aether.persistence import Store
+from aether.ventures import VentureLedger
 
 from tests.base import TempHomeTest
 
@@ -57,7 +59,7 @@ class VentureCliTests(TempHomeTest):
     def test_cli_updates_status_and_records_audit_event(self):
         code, output, _ = self.run_cli(["venture", "add", "project", "Clip pilot"])
         self.assertEqual(code, 0)
-        record_id = output.strip().split()[-1]
+        record_id = VentureLedger(Store(self.home / "state.db")).list(kind="project")[0]["id"]
         code, output, _ = self.run_cli(["venture", "update", record_id, "--status", "active"])
         self.assertEqual(code, 0)
         code, output, _ = self.run_cli(["venture", "events", record_id])
