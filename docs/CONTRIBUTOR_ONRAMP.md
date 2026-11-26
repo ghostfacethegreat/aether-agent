@@ -14,6 +14,7 @@ Welcome. You do not need to understand the entire agent runtime to make a useful
 
 | Area | Starting point | Useful contributions |
 | --- | --- | --- |
+| First contribution: provider docs | [Issue #14](https://github.com/ghostfacethegreat/aether-agent/issues/14) | Local model setup checks, endpoint debugging, safe diagnostics, and log redaction |
 | Coding workflow | [Issue #4](https://github.com/ghostfacethegreat/aether-agent/issues/4) | Search and patch edge cases, test fixtures, platform checks, and verification UX |
 | Benchmarks | [Issue #6](https://github.com/ghostfacethegreat/aether-agent/issues/6) | Deterministic task fixtures, scoring guidance, reproducibility, and result review |
 | Skill learning | [Issue #7](https://github.com/ghostfacethegreat/aether-agent/issues/7) | Lifecycle tests, rollback cases, and clearer review diagnostics |
@@ -21,7 +22,7 @@ Welcome. You do not need to understand the entire agent runtime to make a useful
 | Tool discovery | [Issue #11](https://github.com/ghostfacethegreat/aether-agent/issues/11) | Schema-validation fixtures, discovery ranking tests, and permission-boundary cases |
 | Release engineering | [Issue #12](https://github.com/ghostfacethegreat/aether-agent/issues/12) | Install/upgrade/rollback test plans, platform validation, and documentation |
 
-The issues above are substantial workstreams. Read their acceptance criteria and coordinate before changing shared core or persistence code. Smaller first-timer tasks are surfaced with the repository's `good first issue` label.
+The issues above vary in size. Start with #14 for a documentation-only first contribution; read the acceptance criteria and coordinate before changing shared core or persistence code.
 
 ## What makes a contribution valuable
 
