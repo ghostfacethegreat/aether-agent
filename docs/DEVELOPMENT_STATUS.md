@@ -11,13 +11,14 @@ This is the resume log for the intelligence-first `Aether 0.2+` program. It reco
 | Pull request | [#8](https://github.com/ghostfacethegreat/aether-agent/pull/8) open draft; not merged |
 | Publication | no merge, tag, release, version change, default-branch change, or published binary |
 | Package version | remains `0.1.0` |
-| Integration base | `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (run IDs `45737098740` / `45737090789`): 238 tests on Python 3.10–3.14, `scripts/check.sh`, clean-checkout install/uninstall |
-| CI caveat | Later local changes are not yet CI-verified. Fresh CI is required for the exact final pushed SHA; GitHub Actions is authoritative. No final HEAD SHA is recorded because it does not exist until this work is committed. |
-| Latest local verification | 274 tests passed; see the final local verification table below |
+| Final candidate | `939208dc0622e9bfc661ece1eb3f4faf83f2b6db` on `feat/aether-parity-foundation` |
+| Exact-head CI | Push run [#91](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45893216507) and PR run [#92](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45893225173) both succeeded on this exact SHA; Python 3.10–3.14 matrix passed |
+| Latest local verification | 274 tests passed; `scripts/check.sh`, install test, compileall, and `git diff --check` passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
+| Workstation gate | PASS on macOS 15.0.1 / Apple M1 / 8 GB; see [WORKSTATION_ACCEPTANCE_GATE.md](WORKSTATION_ACCEPTANCE_GATE.md) |
 | Workstation gate | PASS on the actual Mac; see [WORKSTATION_ACCEPTANCE_GATE.md](WORKSTATION_ACCEPTANCE_GATE.md) |
 | Release gates still open | task-quality benchmark, live hosted/paid provider checks, external security review, signed macOS release, live long-running cancellation demonstration |
 
-The feature-branch commits are preserved; do not reset, discard, or force-push. Keep PR #8 in draft. The 238-test CI result is the integration base only, not current local verification.
+The final candidate is pushed and preserved at the exact SHA above. Do not reset, discard, or force-push. Keep PR #8 in draft; neither CI success nor workstation acceptance authorizes a merge or release.
 
 ### Final local verification (after all changes)
 
@@ -181,7 +182,7 @@ Record these items before marking any phase complete:
 
 - Branch: `feat/aether-parity-foundation`; default branch unchanged.
 - Draft PR: [#8](https://github.com/ghostfacethegreat/aether-agent/pull/8); open, not merged.
-- CI base: `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (`45737098740` / `45737090789`) with 238 tests per job on Python 3.10–3.14, `scripts/check.sh`, and clean-checkout install/uninstall. Later local changes are not yet CI-verified; fresh CI is required for the exact final pushed SHA and Actions is authoritative.
+- Final pushed candidate: `939208dc0622e9bfc661ece1eb3f4faf83f2b6db`; exact-head push run [#91](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45893216507) and PR run [#92](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45893225173) both succeeded across Python 3.10–3.14. The push-job Python 3.14 log records 274 tests, all project checks passed, and clean-checkout install passed.
 - Latest local verification: 274 tests; see the final local verification table above.
 - Merge/tag/release: none. Package version remains `0.1.0`; no binary published.
 - No task-quality benchmark or Hermes parity/superiority claim is supported.
