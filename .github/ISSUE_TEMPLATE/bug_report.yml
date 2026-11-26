@@ -1,0 +1,63 @@
+name: Bug report
+description: Report a reproducible AETHER defect
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for helping improve AETHER. Remove secrets and private data before sharing logs."
+  - type: input
+    id: version
+    attributes:
+      label: AETHER version or commit
+      description: Include the version or full commit SHA.
+      placeholder: "0.1.0 or 939208d..."
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system and Python version
+      placeholder: "macOS 15, Python 3.14"
+    validations:
+      required: true
+  - type: input
+    id: provider
+    attributes:
+      label: Provider and model
+      description: Name the provider/model only. Never include credentials.
+      placeholder: "ollama / llama3.2:3b"
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Give the smallest set of exact steps or commands.
+      placeholder: "1. Run ...\n2. Enter ...\n3. Observe ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or traceback
+      description: Remove API keys, tokens, cookies, private prompts, and personal data.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for duplicates.
+          required: true
+        - label: I removed secrets and private data from this report.
+          required: true
