@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 from aether.errors import ApprovalRequired, ConfigError, OrchestratorError, PermissionDenied, ProviderError
 from aether.providers.catalog import provider_is_billable
-from aether.utils import make_id, parse_bool, redact, truncate, utc_now
+from aether.utils import make_id, parse_bool, redact, recognized_check_command, truncate, utc_now
 
 from .roles import UNTRUSTED_DATA_NOTICE, resolved_roles
 from .contracts import validate_role_output
@@ -318,26 +318,7 @@ class Orchestrator:
 
     @staticmethod
     def _supported_check_command(command: str) -> bool:
-        import shlex
-
-        try:
-            parts = shlex.split(str(command or ""))
-        except ValueError:
-            return False
-        if not parts:
-            return False
-        entry = parts[0].replace("./", "", 1)
-        if entry in ("scripts/check.sh", "scripts/test_install.sh"):
-            return True
-        first = parts[0].rsplit("/", 1)[-1]
-        if first in ("bash", "sh") and len(parts) >= 2:
-            target = parts[1].replace("./", "", 1)
-            return target in ("scripts/check.sh", "scripts/test_install.sh")
-        if first in ("pytest", "py.test"):
-            return True
-        if first.startswith("python") and len(parts) >= 3 and parts[1] == "-m":
-            return parts[2] in ("unittest", "pytest", "compileall")
-        return False
+        return bool(recognized_check_command(command))
 
     @classmethod
     def _verified_check_evidence(cls, tool_log: list[dict]) -> list[dict]:

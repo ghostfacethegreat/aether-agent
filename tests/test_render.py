@@ -9,6 +9,10 @@ class RenderTests(unittest.TestCase):
     def tearDown(self):
         render.configure({})
 
+    def test_sanitize_untrusted_removes_terminal_control_sequences(self):
+        value = "safe\x1b[2J\x1b]0;title\x07\x1b[31mbad\x1b[0m\u202e\u0000 still safe"
+        self.assertEqual(render.sanitize_untrusted(value), "safebad still safe")
+
     def test_banner_contains_product_name_and_version(self):
         render.configure({"theme": "acid-blue"})
         output = render.banner("0.1.0")

@@ -2,6 +2,8 @@ import unittest
 
 from aether.core import Agent
 from aether.core.planning import (
+    TASK_DEFINITIONS,
+    TASK_TOOL_MAP,
     ExecutionPlan,
     ExecutionStateMachine,
     build_plan,
@@ -23,6 +25,11 @@ class PlanningTests(unittest.TestCase):
         self.assertEqual(high["complexity"], "high-risk")
         self.assertTrue(high["signals"])
 
+    def test_task_templates_match_tool_map(self):
+        self.assertEqual(set(TASK_DEFINITIONS), set(TASK_TOOL_MAP))
+        for task_id, definition in TASK_DEFINITIONS.items():
+            self.assertEqual(tuple(definition["tools"]), TASK_TOOL_MAP[task_id], task_id)
+
     def test_build_plan_contains_inspectable_fields(self):
         plan = build_plan("Research this repository and run tests", "session_1")
         self.assertEqual(plan.complexity, "complex")
@@ -38,12 +45,32 @@ class PlanningTests(unittest.TestCase):
         self.assertIn("Alternatives:", rendered)
         self.assertIn("[pending] test", rendered)
 
+    def test_shared_tool_completes_only_one_dependency_ready_task(self):
+        plan = build_plan("Refactor this repository and run tests", "session_1")
+        updated = plan.apply_tool_result("read_file", True, "observed source")
+        self.assertLessEqual(len(updated), 1)
+        self.assertEqual(plan.get_task("review").status, "pending")
+        self.assertEqual(plan.get_task("test").status, "pending")
+
+    def test_tool_result_respects_dependencies_and_is_not_reapplied(self):
+        plan = build_plan("Refactor this repository and run tests", "session_1")
+        self.assertEqual(plan.apply_tool_result("read_file", True, "observed source"), ["research"])
+        self.assertEqual(plan.get_task("review").status, "pending")
+        self.assertEqual(plan.apply_tool_result("read_file", True, "replayed read"), [])
+        self.assertEqual(plan.apply_tool_result("write_file", True, "wrote source"), ["execute"])
+
     def test_state_machine_rejects_invalid_transition(self):
         plan = build_plan("Hello", "session_1")
         with self.assertRaises(Exception):
             ExecutionStateMachine.transition(plan, "completed", "invalid")
         self.assertTrue(ExecutionStateMachine.transition(plan, "running", "accepted"))
         self.assertTrue(ExecutionStateMachine.transition(plan, "paused", "waiting"))
+
+    def test_start_completes_understanding_from_objective(self):
+        plan = build_plan("Create a file and verify it", "session_1")
+        self.assertEqual(plan.get_task("understand").status, "pending")
+        plan.start()
+        self.assertEqual(plan.get_task("understand").status, "completed")
 
     def test_resume_context_skips_completed_work(self):
         plan = build_plan("Create a file and verify it", "session_1")

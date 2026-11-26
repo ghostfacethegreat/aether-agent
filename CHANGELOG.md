@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### CLI Preview release verification slice
+
+- Branch `feat/aether-parity-foundation`; PR #8 open draft; no merge/tag/release/version/default-branch change; no binary published.
+- Integration base `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (also found as run IDs 45737098740/45737090789) with 238 tests across Python 3.10-3.14, `scripts/check.sh`, and clean-checkout install/uninstall.
+- After that base, local changes hardened authorization, verification evidence, SQLite permissions, prompt-injection labels, scheduler env isolation, planning semantics, CLI output sanitization, benchmark packaging, and added a real end-to-end mock-provider coding workflow test.
+- Latest local full verification after all changes: `python3 -m compileall -q aether tests` OK; `python3 -m unittest discover -s tests -v` -> 274 tests OK; `bash scripts/check.sh` -> 274 tests OK, 3 cold starts, median wall time 0.119s, peak child RSS 33.0 MiB, all checks passed; `bash scripts/test_install.sh` OK; `git diff --check` OK. Fresh CI is required for the final pushed commit; the Actions run for that exact SHA is authoritative.
+- Workstation acceptance on this Mac: macOS 15.0.1 build 24A348, Apple M1, RAM 8589934598 bytes (~8 GB), Python 3.14.2, arm64. Active scripts used mock/mock-standard. PASS: fresh install, version, doctor, mock conversation, provider/model switch, memory add/search across separate processes, plan status/resume, approval prompt (fresh once), repo_index search, patch_preview, approval-gated patch_apply, test_run, direct unittest, home dir 0700, state.db 0600, uninstall wrapper removal, Aether state and project data preserved. Cancellation is covered by deterministic unit tests in the 274-test suite, not by a live long-running cancellation demonstration.
+
 ### Added
 - Add a bounded local repository index/search tool with root .gitignore handling and generated/vendor, symlink, binary, and size exclusions.
 - Add unified-diff preview and approval-gated patch application with full preflight, path protections, existing-file-only policy, and rollback attempt on filesystem errors.

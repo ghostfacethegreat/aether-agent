@@ -10,6 +10,7 @@ from pathlib import Path
 from aether import __version__
 from aether.config import Config, load_config, load_environment
 from aether.core import Agent
+
 from aether.core.planning import ExecutionPlan
 from aether.errors import AetherError
 from aether.home import aether_home, env_path
@@ -21,7 +22,7 @@ from aether.persistence import Store
 from aether.providers.catalog import PROVIDERS, provider_is_billable
 from aether.routing import classify_task
 from aether.tasks import Scheduler
-from aether.utils import parse_bool, read_json, redact, redact_mapping, truncate, atomic_json_write
+from aether.utils import confirm_paid_override, parse_bool, read_json, redact, redact_mapping, truncate, atomic_json_write
 
 from . import render
 
@@ -426,7 +427,7 @@ def stream_turn(agent, text, args=None, quiet=False):
                         sys.stdout.flush()
                     reasoning_started[0] = True
                 if not quiet:
-                    sys.stdout.write(render.paint(str(delta), "yellow"))
+                    sys.stdout.write(render.paint(render.sanitize_untrusted(delta), "yellow"))
                     sys.stdout.flush()
             return
         if not first_content[0]:
@@ -438,7 +439,7 @@ def stream_turn(agent, text, args=None, quiet=False):
                 sys.stdout.flush()
             response_started[0] = True
         if not quiet:
-            sys.stdout.write(str(delta))
+            sys.stdout.write(render.sanitize_untrusted(delta))
             sys.stdout.flush()
 
     def on_status(payload):
@@ -1308,6 +1309,9 @@ def cmd_plan(args, config, home):
         rows = store.list_execution_checkpoints(plan.id)
         print(render.table(["ID", "Seq", "Phase", "Note", "Created"], [(item["id"], str(item["sequence"]), item["phase"], item["note"], item["created_at"]) for item in rows]) if rows else "(no checkpoints)")
         return 0
+    if args.action == "resume" and plan.status in ("completed", "cancelled"):
+        print(render.error_line(f"plan '{plan.id}' is {plan.status} and cannot be resumed"))
+        return 1
     if plan.session_id and not getattr(args, "session", None):
         args.session = plan.session_id
     agent = make_agent(args, config, home)
@@ -1369,20 +1373,16 @@ def scheduled_runner(config, home):
             sorted(FORCED_DENY_TOOLS | FORCED_APPROVAL_TOOLS | {"write_file", "edit_file", "patch_apply", "test_run", "memory", "skill", "scheduler"}),
         )
         run_config.set("tool_permissions.require_approval", sorted(FORCED_APPROVAL_TOOLS))
-        previous_confirmation = os.environ.pop("AETHER_CONFIRM_PAID", None)
-        try:
-            agent = Agent(
-                run_config,
-                home=home,
-                persist=False,
-                approve_callback=None,
-                enable_subagents=False,
-                enable_orchestrator=False,
-            )
+        agent = Agent(
+            run_config,
+            home=home,
+            persist=False,
+            approve_callback=None,
+            enable_subagents=False,
+            enable_orchestrator=False,
+        )
+        with confirm_paid_override("1" if allow_paid else "0"):
             result = agent.run_turn(prompt)
-        finally:
-            if previous_confirmation is not None:
-                os.environ["AETHER_CONFIRM_PAID"] = previous_confirmation
         if result.exit_reason in ("provider_error", "cost_limit"):
             raise RuntimeError(f"scheduled run stopped: {result.exit_reason}")
         return result.text

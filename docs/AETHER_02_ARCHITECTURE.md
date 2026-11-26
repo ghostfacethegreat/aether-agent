@@ -51,7 +51,7 @@ CLI (aether.cli.app)
 | CLI parsing and dispatch | [../aether/cli/app.py](../aether/cli/app.py) | argument parser, command handlers, slash commands, streaming callbacks, scheduler wiring | Add status/report commands only where needed for plans, learning history, and benchmarks; keep existing command names and semantics. |
 | Terminal rendering | [../aether/cli/render.py](../aether/cli/render.py) | ANSI colors, banner, dashboard, tables, tool lines, status lines, spinner | Freeze appearance; sanitize untrusted text and fix functional output issues only. |
 | Core wiring | [../aether/core/agent.py](../aether/core/agent.py) | constructs and connects all subsystems; builds children | Keep constructor compatibility; add optional planner, state, verifier, memory, and learning hooks. |
-| Turn loop | [../aether/core/loop.py](../aether/core/loop.py) | bounded provider/tool loop, cost/cancellation/usage | Move toward a phase-oriented state machine with checkpoints, plan revision, and verification events; preserve cost and cancellation behavior. |
+| Turn loop | [../aether/core/loop.py](../aether/core/loop.py) | bounded provider/tool loop, cost/cancellation/usage | Deterministic plan selection and checkpoint resume are in place; move toward a phase-oriented state machine with plan revision and verification events, preserving cost and cancellation behavior. Bounded repair loops are a roadmap item, not implemented. |
 | Context | [../aether/core/context.py](../aether/core/context.py) | prompt assembly and context fitting | Add bounded retrieval by task need, source labels, and progressive tool/file selection. |
 | Providers | [../aether/providers/](../aether/providers/) | catalog, registry, transports, cost functions | Retain provider names, fallback APIs, and cost controls; Phase E adds routing advice without changing transports. |
 | Routing | [../aether/routing/](../aether/routing/) | new in Phase E | Evidence-aware capability facts, deterministic classifier, scored router, explicit model authority, health cooldowns, and explanations; see [MODEL_ROUTING.md](MODEL_ROUTING.md). |
@@ -60,7 +60,7 @@ CLI (aether.cli.app)
 | Skills | [../aether/skills/engine.py](../aether/skills/engine.py) | `SKILL.md` discovery, validation, usage tracking, explicit install | Evidence rules, proposals, versions, rollback, and audit history are now additive; preserve existing skill files and child-write isolation. |
 | Learning | [../aether/learning/](../aether/learning/) | new in Phase D | Keep verified evidence separate from model claims, validate before install, require explicit approval, and keep learning context labeled as data. |
 | Persistence | [../aether/persistence/store.py](../aether/persistence/store.py) | SQLite schema and data access | Additive tables now cover plans, memory layers, experiences, proposals, versions, metrics, learning events, and verified model performance; never destructively rewrite existing state. |
-| Orchestration | [../aether/orchestration/](../aether/orchestration/) | roles, task graph, shared state, run persistence | Expand the role catalog, add team selection and conflict handling, and integrate the independent verifier. |
+| Orchestration | [../aether/orchestration/](../aether/orchestration/) | roles, task graph, shared state, run persistence, independent verifier evidence | Expand the role catalog and team selection. Conflict handling and bounded repair loops are roadmap items, not implemented. |
 | Subagents | [../aether/tasks/subagents.py](../aether/tasks/subagents.py) | parallel isolated children | Preserve delegation behavior; add output contracts and explicit delegation rationale while enforcing resource limits. |
 | Scheduler | [../aether/tasks/scheduler.py](../aether/tasks/scheduler.py) | in-process due jobs and ledger | Preserve strict paid-provider and no-orchestration restrictions; add durable goal/resume support separately. |
 | Config | [../aether/config.py](../aether/config.py) | typed dotted defaults and validation | Add 0.2+ settings with safe defaults; keep old configs valid. |
@@ -106,7 +106,7 @@ Do not expose hidden chain-of-thought. Plans, state transitions, checks, and evi
 5. `_orchestration_child()` produces a child `Agent` with narrowed tools, strict permissions, shared budget, and linked cancellation.
 6. `SharedTaskState.publish()` stores owner-protected structured results and aggregates usage/tool logs.
 7. The verifier checks requirements, artifacts, tests, and evidence before the objective can complete.
-8. Conflict handling and bounded revision loops repair failed or contradictory results.
+8. Deterministic plan selection, checkpoint resume, and verification evidence provide resumable state; failed or contradictory results are not autonomously repaired. Bounded repair loops are a roadmap item, not implemented.
 9. `_persist_run()` writes run/task metadata, usage rows, plans, states, and evidence to SQLite.
 10. `_consolidate()` builds the final human-readable report from verified results.
 
@@ -132,7 +132,7 @@ These are non-negotiable extension constraints:
 - Explicit `tool_permissions.allow_tools: null` means unrestricted; explicit `[]` means no tools.
 - Retry must not repeat work after tools have already executed.
 - Approval `once` must not be cached as a reusable rule.
-- ANSI output must never emit untrusted cursor movement, OSC sequences, terminal titles, or arbitrary escapes.
+- Untrusted streamed model output is sanitized for terminal escapes before display; do not claim a blanket escape-safety invariant for every renderer path.
 - Benchmarks must not publish results without protocol, environment, prompt, tool, budget, and evidence metadata.
 
 ## Intelligence extension plan
@@ -165,7 +165,7 @@ Add capability metadata and optional schema deferral for larger tool catalogs. A
 
 ### 7. Specialist orchestration and verification
 
-Expand roles to at least 18 meaningful specialists. Add evidence-based team selection, explicit rationales, output contracts, conflict handling, an independent verifier, and bounded repair loops. Spawn children only when independent work benefits the objective.
+Expand roles to at least 18 meaningful specialists. Add evidence-based team selection, explicit rationales, output contracts, and an independent verifier. Conflict handling and bounded repair loops are roadmap items, not implemented; current code provides deterministic plan selection, checkpoint resume, and verification evidence rather than autonomous repair. Spawn children only when independent work benefits the objective.
 
 ### 8. Persistence and event projection
 

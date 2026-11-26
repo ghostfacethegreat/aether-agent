@@ -4,13 +4,11 @@ This document records what Aether does not yet prove or does not yet do. It is i
 
 ## Release state
 
-- Version `0.1.0` is the current published alpha baseline.
-- No `0.2.0` release, tag, merge, or publication has been completed; the package version remains `0.1.0`.
-- Phases B–F have implementation baselines on `feat/aether-parity-foundation`; candidate `aebbaef` passed CI run `45736577255` across Python 3.10–3.14, with 238 tests, `scripts/check.sh`, and clean-checkout install/uninstall passing in every matrix job. PR #8 remains draft and is not merged or released.
-- There are no release tags in the repository at this checkpoint.
-- The GitHub CI result is Linux-based. macOS/Apple Silicon workstation acceptance, live provider checks, end-to-end mock-provider coding, and comparative task-quality benchmarks are still separate gates.
-- GitHub Actions CI is configured for Python 3.10–3.14. A green run applies only to its recorded commit; later commits require a fresh run.
-- Push, PR, merge, tag, and release status must be confirmed before being claimed.
+- Version `0.1.0` is the current published alpha baseline. Branch `feat/aether-parity-foundation`; PR #8 is open draft; no merge, tag, release, version bump, default-branch change, or binary published.
+- Integration base `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (also found as run IDs 45737098740/45737090789) with 238 tests across Python 3.10-3.14, `scripts/check.sh`, and clean-checkout install/uninstall.
+- After that base, local changes hardened authorization, verification evidence, SQLite permissions, prompt-injection labels, scheduler env isolation, planning semantics, CLI output sanitization, benchmark packaging, and added a real end-to-end mock-provider coding workflow test. Latest local full verification after all changes: `python3 -m compileall -q aether tests` OK; `python3 -m unittest discover -s tests -v` -> 274 tests OK; `bash scripts/check.sh` -> 274 tests OK, 3 cold starts, median wall time 0.119s, peak child RSS 33.0 MiB, all checks passed; `bash scripts/test_install.sh` OK; `git diff --check` OK. Fresh CI is required for the final pushed commit; the Actions run for that exact SHA is authoritative.
+- There are no release tags in the repository at this checkpoint. GitHub Actions CI is configured for Python 3.10-3.14 and applies only to its recorded commit.
+- Workstation acceptance on this Mac is complete: macOS 15.0.1 build 24A348, Apple M1, RAM 8589934598 bytes (~8 GB), Python 3.14.2, arm64. Active scripts used mock/mock-standard. PASS: fresh install, version, doctor, mock conversation, provider/model switch, memory add/search across separate processes, plan status/resume, approval prompt (fresh once), repo_index search, patch_preview, approval-gated patch_apply, test_run, direct unittest, home dir 0700, state.db 0600, uninstall wrapper removal, Aether state and project data preserved. Live hosted/paid provider checks, task-quality benchmark or Hermes parity/superiority claim, browser/voice/desktop artifact, signed macOS release, external security review, live long-running cancellation demo, and merge/tag/release remain separate gates.
 
 ## Intelligence gaps
 
@@ -61,7 +59,6 @@ This document records what Aether does not yet prove or does not yet do. It is i
 - Scheduled jobs run in-process and are not a daemon or service.
 - No cross-process concurrency guarantees are claimed for the scheduler.
 - No OS-level sandbox is provided; tool subprocesses inherit the user environment.
-- Full verbose test output emitted `ResourceWarning` notices for unclosed SQLite connections; no test or check failed.
 
 ## Provider and network gaps
 
@@ -77,7 +74,7 @@ This document records what Aether does not yet prove or does not yet do. It is i
 - Web, file, tool, and agent output is data, not trusted instruction.
 - Untrusted content must never modify persistent instructions or skills.
 - Approval, permission, strict-root, and redaction controls must be re-tested after every feature that touches tools or child agents.
-- Fresh approval covers persistent mutators, patch application, destructive operations, and delegation; cancellation is still checked at executor boundaries rather than inside every mutating tool.
+- Fresh approval covers persistent mutators, patch application, destructive operations, and delegation; action-aware mutators require fresh approval; approval keys bind exact args, workspace/home, mode, roots, policy version 2; session/always are treated as once for fresh actions. Cancellation is covered by deterministic unit tests in the 274-test suite, not by a live long-running cancellation demonstration.
 - Approval decisions and tool executions emit transient audit lines; there is no durable structured approval/execution audit trail yet.
 - No third-party security audit has been performed.
 - Secret scanning is local and pattern-based, not a proof that no secret exists.

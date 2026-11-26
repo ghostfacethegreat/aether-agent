@@ -71,6 +71,19 @@ class OrchestrationTests(TempHomeTest):
         )
         self.assertEqual(Orchestrator._verified_check_evidence([bad_exit, claim_only]), [])
 
+    def test_verifier_rejects_trailing_check_command_arguments(self):
+        records = []
+        for command in ("bash scripts/check.sh --help", "pytest --version", "python3 -m compileall -q ."):
+            records.append(
+                {
+                    "name": "terminal",
+                    "ok": True,
+                    "arguments": {"command": command},
+                    "result": '{"exit_code": 0, "output": "ok"}',
+                }
+            )
+        self.assertEqual(Orchestrator._verified_check_evidence(records), [])
+
     def test_verifier_role_is_read_only_and_requires_terminal_approval(self):
         agent = Agent(self.config(), home=self.home)
         role = resolved_roles(agent.config)["verifier"]

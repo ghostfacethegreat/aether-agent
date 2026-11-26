@@ -2,13 +2,81 @@
 
 These are actual locally recorded checks. They are not a claim that a public release exists.
 
-## Environment
+## CLI Preview final verification (current)
 
-- Date: 2026-11-23
+Release slice: branch `feat/aether-parity-foundation`; PR #8 open draft; no merge, tag, release, version/default-branch change, and no binary published.
+
+### Exact commands and results (latest local full verification, after all changes)
+
+| Command | Result |
+|---|---|
+| `python3 -m compileall -q aether tests` | OK |
+| `python3 -m unittest discover -s tests -v` | 274 tests OK |
+| `bash scripts/check.sh` | 274 tests OK; 3 cold starts, median wall time 0.119s, peak child RSS 33.0 MiB; all checks passed; startup figures are from that run and vary by host/load |
+| `bash scripts/test_install.sh` | OK |
+| `git diff --check` | OK |
+
+Focused verification before the full suite: 182 tests passed across tools, model routing, orchestration, tasks, planning, core, persistence, render, and repository tools; deterministic CLI tests also cover doctor, provider/model switching, and plan status. `tests.test_coding_workflow` adds a real end-to-end mock-provider coding workflow with a second scripted verification agent; the orchestrator verifier evidence gate has separate deterministic coverage in `tests.test_orchestration`.
+
+### CI base (not current local verification)
+
+Integration base `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (run IDs `45737098740` / `45737090789`): 238 tests on each of Python 3.10–3.14, `scripts/check.sh`, and clean-checkout install/uninstall. Later local changes are not yet CI-verified; fresh CI is required for the exact final pushed SHA, and GitHub Actions is authoritative. No final HEAD SHA is recorded because it does not exist until this work is committed.
+
+### Security and reliability fixes after the CI base
+
+- Exact verification argv matching: extra args and untrusted executables named `python` are rejected; only the running interpreter path is accepted for `test_run` evidence.
+- Independent verifier uses recognized commands.
+- `state.db` mode `0600`; Aether home and subdirectories mode `0700`.
+- Memory/skills prompt context is labeled data-only.
+- Scheduled runs use a shared `ContextVar` for paid confirmation in both loop preflight and model routing instead of mutating process environment.
+- Plan tool results complete one dependency-ready task; `understand` is satisfied by the current objective at plan start.
+- Plan resume refuses completed plans.
+- Streamed model output is sanitized for terminal escapes.
+- Benchmark packaging fixed for non-editable install.
+- SQLite connections now closed; diff hygiene.
+
+### Workstation checklist — PASS on actual Mac
+
+Recorded machine: macOS 15.0.1 build 24A348, Apple M1, RAM 8589934598 bytes (~8 GB), Python 3.14.2, arm64. Active provider/model: `mock` / `mock-standard`.
+
+- [x] fresh install
+- [x] `aether --version`
+- [x] `doctor`
+- [x] mock conversation
+- [x] provider/model switch
+- [x] memory add/search across separate processes
+- [x] plan status/resume
+- [x] approval prompt (fresh once)
+- [x] `repo_index` search
+- [x] `patch_preview`
+- [x] approval-gated `patch_apply`
+- [x] `test_run`
+- [x] direct `unittest`
+- [x] Aether home directory mode `0700`
+- [x] `state.db` mode `0600`
+- [x] uninstall removes the wrapper; Aether state and project data preserved
+
+Cancellation is covered by deterministic unit tests in the 274-test suite, not by a live long-running cancellation demonstration. See [WORKSTATION_ACCEPTANCE_GATE.md](WORKSTATION_ACCEPTANCE_GATE.md).
+
+### Not verified / limitations
+
+- No live hosted or paid provider checks.
+- No task-quality benchmark; no Hermes parity or superiority claim.
+- No browser, voice, or desktop artifact.
+- No signed macOS release.
+- No external security review.
+- No live long-running cancellation demonstration.
+- No merge, tag, or release.
+- No lint/typecheck command is configured, so none is claimed.
+
+All sections below are historical phase-by-phase records and are not the current release status.
+
+## Historical baseline environment (2026-11-23)
+
 - macOS, Python 3.14.2, git 2.37.1
 - Aether version 0.1.0 alpha
 
-## Checks performed
+## Historical baseline checks
 
 - `python3 -m compileall -q aether tests` — passed.
 - `python3 -m unittest discover -s tests -v` — 38 tests passed.
@@ -38,7 +106,7 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - Live local inference with an Ollama server was not recorded in this document.
 - Network update (`aether update` against the public remote) was not recorded in this document.
 
-## Phase 2 audit checkpoint
+## Historical — Phase 2 audit checkpoint
 
 - Upstream comparison baseline: `b98c388a880b1b6fd303c9c2821a3946651a0b4c`.
 - Aether comparison baseline: `bdbe2462dda3c4646086385d600b4e2ab23f4957`.
@@ -47,7 +115,7 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - `scripts/check.sh` after the documentation checkpoint — passed: 38 tests, doctor, mock CLI smoke, secret scan, local Markdown links, and benchmark.
 - The public repository was created and source was pushed at commit `bdbe246` before this documentation checkpoint.
 
-## Phase 2 Milestone 2.1 checks
+## Historical — Phase 2 Milestone 2.1 checks
 
 - `python3 -m unittest tests.test_persistence tests.test_core tests.test_providers` — 17 targeted tests passed.
 - Targeted reruns emitted ResourceWarning notices for unclosed SQLite connections; no test failed, and the full check below passed.
@@ -55,7 +123,7 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - Benchmark in that M2.1 run: 3 cold starts, median wall time 0.079s, peak child RSS 30.3 MiB.
 - Validated behavior: tool-call metadata round trip, resumed tool-call history, context repair, and Anthropic nested tool-call replay.
 
-## Phase 2 Milestone 2.2 checks
+## Historical — Phase 2 Milestone 2.2 checks
 
 - `python3 -m unittest tests.test_tools -v` — 12 targeted tests passed.
 - `scripts/check.sh` after M2.2 — passed: 47 tests, doctor, mock CLI smoke, secret scan, local Markdown links, and benchmark.
@@ -63,7 +131,7 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - Validated behavior: executor-level timeout denial, model-facing secret redaction, private URL rejection, redirect-to-private rejection, and strict-mode path checks for terminal `cwd` and git `paths`.
 - Not validated here: live web fetches, live search providers, DNS rebinding, OS-level sandboxing, or browser command templates.
 
-## Phase 2 Milestone 2.3 checks
+## Historical — Phase 2 Milestone 2.3 checks
 
 - `python3 -m unittest tests.test_tasks tests.test_cli -v` — 15 targeted tests passed.
 - `scripts/check.sh` after M2.3 — passed: 53 tests, doctor, mock CLI smoke, secret scan, local Markdown links, and benchmark.
@@ -71,7 +139,7 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - Validated behavior: due-prompt execution, no-runner skips, failed-run records, restart no-refire, one-shot disabling, execution ledger, scheduler thread start/stop, update/pause/resume controls, and CLI summary output.
 - Not validated here: real daemon/service scheduling, cross-process concurrency, delivery targets, or live scheduled provider calls.
 
-## Phase A intelligence audit checkpoint
+## Historical — Phase A intelligence audit checkpoint
 
 - Aether audit commit: `558bd58ec1f15ccf9cf76260d3ab7bfe675e76ce`.
 - Hermes pinned baseline: `b98c388a880b1b6fd303c9c2821a3946651a0b4c`.
@@ -85,7 +153,7 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - No runtime behavior changed; no task-quality benchmark was run; no Hermes parity or superiority claim is made.
 - No lint/typecheck claim: no configured lint/typecheck command was found or run.
 
-## Phase B adaptive planning checkpoint
+## Historical — Phase B adaptive planning checkpoint
 
 - Branch: `feat/aether-020-intelligence-foundation`; base commit `d077948e085cb17038b2da245d31e6bf86491120`.
 - Phase B checkpoint commit: `9aef0fb873f6e54bc78f7b587e3fe8709dc07c55`.
@@ -100,7 +168,7 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - No lint/typecheck claim: no configured lint/typecheck command was found or run.
 - No task-quality benchmark was run; no Hermes parity or superiority claim is made.
 
-## Phase C layered memory checkpoint
+## Historical — Phase C layered memory checkpoint
 
 - Branch: `feat/aether-020-intelligence-foundation`; base commit `d7e9c9ebf6b6cf65e80df8236e280eabb42c7087`.
 - Phase C checkpoint commit: `833cad8f4bbdea74241c4d18f3719c77755ad7c1`.
@@ -116,7 +184,7 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - No lint/typecheck claim: no configured lint/typecheck command was found or run.
 - No task-quality benchmark was run; no Hermes parity or superiority claim is made.
 
-## Phase D evidence-based learning checkpoint
+## Historical — Phase D evidence-based learning checkpoint
 
 - Branch: `feat/aether-020-intelligence-foundation`; base commit `537b983`.
 - Phase D implementation checkpoint: `0dc4118af627cb2c5de4daac0a8ed4e3512705cf`.
@@ -131,7 +199,7 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - No lint/typecheck claim: no configured lint/typecheck command was found or run.
 - No task-quality benchmark was run; no Hermes parity or superiority claim is made.
 
-## Phase E capability-aware routing checkpoint
+## Historical — Phase E capability-aware routing checkpoint
 
 - Phase E is implemented on this feature branch; implementation is committed separately from documentation. Version remains `0.1.0`; no `0.2.x` release or tag exists.
 - Added evidence-aware capability registry, deterministic classifier, scored router with `capability`, `cost`, and `fixed` strategies, explicit model authority, provider health cooldowns, context-fit/overflow recovery, verified model performance, role metadata, and offline model diagnostics.
@@ -146,7 +214,9 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - No model/network/billable calls were made by the routing diagnostics or the deterministic benchmark; no benchmark result artifact was written.
 - The startup timing and memory figures are local startup measurements, not task-quality results. No task-quality benchmark was run; no Hermes parity or superiority claim is made.
 
-## Phase F persistent incremental index checkpoint
+## Historical — Phase F persistent incremental index checkpoint
+
+This checkpoint is historical; its integration base `8f15419c4810f8e87c0992dc43ad2521754f4027` is not the current integration base.
 
 - Branch: `feat/aether-parity-foundation`; integration base `8f15419c4810f8e87c0992dc43ad2521754f4027`; PR #8 remains open and draft.
 - Changed implementation files: `aether/coding/__init__.py`, `aether/coding/symbols.py`, `aether/coding/index.py`, `aether/tools/repository.py`, `aether/tools/builtins.py`, `aether/config.py`.
@@ -165,7 +235,7 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - `ResourceWarning` notices for pre-existing unclosed SQLite connections remain non-failing in verbose output; the new index closes its own connections explicitly.
 - No lint/typecheck command is configured, so none is claimed. No model/network/billable calls were made. No task-quality benchmark was run; no Hermes parity or superiority claim is made.
 
-## Verification evidence hardening checkpoint
+## Historical — Verification evidence hardening checkpoint
 
 - Changed implementation file: `aether/core/agent.py`.
 - Changed test file: `tests/test_model_routing.py`.
@@ -181,7 +251,7 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - Five read-only specialist audits were run before the change. Their reports were treated as data; the implementation and tests were reconciled and verified locally.
 - Remaining critical work at that checkpoint: default approval for memory/skill/scheduler writes, forced child approval for `patch_apply`, scheduled-run cancellation and tool restrictions, persistent-index corruption recovery, symbol-version/budget invalidation, and the end-to-end mock-provider coding loop.
 
-## Authorization hardening checkpoint
+## Historical — Authorization hardening checkpoint
 
 - Changed implementation files: `aether/cli/app.py`, `aether/config.py`, `aether/core/agent.py`, `aether/orchestration/roles.py`, `aether/tools/permissions.py`, and `aether/utils.py`.
 - Changed test files: `tests/test_core.py`, `tests/test_orchestration.py`, `tests/test_planning.py`, `tests/test_tasks.py`, and `tests/test_tools.py`.
@@ -203,7 +273,9 @@ These are actual locally recorded checks. They are not a claim that a public rel
 - No lint/typecheck command is configured, so none is claimed. No model/network/billable calls were made. No Hermes parity or task-quality claim is made.
 
 
-## Thanksgiving preview candidate — operation-level write approval
+## Historical — Thanksgiving preview candidate (operation-level write approval)
+
+Candidate `aebbaef27ede626b2b7c2d057d21f16b49bfa428` and run `45736577255` are historical CI evidence, superseded by the CLI Preview final verification above; that candidate is not current.
 
 - Code checkpoint: `aebbaef27ede626b2b7c2d057d21f16b49bfa428` on `feat/aether-parity-foundation`; PR #8 remains open and draft.
 - Added operation-aware approval checks for persistent Markdown/layered memory mutations, skill creation/editing, scheduler add/remove operations, and all `patch_apply` calls. These checks still apply when a config override empties `tool_permissions.require_approval`.

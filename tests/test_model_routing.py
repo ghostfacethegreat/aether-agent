@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import sys
 import threading
 import unittest
 import urllib.error
@@ -20,8 +21,8 @@ from aether.providers.base import ModelResponse
 from aether.providers.catalog import provider_spec
 from aether.providers.openai_compatible import OpenAICompatibleProvider
 from aether.providers.registry import ProviderManager
-from aether.routing import CapabilityRegistry, ModelRouter, RoutingDecision, classify_task
-from aether.utils import message_tokens
+from aether.routing import CapabilityRegistry, ModelRouter, RoutingDecision, TaskRequirements, classify_task
+from aether.utils import confirm_paid_override, message_tokens
 
 from benchmarks.model_routing import run_benchmark
 
@@ -379,7 +380,7 @@ class ModelRoutingTests(TempHomeTest):
                     "arguments": {"mode": "suite"},
                     "ok": True,
                     "result": {
-                        "command": ["python3", "-m", "unittest", "discover", "-s", "tests", "-q"],
+                        "command": [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"],
                         "exit_code": 0,
                         "timed_out": False,
                         "output": "OK",
@@ -392,6 +393,77 @@ class ModelRoutingTests(TempHomeTest):
         self.assertEqual(verification["status"], "verified")
         self.assertTrue(verification["verified"])
         self.assertEqual(verification["sources"], ["tests"])
+
+    def test_verification_accepts_real_test_run_interpreter_path(self):
+        agent = Agent(self.config(), home=self.home, persist=False, enable_subagents=False)
+        state = SimpleNamespace(
+            tool_log=[
+                {
+                    "name": "test_run",
+                    "arguments": {"mode": "suite"},
+                    "ok": True,
+                    "result": {
+                        "command": [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
+                        "exit_code": 0,
+                        "timed_out": False,
+                        "output": "OK",
+                    },
+                }
+            ],
+            final_text="tests passed",
+        )
+        verification = agent._verification_from_state(state)
+        self.assertTrue(verification["verified"])
+        self.assertEqual(verification["sources"], ["tests"])
+
+    def test_verification_rejects_extra_check_command_arguments(self):
+        agent = Agent(self.config(), home=self.home, persist=False, enable_subagents=False)
+        for command in (
+            "python3 -m unittest discover -s tests -q --help",
+            "bash scripts/check.sh --help",
+            "pytest --version",
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(agent._recognized_check_command(command), ())
+
+    def test_verification_rejects_untrusted_python_executables(self):
+        agent = Agent(self.config(), home=self.home, persist=False, enable_subagents=False)
+        for executable in ("python", "./python", "/tmp/evil/python3"):
+            with self.subTest(executable=executable):
+                state = SimpleNamespace(
+                    tool_log=[
+                        {
+                            "name": "test_run",
+                            "arguments": {"mode": "suite"},
+                            "ok": True,
+                            "result": {
+                                "command": [executable, "-m", "unittest", "discover", "-s", "tests"],
+                                "exit_code": 0,
+                                "timed_out": False,
+                                "output": "OK",
+                            },
+                        }
+                    ],
+                    final_text="tests passed",
+                )
+                self.assertFalse(agent._verification_from_state(state)["verified"])
+
+    def test_router_honors_contextual_paid_confirmation_over_environment(self):
+        config = self.config(
+            provider="openai",
+            model="gpt-4o-mini",
+            costs={"confirm_paid": False},
+        )
+        requirement = TaskRequirements(
+            text="Answer using the explicitly requested model",
+            explicit_provider="openai",
+            explicit_model="gpt-4o-mini",
+        )
+        with patch.dict(os.environ, {"AETHER_CONFIRM_PAID": "0"}):
+            with confirm_paid_override("1"):
+                decision = ModelRouter(config).route(requirement)
+        self.assertTrue(decision.eligible, decision.rejections)
+        self.assertNotIn("billable provider is not authorized by paid-provider confirmation", decision.rejections)
 
     def test_context_budget_uses_capability_window_with_safety_margin(self):
         config = self.config(

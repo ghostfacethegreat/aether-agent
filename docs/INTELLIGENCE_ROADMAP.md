@@ -25,7 +25,7 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 | B | Adaptive planning and execution state | inspectable plans, complexity routing, recoverable checkpoints | complete and locally verified |
 | C | Layered memory | working, episodic, semantic, procedural, and user layers | complete and locally verified |
 | D | Learning loop and skill quality | experience records, skill review, versions, rollback, curator | complete and locally verified |
-| E | Model capability routing | task-aware provider/model selection with existing cost controls | implemented on this feature branch and locally verified (26 focused / 179 total tests); not released |
+| E | Model capability routing | task-aware provider/model selection with existing cost controls | implemented on this feature branch; included in the current 274-test local suite; not released |
 | F | Coding workflow | repository indexing, progressive retrieval, patches, tests, diff review | incremental persistent index and lexical symbol retrieval implemented and locally verified; remaining acceptance work tracked in [#4](https://github.com/ghostfacethegreat/aether-agent/issues/4) |
 | G | Research and evidence | query planning, sources, citations, contradictions, confidence | pending |
 | H | Tool intelligence | capability search, preflight, result verification, analytics | pending |
@@ -156,7 +156,7 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 
 ### Phase E result
 
-- Implemented on this feature branch; implementation is committed separately from documentation; not pushed, merged, tagged, or released.
+- Implemented on this feature branch; implementation was committed separately from documentation; PR #8 remains a draft and nothing is merged, tagged, or released.
 - Focused verification: `python3 -W ignore::ResourceWarning -m unittest tests.test_model_routing -q` — 26 tests passed, including HTTP 400 context-length detection/recovery and orchestrator role preferred/fallback entries.
 - Full verification: `python3 -W ignore::ResourceWarning -m unittest discover -s tests -q` — 179 tests passed.
 - `bash scripts/check.sh && bash scripts/test_install.sh` — all checks passed; 3 cold starts, median wall time `0.114s`, peak child RSS `34.4 MiB`; local git-remote install test passed.
@@ -186,7 +186,7 @@ Evidence and gaps are in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). The sou
 ### Phase F baseline and incremental index checkpoint
 
 - Implemented on `feat/aether-parity-foundation`: bounded repository indexing/search, root and nested `.gitignore` handling, lexical declaration search, unified-diff preview, approval-gated edits to existing UTF-8 files, and a fixed-argument test runner.
-- CI checkpoint `45667891886` passed the full Python 3.10–3.14 matrix and clean-checkout install/uninstall checks for the earlier Phase F baseline. PR #8 head `8f15419` also has passing Python 3.10–3.14 checks in run `45701971906`.
+- Historical: CI checkpoint `45667891886` passed the full Python 3.10–3.14 matrix and clean-checkout install/uninstall checks for the earlier Phase F baseline, and PR #8 head `8f15419` had passing Python 3.10–3.14 checks in run `45701971906`. The current CLI Preview integration base is `fcee9db...` with run #90; fresh CI is required for the final pushed SHA.
 - Added a separate persistent index at `repo_index.db` under `AETHER_HOME`, with additive schema creation, migration for the `ctime_ns` column, mode `0600`, bounded file/symbol counts, size/mtime/ctime/hash invalidation, signature rebuilds, cancellation checks, and a single-process refresh lock.
 - Changed files for this checkpoint: `aether/coding/__init__.py`, `aether/coding/symbols.py`, `aether/coding/index.py`, `aether/tools/repository.py`, `aether/tools/builtins.py`, `aether/config.py`, `tests/test_repository_index_persistence.py`, and the documentation files listed in the checkpoint record.
 - Focused verification: `python3 -m unittest tests.test_repository_tools tests.test_repository_index_persistence -v` — 28 tests passed in `0.178s`.

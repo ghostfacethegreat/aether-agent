@@ -1,6 +1,6 @@
 import json
 import re
-import shlex
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -24,10 +24,9 @@ from aether.routing import ModelRouter, RoutingDecision, TaskRequirements, class
 from aether.skills import SkillEngine
 from aether.tasks import SubagentManager
 from aether.tools import PermissionPolicy, ToolExecutor, default_registry
-from aether.utils import make_id, truncate, utc_now
+from aether.utils import make_id, recognized_check_command, truncate, utc_now
 
 CHILD_TOOLS = ["list_directory", "read_file", "web_fetch", "web_search", "session_search", "skill", "todo"]
-_CHECK_MODULE = re.compile(r"^test_[A-Za-z0-9_]{1,100}$")
 
 
 @dataclass
@@ -256,28 +255,8 @@ class Agent:
         return data if isinstance(data, dict) else None
 
     @staticmethod
-    def _recognized_check_command(command: str) -> tuple[str, ...]:
-        try:
-            parts = shlex.split(str(command or ""))
-        except ValueError:
-            return ()
-        if not parts:
-            return ()
-        if parts[0] in ("python", "python3"):
-            if parts[1:6] == ["-m", "unittest", "discover", "-s", "tests"]:
-                if all(part in ("-v", "-q") for part in parts[6:]):
-                    return ("tests",)
-            if len(parts) == 4 and parts[1:3] == ["-m", "unittest"]:
-                module = parts[3]
-                if module.startswith("tests.") and _CHECK_MODULE.fullmatch(module.split(".", 1)[1]):
-                    return ("tests",)
-            if parts[1:] == ["-m", "compileall", "-q", "aether", "tests"]:
-                return ("verification",)
-        if parts[0] == "bash" and parts[1:] == ["scripts/check.sh"]:
-            return ("check",)
-        if parts == ["aether", "doctor"]:
-            return ("verification",)
-        return ()
+    def _recognized_check_command(command, trusted_python=None) -> tuple[str, ...]:
+        return recognized_check_command(command, trusted_python=trusted_python)
 
     def _verification_from_state(self, state) -> dict:
         sources = []
@@ -288,10 +267,7 @@ class Agent:
             arguments = record.get("arguments") if isinstance(record.get("arguments"), dict) else {}
             data = self._result_data(record)
             if name == "test_run":
-                command = data.get("command") if data else None
-                if isinstance(command, (list, tuple)):
-                    command = " ".join(str(part) for part in command)
-                sources.extend(self._recognized_check_command(command))
+                sources.extend(self._recognized_check_command(data.get("command") if data else None, trusted_python=sys.executable))
             elif name == "terminal":
                 sources.extend(self._recognized_check_command(arguments.get("command")))
             elif name == "python":

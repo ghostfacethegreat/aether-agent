@@ -163,9 +163,9 @@ Modes:
 - `strict`: deny destructive operations; require approval for execute/network tools; paths outside allowed roots are denied.
 - `local-dev`: intended for trusted local workspaces only.
 
-Use `allow_tools` as an allow-list for unattended runs. `null` means unrestricted; an explicit `[]` denies every tool, including nested agents. Set `approval_cache` to `always` only if you accept persistent approval decisions in the local database. Approval choices are scoped to the exact tool arguments plus workspace, home, permission mode, allowed roots, and policy version; older persisted keys are ignored. `once` is not cached, and `session` is cached only for that exact non-fresh action.
- Persistent memory, skill, scheduler, file-write, patch, destructive, and delegation actions require fresh approval, so `session` and `always` are treated as `once` for them.
- `/new`, `/clear`, and `/resume` clear session approvals. Scheduled runs are restricted to read-only tools and ignore `--confirm-paid` unless `scheduler.allow_paid=true`.
+Use `allow_tools` as an allow-list for unattended runs. `null` means unrestricted; an explicit `[]` denies every tool, including nested agents. Set `approval_cache` to `always` only if you accept persistent approval decisions in the local database. Forced approval is enforced at the `PermissionPolicy` layer. Approval choices are scoped to the exact tool arguments plus workspace, home, permission mode, allowed roots, and policy version 2; older persisted keys are ignored. `once` is not cached, and `session` is cached only for that exact non-fresh action.
+Persistent memory, skill, scheduler, file-write, patch, destructive, and delegation actions are action-aware mutators that require fresh approval, so `session` and `always` are treated as `once` for them.
+`/new`, `/clear`, and `/resume` clear session approvals. Scheduled runs are restricted to read-only tools and use context-local paid confirmation, not process env mutation; they ignore `--confirm-paid` unless `scheduler.allow_paid=true`.
 
 ## Memory and skills
 
@@ -176,7 +176,7 @@ Use `allow_tools` as an allow-list for unattended runs. `null` means unrestricte
 }
 ```
 
-Memory files are edited directly at `~/.aether/memories/MEMORY.md` and `USER.md`. Skills are Markdown files at `~/.aether/skills/<name>/SKILL.md`.
+Memory files are edited directly at `~/.aether/memories/MEMORY.md` and `USER.md`. Skills are Markdown files at `~/.aether/skills/<name>/SKILL.md`. Memory and skills prompt context is explicitly data-only and labeled as untrusted content; it cannot override system policy, approval rules, or tool permissions.
 
 ## Integrations
 

@@ -7,6 +7,7 @@ from aether.cli.app import scheduled_runner
 from aether.errors import SchedulerError
 from aether.persistence import Store
 from aether.tasks import Scheduler, SubagentManager, parse_schedule
+from aether.utils import paid_confirmation_value
 
 from tests.base import TempHomeTest
 
@@ -119,6 +120,40 @@ class TaskTests(TempHomeTest):
         self.assertTrue(config.get("costs.confirm_paid"))
         self.assertFalse(agent_class.call_args.kwargs["enable_orchestrator"])
         self.assertFalse(agent_class.call_args.kwargs["enable_subagents"])
+
+    def test_scheduled_runner_does_not_mutate_process_environment(self):
+        config = self.config(provider="openai", model="gpt-4o-mini", scheduler={"allow_paid": True})
+        runner = scheduled_runner(config, self.home)
+        observed = {}
+
+        def run_turn(prompt):
+            observed["confirm_paid"] = os.environ.get("AETHER_CONFIRM_PAID")
+            observed["context_confirmation"] = paid_confirmation_value()
+            return SimpleNamespace(text="ok", exit_reason="complete")
+
+        with patch.dict(os.environ, {"AETHER_CONFIRM_PAID": "0"}):
+            with patch("aether.cli.app.Agent") as agent_class:
+                agent_class.return_value.run_turn.side_effect = run_turn
+                self.assertEqual(runner("check status"), "ok")
+            self.assertEqual(os.environ["AETHER_CONFIRM_PAID"], "0")
+        self.assertEqual(observed["confirm_paid"], "0")
+        self.assertEqual(observed["context_confirmation"], "1")
+
+    def test_scheduled_runner_uses_contextual_paid_denial(self):
+        config = self.config(provider="mock", model="mock-standard", scheduler={"allow_paid": False})
+        runner = scheduled_runner(config, self.home)
+        observed = {}
+
+        def run_turn(prompt):
+            observed["context_confirmation"] = paid_confirmation_value()
+            return SimpleNamespace(text="ok", exit_reason="complete")
+
+        with patch.dict(os.environ, {"AETHER_CONFIRM_PAID": "1"}):
+            with patch("aether.cli.app.Agent") as agent_class:
+                agent_class.return_value.run_turn.side_effect = run_turn
+                self.assertEqual(runner("check status"), "ok")
+            self.assertEqual(os.environ["AETHER_CONFIRM_PAID"], "1")
+        self.assertEqual(observed["context_confirmation"], "0")
 
     def test_scheduled_runner_ignores_false_paid_environment(self):
         config = self.config(provider="openai", model="gpt-4o-mini", scheduler={"allow_paid": False})

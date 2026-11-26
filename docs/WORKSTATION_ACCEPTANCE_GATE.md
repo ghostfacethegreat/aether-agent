@@ -72,17 +72,61 @@ For each run, record:
 - Cost/tokens/elapsed time (or explicitly unavailable):
 - Human reviewer decision:
 
-## Current known baseline (2026-11-25)
+## CLI Preview workstation gate — PASS (2026-11-26)
 
-- The advanced development PR is open and draft; it is not merged or released.
-- PR #8 is open and draft at candidate head `aebbaef27ede626b2b7c2d057d21f16b49bfa428`; CI run `45736577255` passed Python 3.10–3.14, with 238 tests, project checks, and clean-checkout install/uninstall in every matrix job. This is Linux CI evidence, not a macOS workstation run.
-- The current coding workflow is a guarded foundation with persistent incremental retrieval, not a complete autonomous TDD system.
-- `repo_index` now handles common root and nested `.gitignore` patterns, with regression coverage for scope and ordered negation.
-- `repo_index action="symbols"` provides bounded lexical declaration search for Python, JavaScript/TypeScript, Lua, Go, and Rust. A separate persistent cache is refreshed incrementally with size/mtime/ctime/hash invalidation and bounded symbol storage.
-- The prior Phase F local checkpoint `bf66d6c` recorded 233 passing tests and install/check results. The later candidate adds operation-level approval for persistent memory, skill, scheduler, and patch-application writes; the new tests are included in the 238-test CI result above.
+This records the actual Mac gate for the CLI Preview verification slice, not a full-replacement claim. PR #8 is open and draft on `feat/aether-parity-foundation`; there is no merge, tag, release, version/default-branch change, or published binary.
+
+| Item | Recorded value |
+|---|---|
+| macOS | 15.0.1, build 24A348 |
+| Chip | Apple M1, arm64 |
+| RAM | 8589934598 bytes (~8 GB) |
+| Python | 3.14.2 |
+| Active provider/model | `mock` / `mock-standard` |
+| Local suite | 274 tests OK; `scripts/check.sh`, `scripts/test_install.sh`, and `git diff --check` OK |
+
+Checklist — PASS:
+
+- [x] fresh install
+- [x] `aether --version`
+- [x] `doctor`
+- [x] mock conversation
+- [x] provider/model switch
+- [x] memory add/search across separate processes
+- [x] plan status/resume
+- [x] approval prompt (fresh once)
+- [x] `repo_index` search
+- [x] `patch_preview`
+- [x] approval-gated `patch_apply`
+- [x] `test_run`
+- [x] direct `unittest`
+- [x] Aether home directory mode `0700`
+- [x] `state.db` mode `0600`
+- [x] uninstall removes the wrapper; Aether state and project data preserved
+
+Cancellation is covered by deterministic unit tests in the 274-test suite, not by a live long-running cancellation demonstration.
+
+### Scope of this PASS
+
+- The coding workflow is a guarded foundation with persistent incremental retrieval, not a complete autonomous TDD system.
+- `repo_index` handles common root and nested `.gitignore` patterns, with regression coverage for scope and ordered negation.
+- `repo_index action="symbols"` provides bounded lexical declaration search for Python, JavaScript/TypeScript, Lua, Go, and Rust, with an incrementally refreshed cache and size/mtime/ctime/hash invalidation.
 - Research does not yet provide a full source/citation/contradiction/confidence report.
 - Browser automation/MCP, messaging/voice, isolated durable background execution, full task-quality benchmarks, and advanced skill curation remain open workstreams.
-- No same-model task-quality comparison has established Hermes parity.
+- No same-model task-quality comparison has established Hermes parity, and no comparative benchmark was run.
 - AETHER remains a CLI product; a desktop application is not part of the current implemented baseline.
+
+### Gates still open
+
+- No live hosted or paid provider checks.
+- No task-quality benchmark or Hermes parity/superiority claim.
+- No browser, voice, or desktop artifact.
+- No signed macOS release.
+- No external security review.
+- No live long-running cancellation demonstration.
+- No merge, tag, or release.
+- Engineering gates 2 and 4 above (task-quality evidence, parallel-run and cutover) remain open, gate 3 has not had an external security review, and the full-replacement claim in the release rule is not made.
+
+Integration base `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (run IDs `45737098740` / `45737090789`) with 238 tests on Python 3.10–3.14, `scripts/check.sh`, and clean-checkout install/uninstall. That is Linux CI evidence for the base only; later local changes are not yet CI-verified, fresh CI is required for the exact final pushed SHA, and Actions is authoritative.
 
 This status section must be refreshed from the actual branch, CI, release metadata, and workstation runs before any replacement claim.

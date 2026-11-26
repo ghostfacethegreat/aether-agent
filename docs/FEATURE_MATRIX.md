@@ -18,7 +18,7 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | Structured role contracts | Implemented baseline | Deterministic required-field/type/enum checks; strict validation for other specialist roles is opt-in. |
 | Independent verification | Implemented bounded baseline | Requires verifier's own successful recognized test/check command in terminal log; not formal proof or task-quality benchmark. |
 | Parallel agent profiles | Prepared | Four custom Copilot profiles and workstream instructions are included; they do not start automatically. |
-| Task-quality evaluation | Planned | CI is green on the latest verified parity checkpoint; no comparable live-model task-quality benchmark or quality-parity claim exists. |
+| Task-quality evaluation | Planned | Integration base `fcee9db...` passed CI run #90; fresh CI is required for the final pushed SHA. No comparable live-model task-quality benchmark or quality-parity claim exists. |
 
 ## AI core
 
@@ -101,7 +101,7 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 |---|---|---|---|
 | One-command installer | Hosted shell installer | Partial | `scripts/install.sh` exists and passed a local git-remote install test; no hosted URL published. |
 | Dependency checks | PM + doctor | Partial | Installer checks Python; `aether doctor` checks runtime, config, state DB, and binaries. |
-| Apple Silicon | Supported | Partial | Tested on a macOS environment; no CI matrix. |
+| Apple Silicon | Supported | Partial | Tested on macOS 15.0.1 Apple M1 Python 3.14.2; no CI macOS matrix. |
 | Isolated dependencies | PM-managed venv | Done | Installer creates `AETHER_HOME/venv`; Aether has no third-party runtime dependencies. |
 | Configuration setup | Interactive setup | Done | First-run config generation and `aether setup`. |
 | Clear installation errors | Extensive installer | Partial | Fail-fast messages exist; not unit-tested. |

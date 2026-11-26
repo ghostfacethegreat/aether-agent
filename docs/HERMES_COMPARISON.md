@@ -6,13 +6,16 @@ This document compares Aether with Hermes Agent for the intelligence-first `0.2+
 
 | Item | Value |
 |---|---|
-| Aether audit commit | `558bd58ec1f15ccf9cf76260d3ab7bfe675e76ce` |
-| Hermes pinned baseline | `b98c388a880b1b6fd303c9c2821a3946651a0b4c` |
-| Hermes current `main` checked for Phase A | `fe9a4b58ec137d3e00719c10e2385876fa03b97c` |
+| Aether audit commit (historical Phase A) | `558bd58ec1f15ccf9cf76260d3ab7bfe675e76ce` |
+| Hermes pinned baseline (historical Phase A) | `b98c388a880b1b6fd303c9c2821a3946651a0b4c` |
+| Hermes `main` checked for historical Phase A only | `fe9a4b58ec137d3e00719c10e2385876fa03b97c` |
 | Hermes source | <https://github.com/NousResearch/hermes-agent> |
 | Hermes docs | <https://hermes-agent.nousresearch.com/docs/> |
 | Method | static source and documentation review |
-| Runtime benchmark | not run; no result data exists in this checkpoint |
+| Comparative benchmark | not run; no comparative result data exists |
+| Current comparison status | no Hermes parity or superiority claim is made; no comparative benchmark was run for the CLI Preview slice |
+
+All commit hashes above are historical Phase A audit values, not current `main` commits for either project. No parity or superiority claim is supported by this document.
 
 Phase A evidence is summarized in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md). Fair comparison rules are in [benchmarks/README.md](../benchmarks/README.md). Implementation order is in [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md).
 
@@ -20,9 +23,9 @@ Phase A evidence is summarized in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md)
 
 Hermes currently has a much richer self-improvement and orchestration story. Its current README describes a closed learning loop, agent-created skills, skills that improve during use, persistent memory nudges, FTS5 session search, user modeling, cron automations, parallel subagents, RPC scripts, and multiple terminal backends. Its docs and source include tool search, skill curation with rollback, delegation output schemas, provider routing, and many eval directories.
 
-Aether has a smaller but coherent local-first core: stdlib-only runtime, bounded turns, provider fallback, cost controls, permissions, tools, Markdown memory, `SKILL.md` skills, SQLite sessions, subagents, scheduler, and a persisted orchestrator with strict child rules. Its characteristics are simplicity and local control; its weakness is that much intelligence work is still deterministic rather than model-verified. This table describes the Phase A audit baseline at `558bd58`; later locally verified phases added planning, layered memory, learning, and capability-aware routing without changing this comparison method.
+Aether has a smaller but coherent local-first core: stdlib-only runtime, bounded turns, provider fallback, cost controls, permissions, tools, Markdown memory, `SKILL.md` skills, SQLite sessions, subagents, scheduler, and a persisted orchestrator with strict child rules. Its characteristics are simplicity and local control; its weakness is that much intelligence work is still deterministic rather than model-verified. This table describes the historical Phase A audit baseline at `558bd58`; later locally verified phases added planning, layered memory, learning, capability-aware routing, and a coding workflow foundation without changing this comparison method.
 
-Neither project can be declared better on task quality from this document. That requires identical-model, identical-task benchmark runs.
+No parity or superiority claim is made, and no comparative benchmark was run. Neither project can be declared better on task quality from this document; that requires identical-model, identical-task benchmark runs with stored evidence.
 
 ## Capability comparison
 
@@ -39,8 +42,8 @@ Neither project can be declared better on task quality from this document. That 
 | Provider routing | Docs include provider routing and fallback providers; current README advertises many providers with no code changes. | At `558bd58`: 12 provider specs, ordered fallback, cooldowns, rough cost, paid confirmation, budgets, and cancellations. Phase E adds an evidence-aware capability registry and inspectable routing. | Both have routing controls; Aether's Phase E router is deterministic and offline-diagnosable. This is not task-quality evidence. |
 | Cost and permissions | Hermes has extensive provider and credential systems. | Explicit paid confirmation, shared locked budgets, reservations, monotonic caps, strict roots, approvals, redaction, and child restrictions. | Aether has strong local cost/permission guardrails. Keep them while adding routing. |
 | Terminal interface | Hermes has a real TUI with a larger Node/React/Ink stack and many plugins. | Python CLI with ASCII artwork and colored rendering. | Out of scope for parity. Aether's visual identity is frozen by user decision. |
-| Runtime footprint | Hermes has extensive optional integrations and plugin infrastructure. | Python stdlib only at runtime; no required cloud service; cold start around 0.08 s and peak child RSS around 29-31 MiB in local benchmark runs. | Lighter local footprint; this is a startup measurement, not task quality. Do not regress it. |
-| Evals | Current checkout contains eval directories such as `evals/tool_search`, `evals/delegation_grouping`, `evals/delegation_group_schema`, `evals/session_search_schema`, `evals/reasoning_replay`, `evals/compaction`, `evals/codebase_navigability`, and `evals/postmortem`. | At `558bd58`: 109 local unit tests and startup benchmark; currently 179 unit tests plus a deterministic routing simulation; no task-success harness. | Hermes has more eval scaffolding. Aether Phase K should create reproducible task artifacts and stored results; no comparative quality claim is supported here. |
+| Runtime footprint | Hermes has extensive optional integrations and plugin infrastructure. | Python stdlib only at runtime; no required cloud service; historical Phase A runs recorded cold starts around 0.08 s and peak child RSS around 29-31 MiB. | Lighter local footprint; this is a startup measurement, not task quality or a comparative benchmark. Do not regress it. |
+| Evals | Historical Phase A checkout contained eval directories such as `evals/tool_search`, `evals/delegation_grouping`, `evals/delegation_group_schema`, `evals/session_search_schema`, `evals/reasoning_replay`, `evals/compaction`, `evals/codebase_navigability`, and `evals/postmortem`. | At historical `558bd58`: 109 local unit tests and a startup benchmark; the CLI Preview slice has 274 local tests plus a deterministic routing simulation; no task-success harness. | Hermes has more eval scaffolding. Aether Phase K should create reproducible task artifacts and stored results; no comparative quality claim is supported here. |
 | Licensing and independence | MIT, Nous Research; upstream notices apply. | MIT, independent implementation with notices in `docs/UPSTREAM_LICENSE.md`. | No issue; do not copy upstream code. |
 
 ## What Aether should learn from Hermes
@@ -69,4 +72,4 @@ When a runtime comparison is eventually run, both systems must receive the same 
 
 Do not compare Aether with a paid Hermes route against a free Aether route and call the result a model-neutral comparison. Do not compare local Aether with hosted Hermes and ignore latency or provider differences. Do not publish only favorable tasks.
 
-Until such runs exist and are stored under `benchmarks/results/`, this document must not be summarized as "Aether beats Hermes" or "Hermes is better at everything." The accurate statement is narrower: Hermes has more implemented self-improvement and orchestration machinery today, while Aether has a smaller, stricter local core and an explicit plan to close the measured gaps.
+Until such runs exist and are stored under `benchmarks/results/`, this document must not be summarized as "Aether beats Hermes" or "Hermes is better at everything." No parity or superiority claim is made, and no comparative benchmark was run for the CLI Preview slice. The accurate statement is narrower: the historical Phase A review found more implemented self-improvement and orchestration machinery in Hermes, while Aether has a smaller, stricter local core and an explicit plan to close the measured gaps.

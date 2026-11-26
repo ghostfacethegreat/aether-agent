@@ -31,3 +31,6 @@ Settings are presentation-only. They do not change model behavior, prompts, tool
 
 The renderer uses only Python's standard library. It remains compatible with Python 3.10+, checks terminal width, and avoids emitting Unicode block art when ASCII mode is selected or the output encoding cannot represent it. Spinner animation is used only when stdout is an interactive terminal.
 
+## Streamed output
+
+Streamed model text, including visible reasoning deltas, passes through `render.sanitize_untrusted()` before it is written to stdout, so terminal escape and control sequences embedded in model output are stripped on that path. This describes the implemented streamed-output path only; it is not a blanket invariant that all terminal text is escape-safe. Tool output, repository files, web pages, memories, and agent reports remain untrusted data handled by their own boundaries.

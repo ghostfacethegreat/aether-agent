@@ -1,8 +1,7 @@
-import os
 from dataclasses import dataclass, field
 
 from aether.providers.catalog import provider_is_billable
-from aether.utils import make_id, parse_bool, utc_now
+from aether.utils import make_id, paid_confirmation_value, utc_now
 
 from .capabilities import CapabilityRegistry
 from .classifier import TaskRequirements
@@ -57,9 +56,9 @@ def _config_get(config, key, default=None):
 
 
 def _paid_confirmed(config) -> bool:
-    env = os.environ.get("AETHER_CONFIRM_PAID")
+    env = paid_confirmation_value()
     if env is not None:
-        return parse_bool(env, False)
+        return str(env).strip().lower() in {"1", "true", "yes", "on"}
     raw = _config_get(config, "costs.confirm_paid", True)
     if raw is None:
         return False

@@ -2,36 +2,65 @@
 
 This is the resume log for the intelligence-first `Aether 0.2+` program. It records verified state only. Do not mark a phase complete from static inspection alone.
 
-## Current checkpoint
+## Current release state — CLI Preview verification slice
 
 | Item | Verified value |
 |---|---|
-| Date | 2026-11-25 |
+| Date | 2026-11-26 |
 | Active branch | `feat/aether-parity-foundation` |
-| Integration base | `main` at `01ee003795787cc392f033edffbb98fcb3dd8b35` |
-| Upstream tracking | `origin/feat/aether-parity-foundation` contains the verified candidate `aebbaef27ede626b2b7c2d057d21f16b49bfa428` |
-| Remote | `https://github.com/ghostfacethegreat/aether-agent.git` |
-| Tags | none |
-| Worktree at start of this checkpoint | clean |
-| Pushed commits from this checkpoint | `bb18a8e`, `7efcd0e`, `cef86c1`, `e2f6cb6`, `aebbaef` |
-| CI evidence | Candidate `aebbaef` passed GitHub Actions run `45736577255`: all five Python 3.10–3.14 jobs, 238 tests per job, `scripts/check.sh`, and clean-checkout install/uninstall |
-| Phase B verification | 121 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
-| Phase B checkpoint | `9aef0fb873f6e54bc78f7b587e3fe8709dc07c55` |
-| Phase C verification | 132 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
-| Phase C checkpoint | `833cad8f4bbdea74241c4d18f3719c77755ad7c1` |
-| Phase D verification | 153 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
-| Phase D implementation checkpoint | `0dc4118af627cb2c5de4daac0a8ed4e3512705cf` |
-| Phase E focused verification | 26 tests passed in `tests.test_model_routing`; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
-| Phase E full verification | 179 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
-| Phase E status | implemented on this feature branch; implementation is committed separately from documentation; not released |
-| Phase F focused verification | 28 tests passed in repository and persistence index tests |
-| Phase F full verification | 233 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
-| Phase F status | persistent incremental index and lexical symbols are committed and pushed on this branch; current branch CI is green; full IDE-grade TDD remains incomplete and unreleased |
-| Phase F checkpoint | `bf66d6c2098d228f7916db8d6d30caaff959d2b2` (historical implementation checkpoint; included in PR #8) |
+| Pull request | [#8](https://github.com/ghostfacethegreat/aether-agent/pull/8) open draft; not merged |
+| Publication | no merge, tag, release, version change, default-branch change, or published binary |
+| Package version | remains `0.1.0` |
+| Integration base | `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (run IDs `45737098740` / `45737090789`): 238 tests on Python 3.10–3.14, `scripts/check.sh`, clean-checkout install/uninstall |
+| CI caveat | Later local changes are not yet CI-verified. Fresh CI is required for the exact final pushed SHA; GitHub Actions is authoritative. No final HEAD SHA is recorded because it does not exist until this work is committed. |
+| Latest local verification | 274 tests passed; see the final local verification table below |
+| Workstation gate | PASS on the actual Mac; see [WORKSTATION_ACCEPTANCE_GATE.md](WORKSTATION_ACCEPTANCE_GATE.md) |
+| Release gates still open | task-quality benchmark, live hosted/paid provider checks, external security review, signed macOS release, live long-running cancellation demonstration |
 
-The feature-branch commits are pushed and preserved. Do not reset, discard, or force-push. Keep PR #8 in draft and do not merge, tag, or release until the workstation and release gates in [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) pass.
+The feature-branch commits are preserved; do not reset, discard, or force-push. Keep PR #8 in draft. The 238-test CI result is the integration base only, not current local verification.
 
-## Completed work
+### Final local verification (after all changes)
+
+| Command | Result |
+|---|---|
+| `python3 -m compileall -q aether tests` | OK |
+| `python3 -m unittest discover -s tests -v` | 274 tests OK |
+| `bash scripts/check.sh` | 274 tests OK; 3 cold starts, median wall time 0.119s, peak child RSS 33.0 MiB; all checks passed; startup figures vary by host/load |
+| `bash scripts/test_install.sh` | OK |
+| `git diff --check` | OK |
+
+Focused verification before the full suite: 182 tests passed across tools, model routing, orchestration, tasks, planning, core, persistence, render, and repository tools; deterministic CLI tests also cover doctor, provider/model switching, and plan status. `tests.test_coding_workflow` adds a real end-to-end mock-provider coding workflow with a second scripted verification agent; the orchestrator verifier evidence gate has separate deterministic coverage in `tests.test_orchestration`.
+
+### Security and reliability fixes after the CI base
+
+- Exact verification argv matching: extra args and untrusted executables named `python` are rejected; only the running interpreter path is accepted for `test_run` evidence.
+- Independent verifier uses recognized commands.
+- `state.db` mode `0600`; Aether home and subdirectories mode `0700`.
+- Memory/skills prompt context is labeled data-only.
+- Scheduled runs use a shared `ContextVar` for paid confirmation in both loop preflight and model routing instead of mutating process environment.
+- Plan tool results complete one dependency-ready task; `understand` is satisfied by the current objective at plan start.
+- Plan resume refuses completed plans.
+- Streamed model output is sanitized for terminal escapes.
+- Benchmark packaging fixed for non-editable install.
+- SQLite connections now closed; diff hygiene.
+
+### Workstation acceptance PASS
+
+On the actual Mac (macOS 15.0.1 build 24A348, Apple M1, RAM 8589934598 bytes (~8 GB), Python 3.14.2, arm64; active provider/model `mock` / `mock-standard`): fresh install, version, doctor, mock conversation, provider/model switch, memory add/search across separate processes, plan status/resume, approval prompt (fresh once), `repo_index` search, `patch_preview`, approval-gated `patch_apply`, `test_run`, direct `unittest`, home directory `0700`, `state.db` `0600`, uninstall wrapper removal, and Aether state and project data preserved all passed. Cancellation is covered by deterministic unit tests in the 274-test suite, not by a live long-running cancellation demonstration.
+
+### Limitations
+
+- No live hosted or paid provider checks.
+- No task-quality benchmark and no Hermes parity or superiority claim.
+- No browser, voice, or desktop artifact.
+- No signed macOS release.
+- No external security review.
+- No live long-running cancellation demonstration.
+- No merge, tag, or release.
+
+## Historical phase records
+
+The phase-by-phase records below are historical checkpoints, not the current release state. Current status is the CLI Preview verification slice above.
 
 ### Phase 0 — repository baseline
 
@@ -127,15 +156,13 @@ The combined check/install run recorded 3 cold starts, `0.109s` median wall time
 | `python3 scripts/benchmark.py` | 3 cold starts, median wall time `0.112s`, peak child RSS `34.9 MiB` |
 | `git diff --check` | passed |
 
-`ResourceWarning` notices for unclosed SQLite connections are non-failing. No lint/typecheck command is configured, so none is claimed. These timing and memory figures are local startup measurements, not task-quality results. No task-quality benchmark result was recorded, and no Hermes parity or superiority claim is made. See [MODEL_ROUTING.md](MODEL_ROUTING.md), [PHASE_E_BENCHMARKS.md](PHASE_E_BENCHMARKS.md), and [RELEASE_CHECKS.md](RELEASE_CHECKS.md).
+At that phase, `ResourceWarning` notices for unclosed SQLite connections were non-failing; SQLite connections are now closed explicitly. No lint/typecheck command is configured, so none is claimed. These timing and memory figures are local startup measurements, not task-quality results. No task-quality benchmark result was recorded, and no Hermes parity or superiority claim is made. See [MODEL_ROUTING.md](MODEL_ROUTING.md), [PHASE_E_BENCHMARKS.md](PHASE_E_BENCHMARKS.md), and [RELEASE_CHECKS.md](RELEASE_CHECKS.md).
 
 ## Active work
 
-Authorization hardening has a verified baseline on `feat/aether-parity-foundation`: forced approval is enforced by the policy layer, state-changing tool calls require fresh action-bound approval, child agents inherit a strict tool ceiling, scheduled runs are read-only, and approval prompts show recursively redacted action details. Focused verification ran 109 tests; full verification ran 251 tests; `compileall`, `check.sh`, `test_install.sh`, and `git diff --check` passed. Independent security and reviewer agents approved the final diff. See [RELEASE_CHECKS.md](RELEASE_CHECKS.md) for the evidence record.
+Authorization hardening and the repository coding workflow have a verified baseline on `feat/aether-parity-foundation`: forced approval enforced by the policy layer, fresh action-bound approval for state-changing tools, a strict child tool ceiling, read-only scheduled runs, recursively redacted approval prompts, bounded repository indexing/search, persistent incremental lexical symbol retrieval, unified-diff preview/application, and an approval-gated fixed-command test runner. Current verification is the 274-test local suite plus the focused security and reliability fixes listed above; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md). The orchestrator verifier evidence gate is exercised by `tests.test_orchestration`; `tests.test_coding_workflow` exercises a second scripted verification agent.
 
-Phase F — repository coding workflow — has a verified baseline on `feat/aether-parity-foundation`: bounded repository indexing/search, root and nested ignore handling, persistent incremental lexical symbol retrieval, unified-diff preview/application, and an approval-gated fixed-command test runner. Remaining work in this track is LSP/cross-reference navigation, new/delete/rename patch operations, binary patch handling, and a fully orchestrated multi-turn TDD/diff-review loop.
-
-The next major parity tracks are durable structured audit logging, cancellation beyond executor boundaries, browser automation/MCP, messaging and voice, isolated execution backends, skill curation/rollback, and task-quality evaluation.
+Remaining work in the coding track is LSP/cross-reference navigation, new/delete/rename patch operations, binary patch handling, and a fully orchestrated multi-turn TDD/diff-review loop. Other parity tracks are durable structured audit logging, cancellation beyond executor boundaries, browser automation/MCP, messaging and voice, isolated execution backends, skill curation/rollback, and task-quality evaluation. Bounded repair loops are a roadmap item, not implemented; current code provides deterministic plan selection, checkpoint resume, and verification evidence rather than autonomous repair.
 
 ## Per-phase record
 
@@ -152,14 +179,14 @@ Record these items before marking any phase complete:
 
 ## Publication status
 
-- Branch: `feat/aether-parity-foundation`.
+- Branch: `feat/aether-parity-foundation`; default branch unchanged.
 - Draft PR: [#8](https://github.com/ghostfacethegreat/aether-agent/pull/8); open, not merged.
-- CI: candidate `aebbaef` passed Python 3.10–3.14 in run `45736577255`, with 238 tests, project checks, and clean install/uninstall in every matrix job. Documentation-only commits after this code candidate still require a fresh CI run.
-- Main branch: unchanged by this development work.
-- Release/tag: none created; package version remains `0.1.0`.
+- CI base: `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (`45737098740` / `45737090789`) with 238 tests per job on Python 3.10–3.14, `scripts/check.sh`, and clean-checkout install/uninstall. Later local changes are not yet CI-verified; fresh CI is required for the exact final pushed SHA and Actions is authoritative.
+- Latest local verification: 274 tests; see the final local verification table above.
+- Merge/tag/release: none. Package version remains `0.1.0`; no binary published.
 - No task-quality benchmark or Hermes parity/superiority claim is supported.
 
-## Phase F — repository coding workflow
+## Phase F — repository coding workflow (historical implementation record)
 
 - Added `repo_index`: bounded workspace indexing and filename/source snippet search, with root and nested `.gitignore` support and symlink/generated/binary/size exclusions.
 - Added a separate persistent index at `repo_index.db` under `AETHER_HOME` with mode `0600`, additive schema creation and migration, bounded file/symbol counts, size/mtime/ctime/hash invalidation, extractor-version signatures, cancellation checks, and a single-process refresh lock.
@@ -170,4 +197,3 @@ Record these items before marking any phase complete:
 - Developer, debugger, tester, and verifier roles have the relevant repository tools; successful `test_run` evidence can satisfy the independent-verifier gate.
 - Added regression tests for ignore rules, search results, workspace escapes, symlinks, patch preview/apply, preflight atomicity, approval, header-like source lines, test-run allowlists, empty suites, persistent refresh, same-size rewrites, symbol budget enforcement, unsafe cached rows, cancellation rollback, and bounds changes.
 - Remaining: LSP/cross-reference navigation, file-create/delete/rename patches, binary patch handling, autonomous TDD loop orchestration, and semantic independent diff review.
-

@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import sys
 import threading
@@ -45,6 +46,15 @@ def configure(settings=None):
     _SHOW_BANNER = settings.get("show_banner", True) is not False
     _SHOW_DASHBOARD = settings.get("show_dashboard", True) is not False
     _SHOW_RESPONSE_LABELS = settings.get("show_response_labels", True) is not False
+
+
+_UNTRUSTED_ESCAPE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\|$)|\([A-Za-z0-9]|[=>])")
+_UNTRUSTED_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u202a-\u202e\u2066-\u2069]")
+
+
+def sanitize_untrusted(text) -> str:
+    value = _UNTRUSTED_ESCAPE.sub("", str(text))
+    return _UNTRUSTED_CONTROL.sub("", value)
 
 
 def paint(text, color):

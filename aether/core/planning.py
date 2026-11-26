@@ -24,28 +24,28 @@ TASK_DEFINITIONS = {
     "understand": {
         "title": "Clarify the objective",
         "intent": "Identify requirements, constraints, and needed context.",
-        "tools": ("list_directory", "read_file", "session_search"),
+        "tools": ("list_directory", "read_file", "repo_index", "session_search"),
         "expected": "an explicit statement of what must be done",
         "verification": "constraints and success criteria are stated",
     },
     "execute": {
         "title": "Perform the requested work",
         "intent": "Carry out the concrete changes or actions needed by the objective.",
-        "tools": ("write_file", "edit_file", "terminal", "python", "git", "memory", "skill", "scheduler", "browser"),
+        "tools": ("write_file", "edit_file", "patch_apply", "terminal", "python", "git", "memory", "skill", "scheduler", "browser"),
         "expected": "an observable result confirmed by a tool response or user-provided evidence",
         "verification": "tool output confirms the action",
     },
     "verify": {
         "title": "Verify the result",
         "intent": "Check the result against the original objective.",
-        "tools": ("read_file", "terminal", "python", "git"),
+        "tools": ("read_file", "patch_preview", "repo_index", "terminal", "python", "git", "test_run"),
         "expected": "observed verification evidence",
         "verification": "checks were run and their output was inspected",
     },
     "research": {
         "title": "Gather evidence",
         "intent": "Retrieve relevant local or web evidence before deciding.",
-        "tools": ("list_directory", "read_file", "web_search", "web_fetch", "session_search"),
+        "tools": ("list_directory", "read_file", "repo_index", "web_search", "web_fetch", "session_search"),
         "expected": "source-backed context for the plan",
         "verification": "sources or observations are recorded",
     },
@@ -59,14 +59,14 @@ TASK_DEFINITIONS = {
     "test": {
         "title": "Run focused tests",
         "intent": "Execute the smallest meaningful checks for the work performed.",
-        "tools": ("terminal", "python", "git"),
+        "tools": ("terminal", "python", "git", "test_run"),
         "expected": "test output that can be inspected",
         "verification": "command output is present and interpreted honestly",
     },
     "review": {
         "title": "Review outcome and risks",
         "intent": "Compare observed results with the objective and note unresolved gaps.",
-        "tools": ("read_file", "git", "terminal"),
+        "tools": ("read_file", "patch_preview", "git", "terminal"),
         "expected": "a final review with explicit caveats",
         "verification": "claims are tied to observed evidence",
     },
@@ -81,13 +81,13 @@ TASK_DEFINITIONS = {
 
 TASK_TOOL_MAP = {
     "respond": (),
-    "understand": ("list_directory", "read_file", "session_search"),
-    "execute": ("write_file", "edit_file", "terminal", "python", "git", "memory", "skill", "scheduler", "browser"),
-    "verify": ("read_file", "terminal", "python", "git"),
-    "research": ("list_directory", "read_file", "web_search", "web_fetch", "session_search"),
+    "understand": ("list_directory", "read_file", "repo_index", "session_search"),
+    "execute": ("write_file", "edit_file", "patch_apply", "terminal", "python", "git", "memory", "skill", "scheduler", "browser"),
+    "verify": ("read_file", "patch_preview", "repo_index", "terminal", "python", "git", "test_run"),
+    "research": ("list_directory", "read_file", "repo_index", "web_search", "web_fetch", "session_search"),
     "delegate": ("delegate_task", "orchestrate_task"),
-    "test": ("terminal", "python", "git"),
-    "review": ("read_file", "git", "terminal"),
+    "test": ("terminal", "python", "git", "test_run"),
+    "review": ("read_file", "patch_preview", "git", "terminal"),
     "approve": (),
 }
 
@@ -297,6 +297,8 @@ class ExecutionPlan:
 
     def start(self) -> None:
         ExecutionStateMachine.transition(self, "running", "plan accepted")
+        if self.get_task("understand") is not None:
+            self.mark_task("understand", "completed", "objective is clear from the current request")
 
     def pause(self, reason: str) -> None:
         ExecutionStateMachine.transition(self, "paused", reason)
@@ -324,18 +326,21 @@ class ExecutionPlan:
         self.history.append({"at": self.updated_at, "kind": "task", "task": task.id, "status": status, "evidence": truncate(evidence, 1000)})
         return True
 
+    def _dependencies_ready(self, task: PlanTask) -> bool:
+        return all(
+            dependency is not None and dependency.status == "completed"
+            for dependency in (self.get_task(item) for item in task.dependencies)
+        )
+
     def apply_tool_result(self, tool_name: str, ok: bool, evidence: str) -> list[str]:
-        updated = []
-        for task_id, tools in TASK_TOOL_MAP.items():
-            if tool_name not in tools:
-                continue
-            task = self.get_task(task_id)
-            if task is None or task.status in ("completed", "skipped"):
+        ordered = sorted(self.tasks, key=lambda task: (not task.id.startswith("repair_"), self.tasks.index(task)))
+        for task in ordered:
+            if tool_name not in task.tools or task.status != "pending" or not self._dependencies_ready(task):
                 continue
             status = "completed" if ok else "failed"
-            self.mark_task(task_id, status, evidence or f"tool {tool_name} {'succeeded' if ok else 'failed'}")
-            updated.append(task_id)
-        return updated
+            self.mark_task(task.id, status, evidence or f"tool {tool_name} {'succeeded' if ok else 'failed'}")
+            return [task.id]
+        return []
 
     def revise(self, signal: str, detail: str = "") -> PlanTask:
         self.revision += 1

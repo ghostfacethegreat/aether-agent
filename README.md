@@ -12,6 +12,14 @@ The interactive CLI now uses an `acid-blue` presentation with a 3D block-letter 
 
 Benchmark protocol and result rules are in [benchmarks/README.md](benchmarks/README.md). No task-quality benchmark results exist yet. `aether models benchmark` is an offline deterministic routing simulation that prints JSON and makes no model, network, or billable calls; it is not task-quality evidence.
 
+## Current verification
+
+- Branch `feat/aether-parity-foundation`; PR #8 open draft; no merge/tag/release/version/default-branch change; no binary published.
+- Integration base `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (also found as run IDs 45737098740/45737090789) with 238 tests across Python 3.10-3.14, `scripts/check.sh`, and clean-checkout install/uninstall.
+- After that base, local changes hardened authorization, verification evidence, SQLite permissions, prompt-injection labels, scheduler env isolation, planning semantics, CLI output sanitization, benchmark packaging, and added a real end-to-end mock-provider coding workflow test.
+- Latest local full verification after all changes: `python3 -m compileall -q aether tests` OK; `python3 -m unittest discover -s tests -v` -> 274 tests OK; `bash scripts/check.sh` -> 274 tests OK, 3 cold starts, median wall time 0.119s, peak child RSS 33.0 MiB, all checks passed; `bash scripts/test_install.sh` OK; `git diff --check` OK. Fresh CI is required for the final pushed commit; the Actions run for that exact SHA is authoritative. No lint/typecheck command is configured.
+- Workstation acceptance on this Mac: macOS 15.0.1 build 24A348, Apple M1, RAM 8589934598 bytes (~8 GB), Python 3.14.2, arm64. Active scripts used mock/mock-standard. PASS: fresh install, version, doctor, mock conversation, provider/model switch, memory add/search across separate processes, plan status/resume, approval prompt (fresh once), repo_index search, patch_preview, approval-gated patch_apply, test_run, direct unittest, home dir 0700, state.db 0600, uninstall wrapper removal, Aether state and project data preserved. Cancellation is covered by deterministic unit tests in the 274-test suite, not by a live long-running cancellation demonstration.
+
 ## Install
 
 Aether requires Python 3.10+ and has no third-party runtime dependencies.
@@ -262,13 +270,13 @@ bash scripts/check.sh
 bash scripts/test_install.sh
 ```
 
-Local verification after the verification-evidence hardening slice: `python3 -m unittest tests.test_model_routing -v` passes 28 focused tests and `python3 -m unittest discover -s tests -v` passes 235 tests. `python3 -m compileall -q aether tests`, `bash scripts/check.sh`, `bash scripts/test_install.sh`, and `git diff --check` pass; the check run recorded 3 cold starts, median wall time `0.132s`, and peak child RSS `34.8 MiB`. PR #8 head `8f15419` passed the Python 3.10–3.14 CI matrix and clean-install checks; newer local commits require a fresh CI run. `ResourceWarning` notices for pre-existing unclosed SQLite connections are non-failing. No lint/typecheck command is configured, so none is claimed. These are startup measurements, not task-quality results.
+Latest local full verification after all changes: `python3 -m compileall -q aether tests` OK; `python3 -m unittest discover -s tests -v` -> 274 tests OK; `bash scripts/check.sh` -> 274 tests OK, 3 cold starts, median wall time 0.119s, peak child RSS 33.0 MiB, all checks passed; `bash scripts/test_install.sh` OK; `git diff --check` OK. Integration base `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (also found as run IDs 45737098740/45737090789) across Python 3.10-3.14. Fresh CI is required for the final pushed commit; the Actions run for that exact SHA is authoritative. SQLite connections are now closed explicitly; no lint/typecheck command is configured. Startup figures are from that recorded run and vary by host/load; they are not task-quality results.
 
 `scripts/check.sh` includes tests, doctor and mock CLI smoke checks, secret scanning, the local startup benchmark, and Markdown link checks. It does not measure task quality; see [benchmarks/README.md](benchmarks/README.md) for that protocol.
 
 ## Attribution
 
-Aether's architecture was informed by static audits of the public Hermes Agent repository, initially at commit `bb89ad1a`, refreshed for Phase 2 at `b98c388a880b1b6fd303c9c2821a3946651a0b4c`, and refreshed again for Phase A against current `main` at `fe9a4b58ec137d3e00719c10e2385876fa03b97c`. Hermes Agent is MIT-licensed; see `NOTICE` and `docs/UPSTREAM_LICENSE.md`. Aether is independently implemented and branded.
+Aether's architecture was informed by static audits of the public Hermes Agent repository, initially at commit `bb89ad1a`, refreshed for Phase 2 at `b98c388a880b1b6fd303c9c2821a3946651a0b4c`, and refreshed again for Phase A against a historical `main` snapshot at `fe9a4b58ec137d3e00719c10e2385876fa03b97c`. Hermes Agent is MIT-licensed; see `NOTICE` and `docs/UPSTREAM_LICENSE.md`. Aether is independently implemented and branded.
 
 ## License
 

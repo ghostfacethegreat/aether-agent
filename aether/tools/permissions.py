@@ -207,11 +207,11 @@ class PermissionPolicy:
         if tool == "patch_apply":
             return "Applying a repository patch changes persistent workspace files"
         if tool == "memory":
-            if action in {"add", "replace", "delete", "import"}:
+            if action in _MEMORY_WRITE_ACTIONS:
                 return f"Memory action '{action}' changes persistent memory"
             if action == "layer":
                 operation = str(args.get("layer_action") or args.get("operation") or "list").strip().lower()
-                if operation in {"add", "correct", "delete", "clear", "consolidate", "prune", "migrate", "import"}:
+                if operation in _LAYER_WRITE_OPERATIONS:
                     return f"Layered-memory action '{operation}' changes persistent memory"
         if tool == "skill" and action in {"create", "edit"}:
             return f"Skill action '{action}' changes persistent skills"

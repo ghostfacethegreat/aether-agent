@@ -1,6 +1,8 @@
 import json
+import os
 import re
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 
 from aether.utils import make_id, utc_now
@@ -214,7 +216,13 @@ def _decode_message_metadata(raw: str) -> tuple[dict, dict]:
 class Store:
     def __init__(self, path: Path | str):
         self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        descriptor = os.open(self.path, os.O_CREAT | os.O_WRONLY, 0o600)
+        os.close(descriptor)
+        try:
+            os.chmod(self.path, 0o600)
+        except OSError:
+            pass
         self._fts = False
         self.init()
 
@@ -224,8 +232,17 @@ class Store:
         connection.execute("PRAGMA foreign_keys=ON")
         return connection
 
+    @contextmanager
+    def connection(self):
+        db = self.connect()
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
+
     def init(self) -> None:
-        with self.connect() as db:
+        with self.connection() as db:
             db.executescript(SCHEMA)
             columns = {row["name"] for row in db.execute("PRAGMA table_info(usage)")}
             for name, definition in (
@@ -271,7 +288,7 @@ class Store:
     def create_session(self, title="", provider="", model="", cwd="", session_id=None) -> str:
         session_id = session_id or make_id("session")
         now = utc_now()
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "INSERT INTO sessions(id,title,provider,model,cwd,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
                 (session_id, title, provider, model, cwd, now, now),
@@ -279,7 +296,7 @@ class Store:
         return session_id
 
     def touch_session(self, session_id: str, title: str | None = None, message_count: int | None = None) -> None:
-        with self.connect() as db:
+        with self.connection() as db:
             if title is not None:
                 db.execute("UPDATE sessions SET title=?, updated_at=? WHERE id=?", (title, utc_now(), session_id))
             elif message_count is not None:
@@ -293,7 +310,7 @@ class Store:
     def append_message(self, session_id: str, role: str, content: str, metadata=None) -> int:
         metadata = metadata or {}
         now = utc_now()
-        with self.connect() as db:
+        with self.connection() as db:
             cursor = db.execute(
                 "INSERT INTO messages(session_id,role,content,metadata,created_at) VALUES(?,?,?,?,?)",
                 (session_id, role, str(content or ""), _encode_message_metadata({"metadata": metadata}), now),
@@ -305,7 +322,7 @@ class Store:
             return int(cursor.lastrowid or 0)
 
     def append_messages(self, session_id: str, messages: list[dict]) -> None:
-        with self.connect() as db:
+        with self.connection() as db:
             now = utc_now()
             for message in messages:
                 db.execute(
@@ -331,7 +348,7 @@ class Store:
             params.append(limit)
         else:
             query += " ORDER BY id ASC"
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute(query, params).fetchall()
         result = []
         for row in reversed(rows) if limit else rows:
@@ -343,24 +360,24 @@ class Store:
         return result
 
     def list_sessions(self, limit=20) -> list[dict]:
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute("SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?", (limit,)).fetchall()
         return [dict(row) for row in rows]
 
     def get_session(self, session_id: str) -> dict | None:
-        with self.connect() as db:
+        with self.connection() as db:
             row = db.execute("SELECT * FROM sessions WHERE id=?", (session_id,)).fetchone()
         return dict(row) if row else None
 
     def delete_session(self, session_id: str) -> bool:
-        with self.connect() as db:
+        with self.connection() as db:
             cursor = db.execute("DELETE FROM sessions WHERE id=?", (session_id,))
         return cursor.rowcount > 0
 
     def search_messages(self, query: str, limit=20, session_id=None) -> list[dict]:
         if not query.strip():
             return []
-        with self.connect() as db:
+        with self.connection() as db:
             if self._fts:
                 try:
                     rows = db.execute(
@@ -388,7 +405,7 @@ class Store:
     def create_task(self, title="", session_id="", parent_id="", metadata=None, task_id=None) -> str:
         task_id = task_id or make_id("task")
         now = utc_now()
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "INSERT INTO tasks(id,session_id,parent_id,title,status,metadata,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)",
                 (task_id, session_id, parent_id, title, "pending", json.dumps(metadata or {}, ensure_ascii=False), now, now),
@@ -396,7 +413,7 @@ class Store:
         return task_id
 
     def update_task(self, task_id: str, status: str, result="", metadata=None) -> None:
-        with self.connect() as db:
+        with self.connection() as db:
             if metadata is None:
                 db.execute(
                     "UPDATE tasks SET status=?,result=?,updated_at=? WHERE id=?",
@@ -410,7 +427,7 @@ class Store:
 
     def find_tasks_by_run_id(self, run_id: str) -> list[dict]:
         wanted = str(run_id)
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute("SELECT * FROM tasks ORDER BY updated_at DESC").fetchall()
         result = []
         for row in rows:
@@ -425,7 +442,7 @@ class Store:
 
     def persist_orchestration(self, creates=None, updates=None, usages=None) -> None:
         now = utc_now()
-        with self.connect() as db:
+        with self.connection() as db:
             for item in creates or []:
                 db.execute(
                     "INSERT OR IGNORE INTO tasks(id,session_id,parent_id,title,status,metadata,created_at,updated_at) "
@@ -480,12 +497,12 @@ class Store:
         if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute(sql, params).fetchall()
         return [dict(row) for row in rows]
 
     def get_task(self, task_id: str) -> dict | None:
-        with self.connect() as db:
+        with self.connection() as db:
             row = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
         return dict(row) if row else None
 
@@ -501,7 +518,7 @@ class Store:
         priced_calls=0,
         unpriced_calls=0,
     ) -> None:
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "INSERT INTO usage(session_id,provider,model,prompt_tokens,completion_tokens,estimated_cost,"
                 "cost_known,priced_calls,unpriced_calls,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
@@ -520,7 +537,7 @@ class Store:
             )
 
     def session_usage(self, session_id: str) -> dict:
-        with self.connect() as db:
+        with self.connection() as db:
             row = db.execute(
                 "SELECT COALESCE(SUM(prompt_tokens),0) p, COALESCE(SUM(completion_tokens),0) c, "
                 "COALESCE(SUM(estimated_cost),0) cost, COALESCE(SUM(cost_known),0) known_rows, "
@@ -538,12 +555,12 @@ class Store:
         }
 
     def get_approval(self, rule_key: str) -> str | None:
-        with self.connect() as db:
+        with self.connection() as db:
             row = db.execute("SELECT decision FROM approvals WHERE rule_key=?", (rule_key,)).fetchone()
         return row["decision"] if row else None
 
     def set_approval(self, rule_key: str, decision: str) -> None:
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "INSERT INTO approvals(rule_key,decision,created_at) VALUES(?,?,?) "
                 "ON CONFLICT(rule_key) DO UPDATE SET decision=excluded.decision, created_at=excluded.created_at",
@@ -572,7 +589,7 @@ class Store:
     def save_execution_plan(self, plan) -> None:
         payload = self._execution_payload(plan)
         now = utc_now()
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "INSERT INTO execution_plans(id,session_id,objective,complexity,route,status,plan_json,created_at,updated_at) "
                 "VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET "
@@ -592,7 +609,7 @@ class Store:
             )
 
     def get_execution_plan(self, plan_id: str) -> dict | None:
-        with self.connect() as db:
+        with self.connection() as db:
             row = db.execute("SELECT * FROM execution_plans WHERE id=?", (plan_id,)).fetchone()
         return self._decode_execution_row(row)
 
@@ -609,13 +626,13 @@ class Store:
         if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute(sql, params).fetchall()
         return [self._decode_execution_row(row) for row in rows]
 
     def save_execution_checkpoint(self, checkpoint) -> None:
         payload = self._execution_payload(checkpoint)
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "INSERT OR REPLACE INTO execution_checkpoints(id,plan_id,sequence,phase,note,payload,created_at) "
                 "VALUES(?,?,?,?,?,?,?)",
@@ -647,12 +664,12 @@ class Store:
         if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute(sql, params).fetchall()
         return [self._decode_checkpoint_row(row) for row in rows]
 
     def get_latest_execution_checkpoint(self, plan_id: str) -> dict | None:
-        with self.connect() as db:
+        with self.connection() as db:
             row = db.execute(
                 "SELECT * FROM execution_checkpoints WHERE plan_id=? ORDER BY sequence DESC, created_at DESC LIMIT 1",
                 (plan_id,),
@@ -682,7 +699,7 @@ class Store:
 
     def save_memory_item(self, item) -> None:
         now = utc_now()
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "INSERT INTO memory_items(id,session_id,layer,subject,content,provenance,confidence,status,"
                 "metadata,supersedes,created_at,updated_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) "
@@ -708,7 +725,7 @@ class Store:
             )
 
     def get_memory_item(self, item_id: str) -> dict | None:
-        with self.connect() as db:
+        with self.connection() as db:
             row = db.execute("SELECT * FROM memory_items WHERE id=?", (item_id,)).fetchone()
         return self._decode_memory_row(row)
 
@@ -738,12 +755,12 @@ class Store:
         if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute(sql, params).fetchall()
         return [self._decode_memory_row(row) for row in rows]
 
     def delete_memory_item(self, item_id: str) -> bool:
-        with self.connect() as db:
+        with self.connection() as db:
             cursor = db.execute("DELETE FROM memory_items WHERE id=?", (item_id,))
         return cursor.rowcount > 0
 
@@ -774,7 +791,7 @@ class Store:
             match = self._fts_query(text)
             if match:
                 try:
-                    with self.connect() as db:
+                    with self.connection() as db:
                         rows = db.execute(
                             "SELECT memory_items.* FROM memory_items_fts "
                             "JOIN memory_items ON memory_items.rowid=memory_items_fts.rowid "
@@ -788,7 +805,7 @@ class Store:
             sql = "SELECT * FROM memory_items WHERE (content LIKE ? OR subject LIKE ?)" + filters.replace(
                 "memory_items.", ""
             )
-            with self.connect() as db:
+            with self.connection() as db:
                 rows = db.execute(sql, [like, like, *params, limit]).fetchall()
         return [self._decode_memory_row(row) for row in rows]
 
@@ -827,7 +844,7 @@ class Store:
 
     def save_experience(self, item) -> None:
         now = utc_now()
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "INSERT INTO learning_experiences(id,session_id,objective,classification,plan_id,plan,agents,models,"
                 "tools,errors,solution,verification,feedback,outcome,status,provenance,confidence,verified,created_at) "
@@ -862,7 +879,7 @@ class Store:
             )
 
     def get_experience(self, experience_id: str) -> dict | None:
-        with self.connect() as db:
+        with self.connection() as db:
             row = db.execute("SELECT * FROM learning_experiences WHERE id=?", (experience_id,)).fetchone()
         return self._decode_experience_row(row)
 
@@ -888,7 +905,7 @@ class Store:
         if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute(sql, params).fetchall()
         return [self._decode_experience_row(row) for row in rows]
 
@@ -903,7 +920,7 @@ class Store:
 
     def save_learning_proposal(self, item) -> None:
         now = utc_now()
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "INSERT INTO learning_proposals(id,skill_name,kind,status,content,meta,evidence,validation,"
                 "created_at,decided_at,decided_by) VALUES(?,?,?,?,?,?,?,?,?,?,?) "
@@ -926,7 +943,7 @@ class Store:
             )
 
     def get_learning_proposal(self, proposal_id: str) -> dict | None:
-        with self.connect() as db:
+        with self.connection() as db:
             row = db.execute("SELECT * FROM learning_proposals WHERE id=?", (proposal_id,)).fetchone()
         return self._decode_learning_proposal_row(row)
 
@@ -943,13 +960,13 @@ class Store:
         if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute(sql, params).fetchall()
         return [self._decode_learning_proposal_row(row) for row in rows]
 
     def save_skill_version(self, item) -> None:
         now = utc_now()
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "INSERT INTO learning_versions(id,skill_name,version,content,status,proposal_id,score,created_at) "
                 "VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(skill_name,version) DO UPDATE SET content=excluded.content, "
@@ -967,7 +984,7 @@ class Store:
             )
 
     def get_skill_version(self, skill_name: str, version: int) -> dict | None:
-        with self.connect() as db:
+        with self.connection() as db:
             row = db.execute(
                 "SELECT * FROM learning_versions WHERE skill_name=? AND version=?",
                 (skill_name, int(version)),
@@ -975,7 +992,7 @@ class Store:
         return dict(row) if row else None
 
     def list_skill_versions(self, skill_name: str) -> list[dict]:
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute(
                 "SELECT * FROM learning_versions WHERE skill_name=? ORDER BY version DESC",
                 (skill_name,),
@@ -983,7 +1000,7 @@ class Store:
         return [dict(row) for row in rows]
 
     def latest_skill_version(self, skill_name: str) -> dict | None:
-        with self.connect() as db:
+        with self.connection() as db:
             row = db.execute(
                 "SELECT * FROM learning_versions WHERE skill_name=? ORDER BY version DESC LIMIT 1",
                 (skill_name,),
@@ -991,7 +1008,7 @@ class Store:
         return dict(row) if row else None
 
     def set_skill_version_status(self, skill_name: str, version: int, status: str) -> None:
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "UPDATE learning_versions SET status=? WHERE skill_name=? AND version=?",
                 (status, skill_name, int(version)),
@@ -999,7 +1016,7 @@ class Store:
 
     def save_skill_metrics(self, item) -> None:
         now = utc_now()
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "INSERT INTO learning_metrics(skill_name,active_version,execution_count,success_count,"
                 "verification_count,total_duration_ms,total_tokens,estimated_cost,last_success_at,last_modified_at) "
@@ -1024,17 +1041,17 @@ class Store:
             )
 
     def get_skill_metrics(self, skill_name: str) -> dict | None:
-        with self.connect() as db:
+        with self.connection() as db:
             row = db.execute("SELECT * FROM learning_metrics WHERE skill_name=?", (skill_name,)).fetchone()
         return dict(row) if row else None
 
     def list_skill_metrics(self) -> list[dict]:
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute("SELECT * FROM learning_metrics ORDER BY skill_name").fetchall()
         return [dict(row) for row in rows]
 
     def record_learning_event(self, item) -> None:
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "INSERT INTO learning_events(id,skill_name,event_type,payload,created_at) VALUES(?,?,?,?,?)",
                 (
@@ -1059,7 +1076,7 @@ class Store:
         if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute(sql, params).fetchall()
         result = []
         for row in rows:
@@ -1069,7 +1086,7 @@ class Store:
         return result
 
     def save_model_performance(self, item: dict) -> None:
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute(
                 "INSERT INTO model_performance(id,category,provider,model,success,verified,sources,tokens,estimated_cost,"
                 "cost_known,duration_ms,recovery_attempts,experience_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -1116,7 +1133,7 @@ class Store:
         if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute(sql, params).fetchall()
         result = []
         for row in rows:
@@ -1137,14 +1154,14 @@ class Store:
         if model:
             sql += " AND model=?"
             params.append(model)
-        with self.connect() as db:
+        with self.connection() as db:
             cursor = db.execute(sql, params)
         return int(cursor.rowcount or 0)
 
     def mark_model_performance_verified(self, experience_id: str, verdict: str) -> int:
         if not experience_id or str(verdict).lower() != "verified":
             return 0
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute("SELECT id,sources FROM model_performance WHERE experience_id=?", (experience_id,)).fetchall()
             for row in rows:
                 sources = self._decode_learning_json(row["sources"], [])

@@ -2,7 +2,7 @@
 
 This document is the Phase A source of truth for the intelligence-first `Aether 0.2+` work. It records what Aether can do today, where its reasoning and learning systems are thin, and which capabilities are worth adopting from Hermes Agent without copying upstream code or infrastructure.
 
-Phase A is a documentation and benchmark-contract checkpoint. It does not claim that any new runtime behavior was implemented in that phase. This audit remains the Phase A source of truth at the commits below; later phases have closed some gaps, including Phase E capability-aware routing, which is implemented on this feature branch and locally verified (26 focused / 179 total tests) but not released.
+Phase A is a documentation and benchmark-contract checkpoint. It does not claim that any new runtime behavior was implemented in that phase. This audit remains the Phase A source of truth at the commits below; later phases have closed some gaps, including Phase E capability-aware routing, which is implemented on this feature branch and was historically verified at that phase (26 focused / 179 total tests); it is not released.
 
 ## Scope and evidence
 

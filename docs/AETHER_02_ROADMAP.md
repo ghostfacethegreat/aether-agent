@@ -27,7 +27,7 @@ Do not mark a milestone complete based only on code inspection. Do not fabricate
 | Phase B | Adaptive planning and execution state | complete and locally verified |
 | Phase C | Layered memory | complete and locally verified |
 | Phase D | Learning loop and skill quality | complete and locally verified |
-| Phase E | Model capability routing | implemented on this feature branch and locally verified (26 focused / 179 total tests); not released |
+| Phase E | Model capability routing | implemented on this feature branch and historically verified at that phase (26 focused / 179 total tests); not released |
 | Phase F | Coding workflow | pending |
 | Phase G | Research and evidence | pending |
 | Phase H | Tool intelligence | pending |

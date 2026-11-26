@@ -17,7 +17,7 @@ This roadmap tracks the intelligence-first path from the current `0.1.0` alpha c
 | Version | Theme | Status |
 |---|---|---|
 | `0.1.0` | local-first provider-agnostic CLI alpha | published baseline |
-| `0.2.0` | intelligence foundation | in development; Phases A-E complete/implemented, Phase F coding baseline implemented and CI-verified; G/H/K/L pending and I/J partial; no `0.2.x` release or tag |
+| `0.2.0` | intelligence foundation | CLI Preview verification slice: 274 local tests OK, workstation gate PASS, integration base CI green (#90); PR #8 open draft; G/H/K/L pending and I/J partial; no `0.2.x` release or tag |
 | `0.3.0` | autonomous software development | pending |
 | `0.4.0` | messaging, voice, and improved automation | pending |
 | `0.5.0` | desktop and website applications | pending |
@@ -34,8 +34,8 @@ Goal: make Aether understand objectives, plan, execute, remember, learn, route m
 | B | adaptive planning and execution state | complete and locally verified |
 | C | layered memory | complete and locally verified |
 | D | learning loop and skill quality | complete and locally verified |
-| E | model capability routing | implemented on this feature branch and locally verified (26 focused / 179 total tests); not released |
-| F | coding workflow | tested baseline implemented; autonomous TDD/LSP/diff review incomplete |
+| E | model capability routing | implemented on this feature branch; included in the current 274-test local suite; not released |
+| F | coding workflow | tested baseline implemented and included in the current 274-test local suite; autonomous TDD/LSP/diff review incomplete |
 | G | research and evidence | pending |
 | H | tool intelligence | pending |
 | I | specialist orchestration | partial: specialist roles, dependency-aware teams, contracts, verifier baseline |
@@ -54,7 +54,7 @@ Release gates:
 - working checkpoint commit created
 - only then push, open PR, verify CI, merge, tag, and publish accurate notes
 
-Phase E verification is `python3 -W ignore::ResourceWarning -m unittest tests.test_model_routing -q` (26 passing) and `python3 -W ignore::ResourceWarning -m unittest discover -s tests -q` (179 passing). `bash scripts/check.sh && bash scripts/test_install.sh` passed with 3 cold starts, median wall time `0.114s`, peak child RSS `34.4 MiB`, and a local git-remote install test pass. `python3 scripts/benchmark.py` recorded 3 cold starts, median wall time `0.112s`, and peak child RSS `34.9 MiB`. `git diff --check` passed. `ResourceWarning` notices for unclosed SQLite connections are non-failing; no lint/typecheck command is configured. The package version remains `0.1.0` until an explicit release is confirmed.
+Current verification for the CLI Preview slice: `python3 -m compileall -q aether tests` OK; `python3 -m unittest discover -s tests -v` 274 tests OK; `bash scripts/check.sh` 274 tests OK (3 cold starts, median wall time 0.119s, peak child RSS 33.0 MiB, all checks passed); `bash scripts/test_install.sh` OK; `git diff --check` OK. Focused verification before the full suite ran 182 tests across tools, model routing, orchestration, tasks, planning, core, persistence, render, and repository tools; deterministic CLI tests also cover doctor, provider/model switching, and plan status. `tests.test_coding_workflow` adds a real end-to-end mock-provider coding workflow with a second scripted verification agent; the orchestrator verifier evidence gate has separate deterministic coverage in `tests.test_orchestration`. Integration base `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (run IDs `45737098740` / `45737090789`) with 238 tests on Python 3.10–3.14, `scripts/check.sh`, and clean-checkout install/uninstall; later local changes are not yet CI-verified, fresh CI is required for the exact final pushed SHA, and Actions is authoritative. SQLite connections are now closed; no lint/typecheck command is configured. The package version remains `0.1.0` until an explicit release is confirmed.
 
 The active phase detail is in [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md). Verified history is in [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md). Known gaps are in [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
@@ -122,7 +122,7 @@ Release only when all of the following are true:
 
 ## Hermes-competitive capability tracks
 
-**Phase F coding workflow now has a tested baseline:** bounded persistent repository indexing/search, lexical symbol retrieval, unified-diff preview/application, and an approval-gated fixed-command test runner. Candidate `aebbaef` passed 238 tests in every Python 3.10–3.14 CI job plus clean-checkout installation. This is not a full IDE-grade TDD controller, and the macOS workstation acceptance gate remains separate.
+**Phase F coding workflow now has a tested baseline:** bounded persistent repository indexing/search, lexical symbol retrieval, unified-diff preview/application, and an approval-gated fixed-command test runner. Integration base `fcee9db806fff2788198988fea07703b6a5f0cd1` passed 238 tests in every Python 3.10–3.14 CI job in run #90 plus clean-checkout installation; the current local suite runs 274 tests. Bounded repair loops are a roadmap item, not implemented. This is not a full IDE-grade TDD controller; the macOS workstation gate passed for the CLI Preview checklist, but task-quality and live-provider gates remain open.
 
 Remaining tracks, in priority order:
 

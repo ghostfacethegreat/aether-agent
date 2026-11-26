@@ -33,4 +33,3 @@ jobs:
         run: bash scripts/check.sh
       - name: Verify clean-checkout installation
         run: bash scripts/test_install.sh
-

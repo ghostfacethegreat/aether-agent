@@ -1,13 +1,12 @@
 import inspect
 import json
-import os
 import threading
 import time
 from dataclasses import dataclass, field
 
 from aether.errors import AetherError, ContextOverflow, ProviderError
 from aether.providers.catalog import provider_is_billable, rough_cost
-from aether.utils import estimate_tokens, message_tokens, parse_bool, redact, truncate, utc_now
+from aether.utils import estimate_tokens, message_tokens, paid_confirmation_value, parse_bool, redact, truncate, utc_now
 
 
 def new_usage() -> dict:
@@ -90,7 +89,7 @@ def _options(state: TurnState) -> dict:
 
 
 def _paid_not_confirmed(state: TurnState) -> bool:
-    env = os.environ.get("AETHER_CONFIRM_PAID")
+    env = paid_confirmation_value()
     if env is not None:
         return not parse_bool(env, False)
     raw = state.config.get("costs.confirm_paid")
@@ -451,8 +450,6 @@ def run_turn_loop(state: TurnState) -> TurnState:
                 state.new_messages.append(message)
                 record = execution.as_dict()
                 state.tool_log.append(record)
-                if state.execution_plan is not None and hasattr(state.execution_plan, "apply_tool_result"):
-                    state.execution_plan.apply_tool_result(execution.name, execution.ok, record.get("result") or record.get("error") or "")
             if state.execution_plan is not None and hasattr(state.execution_plan, "summary"):
                 state.status("plan_checkpoint", **state.execution_plan.summary())
             if state.cancel_event.is_set():
