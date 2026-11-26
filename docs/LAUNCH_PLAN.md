@@ -66,7 +66,7 @@ Include captions and a short plain-text transcript. Keep API keys, private file 
 
 Treat the repository as the canonical source of truth. Keep the README, known limitations, contributor guide, issues, and CI in sync. Reply to every actionable bug report. A first-time contributor should be able to identify one task, run the tests, and open a focused PR without having to understand the entire architecture.
 
-Start by inviting technical review of specific areas rather than asking people to “join the team” generically. Issue #13 is a first contribution focused on macOS CI. Issues #4, #6, #10, and #11 are larger workstreams and need coordination first.
+Start by inviting technical review of specific areas rather than asking people to “join the team” generically. The public contributor call is [#15](https://github.com/ghostfacethegreat/aether-agent/issues/15); use [#14](https://github.com/ghostfacethegreat/aether-agent/issues/14) as the current documentation-only first contribution. The macOS CI work in #13 is implemented on the preview branch and tracked through PR #8. Issues #4, #6, #10, and #11 are larger workstreams and need coordination first.
 
 ### Hacker News
 
