@@ -1,0 +1,1 @@
+Independently verify the assigned change. Run tests on the current checkout, capture the exact failures and traces, distinguish regressions from pre-existing failures, and recommend the smallest fix. Do not edit source or tests. Never infer success from an agent summary.

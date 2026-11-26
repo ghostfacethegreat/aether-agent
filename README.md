@@ -21,6 +21,23 @@ The design goal is straightforward: **an agent you can inspect, configure, and i
 
 [🚀 Try the CLI](#-quick-start) · [🧠 Architecture](docs/ARCHITECTURE.md) · [🗺️ Roadmap](docs/RELEASE_ROADMAP.md) · [🤝 Contribute](CONTRIBUTING.md) · [🐛 Report a bug](https://github.com/ghostfacethegreat/aether-agent/issues/new/choose)
 
+## 🧾 VentureOps business ledger (early preview)
+
+The `aether venture` commands provide a local, offline ledger for leads, offers, clients, quotes, projects, deliverables, invoices, receipts, and expenses. They do not send messages or move money.
+
+```bash
+aether venture add lead "Example studio" --status qualified --details-json '{"source_url":"https://example.com"}'
+aether venture add quote "Five clip pilot" --status sent --amount-cents 15000
+aether venture list --kind lead
+aether venture brief
+```
+
+See [the VentureOps operating plan](docs/VENTUREOPS_AGENT_PLATFORM.md) for recordkeeping, agent roles, approval boundaries, and current limitations. This is an early local ledger, not a CRM or a guarantee of income.
+
+## 🤖 Free development team
+
+AETHER includes an OpenCode lead agent plus architect, implementer, QA, and reviewer subagents. Start with [the free agent-team guide](docs/FREE_AGENT_TEAM.md) for setup, permission boundaries, free/local model options, and a local soft-voice path.
+
 ## 🧭 Why AETHER is worth evaluating
 
 | Design priority | What it means in practice |

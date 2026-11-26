@@ -22,6 +22,7 @@ from aether.persistence import Store
 from aether.providers.catalog import PROVIDERS, provider_is_billable
 from aether.routing import classify_task
 from aether.tasks import Scheduler
+from aether.ventures import KINDS, STATUSES, VentureLedger
 from aether.utils import confirm_paid_override, parse_bool, read_json, redact, redact_mapping, truncate, atomic_json_write
 
 from . import render
@@ -267,6 +268,37 @@ def build_parser():
     tasks_resume = tasks.add_parser("resume")
     tasks_resume.add_argument("id")
     tasks_resume.set_defaults(func=cmd_tasks)
+
+    p_venture = sub.add_parser("venture", help="Manage the local VentureOps business ledger")
+    venture = p_venture.add_subparsers(dest="action", required=True)
+    venture_add = venture.add_parser("add", help="Add a lead, offer, client, project, quote, or money record")
+    venture_add.add_argument("kind", choices=KINDS)
+    venture_add.add_argument("name")
+    venture_add.add_argument("--status", choices=STATUSES, default="open")
+    venture_add.add_argument("--amount-cents", type=int)
+    venture_add.add_argument("--currency", default="USD")
+    venture_add.add_argument("--details-json", default="{}", help="JSON object with non-sensitive record details")
+    venture_add.set_defaults(func=cmd_venture)
+    venture_list = venture.add_parser("list", help="List local business records")
+    venture_list.add_argument("--kind", choices=KINDS)
+    venture_list.add_argument("--status", choices=STATUSES)
+    venture_list.set_defaults(func=cmd_venture)
+    venture_show = venture.add_parser("show", help="Show a record and its details")
+    venture_show.add_argument("id")
+    venture_show.set_defaults(func=cmd_venture)
+    venture_update = venture.add_parser("update", help="Update a record; this does not contact anyone")
+    venture_update.add_argument("id")
+    venture_update.add_argument("--status", choices=STATUSES)
+    venture_update.add_argument("--name")
+    venture_update.add_argument("--amount-cents", type=int)
+    venture_update.add_argument("--clear-amount", action="store_true")
+    venture_update.add_argument("--details-json", help="Replace details with a JSON object")
+    venture_update.set_defaults(func=cmd_venture)
+    venture_events = venture.add_parser("events", help="Show the local audit trail for a record")
+    venture_events.add_argument("id")
+    venture_events.set_defaults(func=cmd_venture)
+    venture_brief = venture.add_parser("brief", help="Summarize pipeline, booked, invoiced, received, and expense records")
+    venture_brief.set_defaults(func=cmd_venture)
 
     p_plan = sub.add_parser("plan", help="Inspect or resume adaptive execution plans")
     plan = p_plan.add_subparsers(dest="action", required=True)
@@ -1271,6 +1303,100 @@ def cmd_learning(args, config, home):
         return 0
     rows = engine.metrics(args.skill)
     print(json.dumps(rows, indent=2, ensure_ascii=False) if rows else "(no tracked skills)")
+    return 0
+
+
+def cmd_venture(args, config, home):
+    ledger = VentureLedger(Store(home / "state.db"))
+
+    def parse_details(raw):
+        try:
+            value = json.loads(raw or "{}")
+        except ValueError as exc:
+            raise ValueError("--details-json must contain valid JSON") from exc
+        if not isinstance(value, dict):
+            raise ValueError("--details-json must contain a JSON object")
+        return value
+
+    def money(cents, currency="USD"):
+        if cents is None:
+            return "-"
+        return f"${int(cents) / 100:,.2f}" if currency == "USD" else f"{currency} {int(cents) / 100:,.2f}"
+
+    if args.action == "add":
+        item = ledger.create(
+            args.kind,
+            args.name,
+            status=args.status,
+            amount_cents=args.amount_cents,
+            currency=args.currency,
+            details=parse_details(args.details_json),
+        )
+        print(render.success_line(f"saved {item['kind']} {item['id']}"))
+        return 0
+    if args.action == "list":
+        items = ledger.list(kind=args.kind, status=args.status)
+        rows = [
+            (
+                item["id"],
+                item["kind"],
+                truncate(item["name"], 36),
+                item["status"],
+                money(item["amount_cents"], item["currency"]),
+                item["updated_at"],
+            )
+            for item in items
+        ]
+        print(render.table(["ID", "Kind", "Name", "Status", "Amount", "Updated"], rows) if rows else "(no business records)")
+        return 0
+    if args.action == "show":
+        item = ledger.get(args.id)
+        if item is None:
+            print(render.error_line(f"record '{args.id}' not found"))
+            return 1
+        print(json.dumps(item, indent=2, ensure_ascii=False))
+        return 0
+    if args.action == "update":
+        if args.clear_amount and args.amount_cents is not None:
+            raise ValueError("use either --amount-cents or --clear-amount, not both")
+        details = parse_details(args.details_json) if args.details_json is not None else None
+        item = ledger.update(
+            args.id,
+            status=args.status,
+            name=args.name,
+            amount_cents=args.amount_cents,
+            set_amount=args.amount_cents is not None or args.clear_amount,
+            details=details,
+        )
+        if item is None:
+            print(render.error_line(f"record '{args.id}' not found"))
+            return 1
+        print(render.success_line(f"updated {item['id']}"))
+        return 0
+    if args.action == "events":
+        events = ledger.events(args.id)
+        if not events:
+            print("(no audit events)")
+            return 0
+        print(render.table(
+            ["When", "Action", "Payload"],
+            [(row["created_at"], row["action"], truncate(json.dumps(row["payload"], ensure_ascii=False), 120)) for row in events],
+        ))
+        return 0
+
+    brief = ledger.brief()
+    rows = [
+        ("Records", str(brief["record_count"])),
+        ("Open leads", str(brief["open_leads"])),
+        ("Active projects", str(brief["active_projects"])),
+        ("Pipeline (draft/sent quotes)", money(brief["pipeline_cents"])),
+        ("Booked (accepted quotes)", money(brief["booked_cents"])),
+        ("Invoiced", money(brief["invoiced_cents"])),
+        ("Received (recorded receipts)", money(brief["received_cents"])),
+        ("Expenses (recorded)", money(brief["expense_cents"])),
+    ]
+    print(render.table(["Metric", "Value"], rows))
+    print(render.paint("Amounts are owner-entered records, not verified bank balances or payment activity.", "dim"))
     return 0
 
 
