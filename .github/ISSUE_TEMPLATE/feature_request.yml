@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose a focused improvement to AETHER
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: "Describe the user problem first. Large features should be discussed before implementation begins."
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Who is affected, and what are they unable to do today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful version of the improvement.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and trade-offs
+      description: Include simpler alternatives, compatibility concerns, and any known workarounds.
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Local-first, safety, and cost considerations
+      description: Would this add a hosted dependency, paid API, new permission, or new data collection?
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and the roadmap.
+          required: true
+        - label: I understand this is an alpha project and the request may be deferred.
+          required: true
