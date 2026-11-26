@@ -153,6 +153,52 @@ class ToolTests(TempHomeTest):
         self.assertFalse(execution.ok)
         self.assertIn("denied", execution.error)
 
+    def test_persistent_mutations_require_approval_even_when_config_omits_tool_list(self):
+        config = self.config(tool_permissions={"require_approval": []})
+        policy = PermissionPolicy(config, workspace=self.workspace)
+        cases = [
+            ("patch_apply", {"patch": "diff"}),
+            ("memory", {"action": "add", "text": "remember this"}),
+            ("memory", {"action": "replace", "text": "updated"}),
+            ("memory", {"action": "delete"}),
+            ("memory", {"action": "import", "data": {}}),
+            ("memory", {"action": "layer", "layer_action": "add", "content": "fact"}),
+            ("memory", {"action": "layer", "layer_action": "correct", "content": "fact"}),
+            ("memory", {"action": "layer", "layer_action": "delete", "item_id": "x"}),
+            ("memory", {"action": "layer", "layer_action": "clear"}),
+            ("memory", {"action": "layer", "layer_action": "consolidate"}),
+            ("memory", {"action": "layer", "layer_action": "prune"}),
+            ("memory", {"action": "layer", "layer_action": "migrate"}),
+            ("memory", {"action": "layer", "layer_action": "import", "data": {}}),
+            ("skill", {"action": "create", "name": "sample"}),
+            ("skill", {"action": "edit", "name": "sample"}),
+            ("scheduler", {"action": "add", "prompt": "run"}),
+            ("scheduler", {"action": "remove", "id": "job"}),
+        ]
+        for name, arguments in cases:
+            with self.subTest(tool=name, arguments=arguments):
+                decision = policy.check(name, arguments, risk="write")
+                self.assertTrue(decision.allowed)
+                self.assertTrue(decision.needs_approval)
+                self.assertIn("persistent", decision.reason)
+
+    def test_persistent_mutation_approval_does_not_block_read_actions(self):
+        config = self.config(tool_permissions={"require_approval": []})
+        policy = PermissionPolicy(config, workspace=self.workspace)
+        cases = [
+            ("memory", {"action": "list"}),
+            ("memory", {"action": "layer", "layer_action": "recall"}),
+            ("skill", {"action": "view", "name": "sample"}),
+            ("skill", {"action": "list"}),
+            ("scheduler", {"action": "list"}),
+            ("patch_preview", {"patch": "diff"}),
+        ]
+        for name, arguments in cases:
+            with self.subTest(tool=name, arguments=arguments):
+                decision = policy.check(name, arguments, risk="read")
+                self.assertTrue(decision.allowed)
+                self.assertFalse(decision.needs_approval)
+
 
 if __name__ == "__main__":
     unittest.main()
