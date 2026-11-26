@@ -101,6 +101,7 @@ Read the [development status](docs/DEVELOPMENT_STATUS.md), [workstation acceptan
 | [Configuration](docs/CONFIGURATION.md) | Model settings, permissions, memory, scheduling, and orchestration |
 | [Model routing](docs/MODEL_ROUTING.md) | Candidate selection, capability evidence, diagnostics, and limitations |
 | [Agent workstreams](docs/AGENT_WORKSTREAMS.md) | Scoped development areas and parallel-agent guidance |
+| [Launch plan](docs/LAUNCH_PLAN.md) | Positioning, demo checklist, channel strategy, and contributor growth |
 | [Release roadmap](docs/RELEASE_ROADMAP.md) | Milestones and release gates |
 | [Known limitations](docs/KNOWN_LIMITATIONS.md) | Current gaps, safety assumptions, and unverified behavior |
 | [Benchmarks](benchmarks/README.md) | How task-quality comparisons will be run and reported |
