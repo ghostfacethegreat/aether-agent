@@ -8,13 +8,13 @@ This is the resume log for the intelligence-first `Aether 0.2+` program. It reco
 |---|---|
 | Date | 2026-11-25 |
 | Active branch | `feat/aether-parity-foundation` |
-| Integration base | PR #8 head `8f15419c4810f8e87c0992dc43ad2521754f4027` |
-| Upstream tracking | `origin/feat/aether-parity-foundation` at the same commit before this checkpoint |
+| Integration base | `main` at `01ee003795787cc392f033edffbb98fcb3dd8b35` |
+| Upstream tracking | `origin/feat/aether-parity-foundation` contains the verified candidate `aebbaef27ede626b2b7c2d057d21f16b49bfa428` |
 | Remote | `https://github.com/ghostfacethegreat/aether-agent.git` |
 | Tags | none |
 | Worktree at start of this checkpoint | clean |
-| Pushed commits from this checkpoint | none |
-| CI evidence | PR #8 head `8f15419` passed Python 3.10–3.14 checks in run `45701971906`; later commits require a fresh run |
+| Pushed commits from this checkpoint | `bb18a8e`, `7efcd0e`, `cef86c1`, `e2f6cb6`, `aebbaef` |
+| CI evidence | Candidate `aebbaef` passed GitHub Actions run `45736577255`: all five Python 3.10–3.14 jobs, 238 tests per job, `scripts/check.sh`, and clean-checkout install/uninstall |
 | Phase B verification | 121 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
 | Phase B checkpoint | `9aef0fb873f6e54bc78f7b587e3fe8709dc07c55` |
 | Phase C verification | 132 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
@@ -26,10 +26,10 @@ This is the resume log for the intelligence-first `Aether 0.2+` program. It reco
 | Phase E status | implemented on this feature branch; implementation is committed separately from documentation; not released |
 | Phase F focused verification | 28 tests passed in repository and persistence index tests |
 | Phase F full verification | 233 tests passed; see [RELEASE_CHECKS.md](RELEASE_CHECKS.md) |
-| Phase F status | persistent incremental index implemented and committed at `bf66d6c2098d228f7916db8d6d30caaff959d2b2` on this branch; that commit is unpushed and awaiting fresh CI; not released |
-| Phase F checkpoint | `bf66d6c2098d228f7916db8d6d30caaff959d2b2` (unpushed; PR #8 head remains `8f15419`) |
+| Phase F status | persistent incremental index and lexical symbols are committed and pushed on this branch; current branch CI is green; full IDE-grade TDD remains incomplete and unreleased |
+| Phase F checkpoint | `bf66d6c2098d228f7916db8d6d30caaff959d2b2` (historical implementation checkpoint; included in PR #8) |
 
-The unpushed commits from this program are deliberately preserved. Do not reset, discard, force-push, push, merge, tag, or release until the release gates in [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) pass.
+The feature-branch commits are pushed and preserved. Do not reset, discard, or force-push. Keep PR #8 in draft and do not merge, tag, or release until the workstation and release gates in [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) pass.
 
 ## Completed work
 
@@ -152,7 +152,7 @@ Record these items before marking any phase complete:
 
 - Branch: `feat/aether-parity-foundation`.
 - Draft PR: [#8](https://github.com/ghostfacethegreat/aether-agent/pull/8); open, not merged.
-- CI: PR #8 head `8f15419` passed the Python 3.10–3.14 matrix and clean-install checks in run `45701971906`; local commit `bf66d6c` has no CI result yet. Each new commit must be checked independently.
+- CI: candidate `aebbaef` passed Python 3.10–3.14 in run `45736577255`, with 238 tests, project checks, and clean install/uninstall in every matrix job. Documentation-only commits after this code candidate still require a fresh CI run.
 - Main branch: unchanged by this development work.
 - Release/tag: none created; package version remains `0.1.0`.
 - No task-quality benchmark or Hermes parity/superiority claim is supported.
