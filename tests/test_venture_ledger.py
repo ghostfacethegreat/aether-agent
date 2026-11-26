@@ -34,6 +34,7 @@ class VentureLedgerTests(TempHomeTest):
         self.ledger.create("quote", "Accepted quote", status="accepted", amount_cents=40_000)
         self.ledger.create("invoice", "Invoice 001", status="invoiced", amount_cents=40_000)
         self.ledger.create("receipt", "Cash receipt 001", status="paid", amount_cents=40_000)
+        self.ledger.create("unpaid receipt", "Pending payment note", status="open", amount_cents=9_000)
         self.ledger.create("expense", "Storage expense", status="paid", amount_cents=2_000)
 
         brief = self.ledger.brief()
@@ -54,6 +55,8 @@ class VentureLedgerTests(TempHomeTest):
             self.ledger.create("lead", "Bad amount", amount_cents=-1)
         with self.assertRaises(ValueError):
             self.ledger.create("employee", "Unknown kind")
+        with self.assertRaises(ValueError):
+            self.ledger.create("receipt", "Mixed currency", currency="EUR", amount_cents=100)
 
     def test_records_persist_after_store_reopen(self):
         record = self.ledger.create("project", "Five clip pilot", status="active")
