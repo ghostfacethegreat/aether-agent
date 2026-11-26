@@ -1321,7 +1321,7 @@ def cmd_venture(args, config, home):
     def money(cents, currency="USD"):
         if cents is None:
             return "-"
-        return f"{currency} {int(cents) / 100:,.2f}"
+        return f"${int(cents) / 100:,.2f}" if currency == "USD" else f"{currency} {int(cents) / 100:,.2f}"
 
     if args.action == "add":
         item = ledger.create(
