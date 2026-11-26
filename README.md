@@ -80,7 +80,7 @@ These are documented capabilities of the preview candidate, not a claim that eve
 
 > **Stage: Alpha / CLI Preview candidate.** PR #8 is still draft and unmerged. No tagged release or binary installer is being advertised.
 
-The latest documentation, contributor-onboarding, and launch-plan head is [commit 4447b4b](https://github.com/ghostfacethegreat/aether-agent/commit/4447b4b872f4a184853d5219f215091a6e2b5bb9); both exact-head [push CI #116](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45895191550) and [PR CI #117](https://github.com/ghostfacethegreat/aether-agent/actions/runs/45895195225) passed on that SHA.
+The contributor onboarding and marketing guidance live in [CONTRIBUTOR_ONRAMP.md](docs/CONTRIBUTOR_ONRAMP.md) and [LAUNCH_PLAN.md](docs/LAUNCH_PLAN.md). Current-head checks are available on the [GitHub Actions page](https://github.com/ghostfacethegreat/aether-agent/actions).
 
 **What this evidence does and does not show:**
 
