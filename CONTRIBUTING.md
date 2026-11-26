@@ -1,17 +1,18 @@
-# Contributing to AETHER
+# 🤝 Contributing to AETHER
 
 Thanks for considering a contribution. AETHER is an independent, local-first agent project, and the most useful contributions make it more reliable, understandable, secure, and easier for someone else to use.
 
-## Before you start
+## 🧭 Before you start
 
 1. Read the [README](README.md), [known limitations](docs/KNOWN_LIMITATIONS.md), and [architecture guide](docs/ARCHITECTURE.md).
-2. Search [open issues](https://github.com/ghostfacethegreat/aether-agent/issues) for related work.
-3. For a substantial change, comment on an existing issue or open a discussion issue before writing a large patch. Agree on scope and acceptance criteria first.
-4. For a first contribution, browse issues labelled [good first issue](https://github.com/ghostfacethegreat/aether-agent/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) or [help wanted](https://github.com/ghostfacethegreat/aether-agent/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22).
+2. Say hello in the [AETHER contributor call](https://github.com/ghostfacethegreat/aether-agent/issues/15) if you are interested in the next development phase.
+3. Search [open issues](https://github.com/ghostfacethegreat/aether-agent/issues) for related work.
+4. For a substantial change, comment on an existing issue or open a discussion issue before writing a large patch. Agree on scope and acceptance criteria first.
+5. For a first contribution, browse issues labelled [good first issue](https://github.com/ghostfacethegreat/aether-agent/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) or [help wanted](https://github.com/ghostfacethegreat/aether-agent/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22).
 
 Please do not start a large parity, persistence, provider, or permission refactor without coordinating with the maintainer. Some workstreams share core files and SQLite schemas.
 
-## Development setup
+## 💻 Development setup
 
 AETHER targets Python 3.10+ and uses the Python standard library at runtime.
 
@@ -30,7 +31,7 @@ Use the mock provider for tests and examples. It does not make network requests 
 aether --provider mock run "Say hello"
 ```
 
-## Verification before a pull request
+## 🧪 Verification before a pull request
 
 Run the checks relevant to your change. For runtime or tooling changes, run the full set:
 
@@ -46,7 +47,7 @@ GitHub Actions checks Linux on Python 3.10–3.14 and macOS 15 ARM64 on Python 3
 
 In your PR, include the exact commands run and their outcomes. Do not say tests pass unless you ran them on the commit being submitted. If a platform-specific check was not run, say so.
 
-## Project design principles
+## 🧩 Project design principles
 
 - **Local-first:** ordinary CLI use must not require a hosted service or paid account.
 - **Provider-agnostic:** provider-specific behavior belongs behind the existing provider interfaces.
@@ -57,7 +58,7 @@ In your PR, include the exact commands run and their outcomes. Do not say tests 
 - **Backward-compatible state:** treat SQLite migrations, Markdown memory, and user data as compatibility-sensitive.
 - **Honest documentation:** distinguish implemented, partial, planned, and unverified behavior.
 
-## Code map
+## 🗺️ Code map
 
 - `aether/core/`: agent loop, context, state, and planning.
 - `aether/providers/`: provider catalog and transports.
@@ -71,7 +72,7 @@ In your PR, include the exact commands run and their outcomes. Do not say tests 
 - `tests/`: deterministic unit and integration coverage.
 - `docs/` and `benchmarks/`: design records, limitations, release checks, and evaluation protocol.
 
-## Pull request expectations
+## 📬 Pull request expectations
 
 A good PR should:
 
@@ -84,12 +85,12 @@ A good PR should:
 
 Use short, imperative commit subjects such as `routing: explain rejected model candidates` or `tests: cover scheduler cancellation`.
 
-## Security and responsible disclosure
+## 🔒 Security and responsible disclosure
 
 Never commit API keys, access tokens, cookies, `.env` files, real session logs, local databases, or private user data. Redact secrets from diagnostic output before sharing it.
 
 Do not report a vulnerability in a public issue. Follow [SECURITY.md](SECURITY.md) for private reporting guidance.
 
-## Community expectations
+## 🌱 Community expectations
 
-Be respectful and constructive. Explain technical disagreements with evidence, review work on its merits, and make space for first-time contributors. See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+Be respectful and constructive. Explain technical disagreements with evidence, review work on its merits, and make space for first-time contributors. There is no minimum contribution commitment; a small, high-quality improvement is welcome. See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
