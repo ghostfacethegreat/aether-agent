@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Any
+from typing import Any, List
 
 from aether.persistence import Store
 from aether.utils import make_id, utc_now
@@ -280,7 +280,7 @@ class VentureLedger:
             self._event(db, str(record_id), "updated", changes)
         return self.get(record_id)
 
-    def events(self, record_id: str, limit: int = 100) -> list[dict]:
+    def events(self, record_id: str, limit: int = 100) -> List[dict]:
         if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1 or limit > 500:
             raise ValueError("limit must be between 1 and 500")
         with self.store.connection() as db:
