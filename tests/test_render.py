@@ -1,3 +1,4 @@
+import re
 import unittest
 from unittest.mock import patch
 
@@ -53,8 +54,10 @@ class RenderTests(unittest.TestCase):
         with patch.object(render, "terminal_width", return_value=40):
             output = render.banner("0.1.0")
         self.assertIn("AETHER", output)
+        # ANSI SGR color sequences do not occupy visible terminal columns.
         for line in output.splitlines():
-            self.assertLessEqual(len(line), 40)
+            visible = re.sub(r"\x1b\[[0-9;]*m", "", line)
+            self.assertLessEqual(len(visible), 40)
 
     def test_response_labels_can_be_disabled(self):
         render.configure({"show_response_labels": False})
