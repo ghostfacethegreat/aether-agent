@@ -98,6 +98,28 @@ Where the owner has no identity document, card, or bank account, do not invent a
 
 AETHER should not claim that it can create stable income. It should help the owner test offers, measure real conversion and delivery time, control costs, and repeat only what customers actually buy.
 
+## Current implementation status
+
+The initial VentureOps runtime slice is now included in this draft PR:
+
+- `aether.ventures.VentureLedger` stores records in AETHER's existing `state.db` SQLite file; it does not create a separate database.
+- Supported record kinds: leads, offers, clients, quotes, projects, deliverables, invoices, receipts, and expenses.
+- Records have IDs, statuses, optional USD amounts in integer cents, JSON details, timestamps, and a local audit-event trail.
+- The `aether venture` CLI supports `add`, `list`, `show`, `update`, `events`, and `brief`.
+- The brief reports pipeline, accepted quotes, invoiced amounts, paid receipts, and paid expenses as separate categories. It is based only on owner-entered records, not a bank feed or payment verification.
+- Obvious credential and identity-document field names are rejected; the MVP only accepts USD to avoid misleading totals across currencies.
+
+The current draft adds deterministic ledger and CLI tests. The specialist agents do not yet autonomously research leads, send outreach, build websites, or process customer payments. Those are later phases and any consequential external action remains owner-approved.
+
+Example:
+
+```bash
+aether venture add lead "Example studio" --status qualified --details-json '{"source_url":"https://example.com"}'
+aether venture add quote "Five clip pilot" --status sent --amount-cents 15000
+aether venture list --kind lead
+aether venture brief
+```
+
 ## MVP implementation phases
 
 ### MVP 1 — owner ledger and CLI
