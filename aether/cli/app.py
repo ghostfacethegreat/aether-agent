@@ -1357,6 +1357,8 @@ def cmd_venture(args, config, home):
         print(json.dumps(item, indent=2, ensure_ascii=False))
         return 0
     if args.action == "update":
+        if args.clear_amount and args.amount_cents is not None:
+            raise ValueError("use either --amount-cents or --clear-amount, not both")
         details = parse_details(args.details_json) if args.details_json is not None else None
         item = ledger.update(
             args.id,
