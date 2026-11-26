@@ -42,7 +42,7 @@ bash scripts/test_install.sh
 git diff --check
 ```
 
-The GitHub Actions workflow tests Python 3.10–3.14. CI must not require paid API keys, live model calls, or external services. Live provider tests must be opt-in and clearly separated from deterministic tests.
+GitHub Actions checks Linux on Python 3.10–3.14 and macOS 15 ARM64 on Python 3.12 and 3.14. Both platforms run the deterministic project checks and clean-checkout install test. CI must not require paid API keys, live model calls, or external services. Live provider tests must be opt-in and clearly separated from deterministic tests. The macOS CI job is a hosted compatibility check, not a substitute for testing on every supported macOS version or on a contributor's own hardware.
 
 In your PR, include the exact commands run and their outcomes. Do not say tests pass unless you ran them on the commit being submitted. If a platform-specific check was not run, say so.
 
