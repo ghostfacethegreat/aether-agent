@@ -116,6 +116,25 @@ class PermissionPolicy:
                 return decision
         return PermissionDecision(True)
 
+    @staticmethod
+    def _mutation_approval_reason(tool: str, args: dict) -> str:
+        """Require human approval for persistent writes, independent of config overrides."""
+        action = str(args.get("action") or "").strip().lower()
+        if tool == "patch_apply":
+            return "Applying a repository patch changes workspace files"
+        if tool == "memory":
+            if action in {"add", "replace", "delete", "import"}:
+                return f"Memory action '{action}' changes persistent memory"
+            if action == "layer":
+                operation = str(args.get("layer_action") or args.get("operation") or "list").strip().lower()
+                if operation in {"add", "correct", "delete", "clear", "consolidate", "prune", "migrate", "import"}:
+                    return f"Layered-memory action '{operation}' changes persistent memory"
+        if tool == "skill" and action in {"create", "edit"}:
+            return f"Skill action '{action}' changes persistent skills"
+        if tool == "scheduler" and action in {"add", "remove"}:
+            return f"Scheduler action '{action}' changes persistent scheduled jobs"
+        return ""
+
     def check(self, tool: str, args: dict, risk: str = "low") -> PermissionDecision:
         denied = set(self.config.get("tool_permissions.deny_tools", []) or [])
         allowed_raw = self.config.get("tool_permissions.allow_tools", None)
@@ -126,6 +145,9 @@ class PermissionPolicy:
             return PermissionDecision(False, f"Tool '{tool}' is not in the configured allow list", False, _args_key(tool, args), risk)
 
         key = _args_key(tool, args)
+        mutation_reason = self._mutation_approval_reason(tool, args)
+        if mutation_reason:
+            return PermissionDecision(True, mutation_reason, True, key, "write")
         if risk == "destructive" or (tool == "terminal" and self.is_destructive(args.get("command", ""))):
             if self.mode == "strict" and not parse_bool(self.config.get("tool_permissions.allow_destructive"), False):
                 return PermissionDecision(False, "Destructive operation denied by strict mode", False, key, "destructive")
