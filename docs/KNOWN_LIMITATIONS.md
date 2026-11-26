@@ -6,8 +6,9 @@ This document records what Aether does not yet prove or does not yet do. It is i
 
 - Version `0.1.0` is the current published alpha baseline.
 - No `0.2.0` release, tag, merge, or publication has been completed; the package version remains `0.1.0`.
-- Phases B–F have implementation baselines on `feat/aether-parity-foundation`; the latest verified CI checkpoint passed the Python 3.10–3.14 matrix, including unit/check and clean-install gates. The branch is in a draft PR and has not been merged or released.
+- Phases B–F have implementation baselines on `feat/aether-parity-foundation`; candidate `aebbaef` passed CI run `45736577255` across Python 3.10–3.14, with 238 tests, `scripts/check.sh`, and clean-checkout install/uninstall passing in every matrix job. PR #8 remains draft and is not merged or released.
 - There are no release tags in the repository at this checkpoint.
+- The GitHub CI result is Linux-based. macOS/Apple Silicon workstation acceptance, live provider checks, end-to-end mock-provider coding, and comparative task-quality benchmarks are still separate gates.
 - GitHub Actions CI is configured for Python 3.10–3.14. A green run applies only to its recorded commit; later commits require a fresh run.
 - Push, PR, merge, tag, and release status must be confirmed before being claimed.
 
