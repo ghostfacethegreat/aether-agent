@@ -1,42 +1,39 @@
-# 🌌 AETHER
+<div align="center">
 
-<p align="center">
-  <img src="assets/banner.svg" alt="AETHER — local-first AI agent" width="100%" />
-</p>
+<img src="assets/banner.svg" alt="AETHER — local-first AI agent" width="100%" />
 
-<p align="center">
-  <strong>A local-first AI agent for developers who want control, visibility, and room to extend.</strong>
-</p>
+# AETHER
 
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
-  <a href="pyproject.toml"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB.svg" alt="Python 3.10 and later"></a>
-  <a href="docs/DEVELOPMENT_STATUS.md"><img src="https://img.shields.io/badge/status-alpha-orange.svg" alt="Alpha"></a>
+### A local-first AI agent built around visible state, provider choice, and deliberate control.
+
+<p>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT license"></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat-square&logo=python&logoColor=white" alt="Python 3.10 or newer"></a>
+  <a href="docs/DEVELOPMENT_STATUS.md"><img src="https://img.shields.io/badge/status-alpha-f59e0b?style=flat-square" alt="Alpha status"></a>
   <a href="https://github.com/ghostfacethegreat/aether-agent/actions/workflows/ci.yml"><img src="https://github.com/ghostfacethegreat/aether-agent/actions/workflows/ci.yml/badge.svg?branch=feat%2Faether-parity-foundation" alt="AETHER CI"></a>
 </p>
 
-AETHER is an independent, provider-agnostic agent that runs from your terminal. It connects local or hosted language models to persistent memory, reusable skills, guarded tools, project-aware coding workflows, and specialist agents.
+[Quick start](#-quick-start) · [Architecture](#-how-it-fits-together) · [Capabilities](#-what-aether-does) · [Documentation](#-documentation) · [Contributing](#-build-with-us)
 
-The design goal is straightforward: **an agent you can inspect, configure, and improve**—not a black box that quietly assumes permission. AETHER keeps its runtime lightweight, its state local by default, and its boundaries visible.
+</div>
 
-[🚀 Try the CLI](#-quick-start) · [🧠 Architecture](docs/ARCHITECTURE.md) · [🗺️ Roadmap](docs/RELEASE_ROADMAP.md) · [🤝 Contribute](CONTRIBUTING.md) · [🐛 Report a bug](https://github.com/ghostfacethegreat/aether-agent/issues/new/choose)
+---
 
-## 🧭 Why AETHER is worth evaluating
+**AETHER connects the models you choose to persistent memory, reusable skills, specialist agents, and reviewable tools.** It runs as a Python CLI, keeps its working state local by default, and makes consequential actions visible before they happen.
 
-| Design priority | What it means in practice |
-| --- | --- |
-| **🧩 Bring your own model** | Use local Ollama, LM Studio, or llama.cpp endpoints, or configure hosted providers. Provider choice and billable usage remain visible. |
-| **🗃️ Keep your state** | Sessions and task records live in local SQLite; memory and skills remain inspectable and editable. |
-| **👥 Delegate with boundaries** | Specialist agents can work from dependency plans, share bounded budgets, inherit permissions, and be cancelled or resumed. |
-| **🛠️ Make coding work reviewable** | Search a repository, inspect a patch before applying it, require approval for writes, and run a bounded test command. |
-| **✅ Verify instead of guessing** | A separate verifier needs successful test/check evidence; a model saying “done” is not sufficient. |
-| **⚡ Stay lightweight** | Python 3.10+ and no third-party runtime dependencies. External providers and optional integrations are not required for the mock demo. |
+It is an independent project inspired by public agent research. It is not an official Hermes Agent build, fork, or affiliated project.
 
-AETHER is designed for developers who value local-first workflows, provider flexibility, readable state, and explicit approval boundaries. It is an independent project—not an official Hermes Agent build or fork.
+## ✦ The AETHER approach
+
+| Local-first by default | Provider-agnostic | Control you can inspect |
+| --- | --- | --- |
+| SQLite sessions and task records, plus editable Markdown memory and skills. | Local inference or supported hosted APIs, with provider choice and cost class visible. | Approval-gated writes, bounded tools, explicit permissions, and verification evidence. |
+
+AETHER is intentionally lightweight: **Python 3.10+ with no third-party runtime dependencies**. The built-in mock provider makes it possible to run deterministic demos and tests without an API key or network request. It is a test/demo provider, not a language model.
 
 ## 🚀 Quick start
 
-The current CLI Preview candidate is on the `feat/aether-parity-foundation` branch and is still under review in [PR #8](https://github.com/ghostfacethegreat/aether-agent/pull/8). The repository's default branch remains the earlier `0.1.0` alpha baseline until that work is merged.
+The current CLI Preview candidate is available on `feat/aether-parity-foundation` and is under review in [draft PR #8](https://github.com/ghostfacethegreat/aether-agent/pull/8). The default branch remains the earlier `0.1.0` alpha baseline until that work is reviewed and merged.
 
 ```bash
 git clone https://github.com/ghostfacethegreat/aether-agent.git
@@ -45,93 +42,126 @@ git checkout feat/aether-parity-foundation
 python3 -m pip install -e .
 ```
 
-Try the built-in mock provider first. It runs in-process and does not need an API key or network access:
+### First run: no key, no network
 
 ```bash
 aether --provider mock run "Say hello"
 ```
 
-For a real local model, install and start [Ollama](https://ollama.com/), then run:
+Example output from a real local terminal capture:
+
+```text
+Aether mock provider is active. No network request was made.
+Use /provider ollama (or another configured provider) for real inference.
+```
+
+### Run a local model
+
+Install and start [Ollama](https://ollama.com/), then:
 
 ```bash
 ollama pull llama3.2:3b
 aether --provider ollama --model llama3.2:3b run "Explain this repository"
 ```
 
-Start the interactive terminal:
+Launch the interactive terminal with:
 
 ```bash
 aether
 ```
 
-The mock provider is for deterministic testing and demos; it is not a language model. See [provider configuration](docs/PROVIDERS.md) and [the configuration guide](docs/CONFIGURATION.md) for the full setup.
+Inside chat, type `/help` to discover commands. The mock provider is useful for smoke tests; use a configured local or hosted model for real inference.
 
-## 🧠 What is in the current candidate
+## 🧭 What AETHER does
 
-- **🤖 Agent runtime:** provider abstraction, context budgeting, streaming, session history, plans, checkpoints, and recovery paths.
-- **🧠 Memory and skills:** editable Markdown memory, layered SQLite-backed recall, reusable `SKILL.md` procedures, evidence-labelled learning proposals, review, versioning, and rollback.
-- **🎛️ Model routing:** inspectable provider/model selection using configured candidates, capability metadata, cost class, context limits, and local provider health.
-- **👥 Specialist teams:** dependency-aware planning, researcher/developer/debugger/tester/security/verifier/reviewer roles, bounded parallel execution, cancellation, and persisted run state.
-- **🛠️ Repository workflow:** bounded, ignore-aware indexing; lexical declaration search across Python, JavaScript/TypeScript, Lua, Go, and Rust; patch preview; approval-gated edits to existing UTF-8 files; and a bounded test runner.
-- **🔐 Safety controls:** explicit tool permissions, approval prompts, path checks, URL restrictions, secret redaction, timeouts, and parent/child permission and budget boundaries.
+| Capability | What is included |
+| --- | --- |
+| **Agent runtime** | Provider adapters, context budgeting, streaming, session history, plans, checkpoints, and recovery paths. |
+| **Memory and skills** | Editable Markdown memory, SQLite-backed recall layers, reusable `SKILL.md` procedures, evidence-labelled learning proposals, review, versioning, and rollback. |
+| **Model routing** | Inspectable provider/model selection using configured candidates, capability metadata, cost class, context limits, and local health records. |
+| **Specialist teams** | Dependency-aware planning, bounded parallel execution, structured results, persisted run state, cancellation, and resume. |
+| **Coding workflow** | Bounded repository indexing and symbol search, patch preview, approval-gated edits to existing UTF-8 files, and a bounded test runner. |
+| **Safety boundaries** | Tool permissions, approval prompts, path checks, URL restrictions, secret redaction, timeouts, and parent/child budget boundaries. |
 
-These are documented capabilities of the preview candidate, not a claim that every workflow is complete or appropriate for unattended use. See [known limitations](docs/KNOWN_LIMITATIONS.md) before evaluating it on important work.
+### How it fits together
 
-## 📊 Project status and evidence
+<p align="center">
+  <img src="assets/architecture.svg" alt="AETHER architecture: CLI, agent runtime, planning and context, permission gate, approved tools, local state, and model providers." width="100%" />
+</p>
 
-> **Stage: Alpha / CLI Preview candidate.** PR #8 is still draft and unmerged. No tagged release or binary installer is being advertised.
+### A look inside the terminal
 
-The contributor onboarding and marketing guidance live in [CONTRIBUTOR_ONRAMP.md](docs/CONTRIBUTOR_ONRAMP.md) and [LAUNCH_PLAN.md](docs/LAUNCH_PLAN.md). Current-head checks are available on the [GitHub Actions page](https://github.com/ghostfacethegreat/aether-agent/actions).
+The repository includes real text captures from local runs. These examples use the mock provider unless the capture explicitly says otherwise.
 
-**What this evidence does and does not show:**
+- [Status dashboard](docs/screenshots/01-status.txt)
+- [Mock-provider run](docs/screenshots/02-mock-run.txt)
+- [Provider catalog](docs/screenshots/03-providers.txt)
+- [Doctor diagnostics](docs/screenshots/04-doctor.txt)
 
-- Unit and install checks provide regression and packaging evidence; they do not measure general task quality.
-- AETHER does not yet publish a reproducible head-to-head benchmark against Hermes or other agent frameworks.
-- No Hermes feature-parity, superiority, or “drop-in replacement” claim is made.
-- No independent third-party security audit has been completed.
-- AETHER is not a security sandbox. Shell and Python tools can execute with the permissions of the local user.
+## 🔌 Model providers
 
-Read the [development status](docs/DEVELOPMENT_STATUS.md), [workstation acceptance gate](docs/WORKSTATION_ACCEPTANCE_GATE.md), [known limitations](docs/KNOWN_LIMITATIONS.md), [Hermes comparison](docs/HERMES_COMPARISON.md), and [benchmark protocol](benchmarks/README.md) for the evidence and remaining gaps.
+The provider catalog includes local options such as `ollama`, `lmstudio`, and `llamacpp`, plus hosted adapters including `groq`, `cerebras`, `huggingface`, `gemini`, `openrouter`, `openai`, `anthropic`, and `custom`.
+
+```bash
+aether providers
+aether --provider mock --model mock-tools run "Use a tool"
+```
+
+Provider pricing, model IDs, availability, and free-tier quotas can change. AETHER does not bypass provider restrictions or make hosted inference free. Check the provider's current terms and dashboard before using a hosted service. See [provider setup](docs/PROVIDERS.md).
+
+## 🛡️ Control, privacy, and limitations
+
+- **You stay in the loop.** Write, execute, and network actions can require approval. Strict mode and explicit tool allow-lists are recommended for unfamiliar or unattended workspaces.
+- **Local state is inspectable.** Sessions and task records live in local SQLite; memory and skills are editable local files.
+- **Hosted means hosted.** When you select a hosted provider, request content is sent to that provider and is subject to its terms and privacy policy.
+- **Not a sandbox.** Tool subprocesses inherit the permissions of the local user. Approval prompts are guardrails, not an OS-level isolation boundary.
+- **No parity promises.** AETHER is alpha. It does not claim Hermes feature parity, equivalent task quality, or superiority over other agent frameworks.
+
+Read [known limitations](docs/KNOWN_LIMITATIONS.md) and [SECURITY.md](SECURITY.md) before using AETHER with sensitive workspaces or untrusted prompts.
 
 ## 📚 Documentation
 
-| Start here | What you will find |
+| Guide | Purpose |
 | --- | --- |
-| [Architecture](docs/ARCHITECTURE.md) | Runtime, components, data flow, and design boundaries |
+| [Architecture](docs/ARCHITECTURE.md) | Runtime components, data flow, and design boundaries |
 | [Providers](docs/PROVIDERS.md) | Local, hosted, mock, and custom provider setup |
-| [Configuration](docs/CONFIGURATION.md) | Model settings, permissions, memory, scheduling, and orchestration |
+| [Configuration](docs/CONFIGURATION.md) | Models, permissions, memory, scheduling, and orchestration |
 | [Model routing](docs/MODEL_ROUTING.md) | Candidate selection, capability evidence, diagnostics, and limitations |
 | [Agent workstreams](docs/AGENT_WORKSTREAMS.md) | Scoped development areas and parallel-agent guidance |
-| [Launch plan](docs/LAUNCH_PLAN.md) | Positioning, demo checklist, channel strategy, and contributor growth |
-| [Release roadmap](docs/RELEASE_ROADMAP.md) | Milestones and release gates |
 | [Known limitations](docs/KNOWN_LIMITATIONS.md) | Current gaps, safety assumptions, and unverified behavior |
-| [Benchmarks](benchmarks/README.md) | How task-quality comparisons will be run and reported |
+| [Development status](docs/DEVELOPMENT_STATUS.md) | Evidence log, verification state, and release boundaries |
+| [Release roadmap](docs/RELEASE_ROADMAP.md) | Milestones and release gates |
+| [Benchmarks](benchmarks/README.md) | Reproducible evaluation approach and reporting rules |
 | [CLI presentation](docs/CLI_PRESENTATION.md) | Terminal themes, ASCII fallback, and customization |
+| [Launch plan](docs/LAUNCH_PLAN.md) | Project positioning, demo checklist, and contributor growth |
 
-## 🤝 Join the AETHER development community
+## 🤝 Build with us
 
-AETHER is preparing for its next development phase, and we want to meet developers who are interested in helping shape it. Whether you can contribute code, tests, documentation, UX feedback, or occasional reviews, there is room to start small.
+AETHER is open source and welcomes focused contributions in Python/CLI engineering, local-model integrations, evaluation, reliability, security review, and documentation.
 
-<details>
-<summary><strong>🚀 Interested in collaborating? Start here.</strong></summary>
+- **New here?** Start with the [contributor on-ramp](docs/CONTRIBUTOR_ONRAMP.md).
+- **Want to collaborate?** Introduce yourself in the [contributor call](https://github.com/ghostfacethegreat/aether-agent/issues/15).
+- **Need a starter task?** See [issue #14](https://github.com/ghostfacethegreat/aether-agent/issues/14).
+- **Found a bug or have an idea?** Use the [issue chooser](https://github.com/ghostfacethegreat/aether-agent/issues/new/choose).
+- **Found a security issue?** Follow the private reporting guidance in [SECURITY.md](SECURITY.md).
 
-- **Introduce yourself:** visit the [AETHER contributor call](https://github.com/ghostfacethegreat/aether-agent/issues/15) and tell us which areas interest you.
-- **Make a first contribution:** try [issue #14](https://github.com/ghostfacethegreat/aether-agent/issues/14), a focused documentation task.
-- **Explore deeper engineering work:** browse the coding workflow (#4), evaluations (#6), autonomous learning (#7), research (#10), tool discovery (#11), and release hardening (#12).
-- **Learn the workflow:** read [CONTRIBUTING.md](CONTRIBUTING.md) and the [contributor on-ramp](docs/CONTRIBUTOR_ONRAMP.md).
+This is an open-source volunteer project, not a paid job posting. There is no minimum contribution commitment; a small, tested improvement is welcome.
 
-AETHER is an open-source collaboration. This is not a paid job posting or a promise of employment. The project is still alpha, so contributors should expect active design discussion and changing priorities.
+## 📜 Project status, license, and attribution
 
-</details>
+- **Stage:** alpha / CLI Preview candidate.
+- **Review:** PR #8 is open, draft, and unmerged.
+- **Release:** package version remains `0.1.0`; no tagged release or binary installer is advertised.
+- **Evidence:** CI and local test results are recorded in [Development Status](docs/DEVELOPMENT_STATUS.md). Passing tests show engineering checks, not general task quality or model superiority.
 
-- **🐛 Found a defect?** Use the [bug report form](https://github.com/ghostfacethegreat/aether-agent/issues/new?template=bug_report.yml).
-- **💡 Have an idea?** Use the [feature request form](https://github.com/ghostfacethegreat/aether-agent/issues/new?template=feature_request.yml); discuss substantial changes before investing in a large implementation.
-- **🔒 Found a security issue?** Follow [SECURITY.md](SECURITY.md); do not publish exploit details in a public issue.
+AETHER is distributed under the [MIT License](LICENSE). Its architecture was informed by static review of the public [Hermes Agent](https://github.com/NousResearch/hermes-agent) repository; AETHER is independently implemented and branded. See [NOTICE](NOTICE) and [the upstream license record](docs/UPSTREAM_LICENSE.md).
 
-## 🛡️ Safety and privacy
+---
 
-AETHER's permission system is a guardrail, not a sandbox. Review tool requests before approving them, use strict mode for unattended or unfamiliar workspaces, and do not run untrusted prompts with write/execute permissions in sensitive directories. Local memory, session state, and credentials should be treated as private user data.
+<div align="center">
 
-## 📄 License and attribution
+**AETHER** · Build deliberately. Keep control.
 
-AETHER is released under the [MIT License](LICENSE). It is independently implemented and branded. Its architecture was informed by static review of the public [Hermes Agent](https://github.com/NousResearch/hermes-agent) project; AETHER is not affiliated with Nous Research. See [NOTICE](NOTICE) and [the upstream license record](docs/UPSTREAM_LICENSE.md).
+<sub>Local-first · Provider-agnostic · Evidence over hype</sub>
+
+</div>
