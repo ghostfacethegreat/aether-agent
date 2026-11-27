@@ -36,7 +36,7 @@ See [the VentureOps operating plan](docs/VENTUREOPS_AGENT_PLATFORM.md) for recor
 
 ## 🤖 Free development team
 
-AETHER includes an OpenCode lead agent plus architect, implementer, QA, and reviewer subagents. Start with [the free agent-team guide](docs/FREE_AGENT_TEAM.md) for setup, permission boundaries, free/local model options, and a local soft-voice path.
+AETHER's VentureOps preview includes an OpenCode lead plus 12 specialist subagent profiles covering coding, paid-lead research, payment requirements, bug triage, proposal drafts, rights checks, bookkeeping, and customer handoff. They are configurations, not workers already running; start OpenCode locally and select a currently zero-price or local model. See [the free agent-team guide](docs/FREE_AGENT_TEAM.md) for setup, limits, and permission boundaries.
 
 ## 🧭 Why AETHER is worth evaluating
 
