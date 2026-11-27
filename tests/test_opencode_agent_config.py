@@ -4,7 +4,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-AGENT_NAMES = ("aether-lead", "architect", "implementer", "qa", "reviewer")
+AGENT_NAMES = ("aether-lead", "architect", "implementer", "qa", "reviewer", "income-scout", "payment-pathfinder", "coding-triager", "proposal-writer", "offer-strategist", "rights-reviewer", "bookkeeper", "customer-success")
+BUSINESS_READ_ONLY = ("income-scout", "payment-pathfinder", "coding-triager", "proposal-writer", "offer-strategist", "rights-reviewer", "bookkeeper", "customer-success")
 
 
 class OpenCodeAgentConfigTests(unittest.TestCase):
@@ -36,7 +37,7 @@ class OpenCodeAgentConfigTests(unittest.TestCase):
                     {"action": "edit", "resource": "*", "effect": "deny"},
                     rules,
                 )
-        for name in ("architect", "reviewer"):
+        for name in ("architect", "reviewer", *BUSINESS_READ_ONLY):
             with self.subTest(agent=name):
                 rules = agents[name]["permissions"]
                 self.assertIn(
@@ -54,7 +55,7 @@ class OpenCodeAgentConfigTests(unittest.TestCase):
             {"action": "subagent", "resource": "*", "effect": "deny"},
             rules,
         )
-        for name in ("architect", "implementer", "qa", "reviewer"):
+        for name in AGENT_NAMES[1:]:
             self.assertIn(
                 {"action": "subagent", "resource": name, "effect": "allow"},
                 rules,
