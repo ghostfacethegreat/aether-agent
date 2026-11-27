@@ -120,6 +120,15 @@ aether venture list --kind lead
 aether venture brief
 ```
 
+
+### OpenCode agent profiles
+
+The draft also defines an OpenCode team configuration with one primary `aether-lead` and 12 specialist subagent profiles. The specialist set includes architecture, implementation, QA, review, income research, payment-path research, coding triage, proposal drafting, offer strategy, rights review, bookkeeping, and customer-success drafting. Each new business-role profile is deny-by-default and read-only; outbound communication, account access, applications, uploads, publishing, payments, transfers, and purchases are not delegated capabilities.
+
+These files are reusable configurations, not active processes, hired workers, or a guarantee of free unlimited model capacity. The owner must start OpenCode locally and select a model that is currently listed at zero price or use an appropriately sized local model. Free hosted models can be temporary, rate-limited, and may require provider sign-in. A local runtime requires hardware and model downloads; it must be tested on the actual machine.
+
+The VentureOps roles remain assistive: research produces sourced candidates, proposal work produces drafts, rights checks can block unclear sources, bookkeeping reads owner-entered records only, and the owner approves every consequential action.
+
 ## MVP implementation phases
 
 ### MVP 1 — owner ledger and CLI
