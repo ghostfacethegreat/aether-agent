@@ -4,22 +4,32 @@ AETHER includes current OpenCode project configuration for a small, owner-contro
 
 ## What is free, and what is limited
 
-- OpenCode is open source and currently offers a selection of free hosted models without requiring an account. Free models have request limits and availability can change; the free model pool is not an uptime or unlimited-compute promise.
+- OpenCode's official model catalogue currently lists some zero-price models, but several are explicitly limited-time offers and the catalogue changes. The OpenCode provider may require signing in to OpenCode Console; do not assume anonymous access. In the model picker, choose only a model showing a $0 input and output price, check its current provider/usage limits, and do not add credits or select a paid model. Free means no model charge while that offer is available, not unlimited use or guaranteed uptime.
 - OpenCode can also connect to GitHub Copilot using device OAuth. Copilot Free currently provides limited chat/agent usage; it does not include GitHub's cloud coding agent that takes an issue and opens a pull request for you. Review the current plan page before relying on it.
 - Local Hugging Face models can run without hosted inference billing after you have downloaded the model, but they use your Mac's memory and compute. On an 8 GB Apple Silicon machine, treat small 1–2B quantized models as lightweight assistants, not frontier coding models.
 - Hugging Face Inference Providers are not a dependable free inference backend: its current pricing page says Free accounts receive no monthly Inference Provider credits.
 
 ## Included agents
 
-| Agent | Mode | Purpose |
-| --- | --- | --- |
-| `aether-lead` | Primary | Plans work and coordinates subagents |
-| `architect` | Subagent | Read-only repository mapping and implementation design |
-| `implementer` | Subagent | Scoped code and test changes; asks before risky shell operations |
-| `qa` | Subagent | Runs checks and diagnoses regressions; cannot edit |
-| `reviewer` | Subagent | Independent read-only final review |
+The current OpenCode configuration defines **13 profiles: one primary lead and 12 specialist subagents**. These are reusable role configurations, not 13 workers already running. They run only when the owner starts OpenCode locally and asks the lead to delegate. All inherit the session's chosen model unless a model is explicitly configured; the default is intentionally not pinned to a paid provider.
 
-The lead delegates only to the named roles. The current configuration denies repository edits to the lead, architect, QA, and reviewer; the implementer receives scoped edit permissions. Push, tag, and PR-merge commands are denied to the lead and implementer. Review the permission rules in `opencode.json` before broadening any authority. The agents are instructed not to publish, contact users, spend money, or change accounts. Parallel work should be limited to non-overlapping files; implementation and test/review stages should run sequentially when they touch the same area.
+| Agent | Mode | Purpose | Default authority |
+| --- | --- | --- | --- |
+| `aether-lead` | Primary | Plans work, delegates and reconciles results | Coordinate; no direct edits |
+| `architect` | Subagent | Repository mapping and implementation design | Read-only |
+| `implementer` | Subagent | Scoped code and test changes | Scoped edits; command approvals |
+| `qa` | Subagent | Runs checks and diagnoses regressions | No edits |
+| `reviewer` | Subagent | Independent final code review | Read-only |
+| `income-scout` | Subagent | Finds current paid coding/service work | Public research only; no applications or messages |
+| `payment-pathfinder` | Subagent | Checks official payment and wallet requirements | Public research only; no account access or money movement |
+| `coding-triager` | Subagent | Analyses bug reports and reproduction evidence | Read-only; no untrusted code execution |
+| `proposal-writer` | Subagent | Drafts tailored proposals and client messages | Drafts only; never sends |
+| `offer-strategist` | Subagent | Defines offer scope, exclusions and price assumptions | Read-only planning |
+| `rights-reviewer` | Subagent | Checks commercial-use rights and platform rules | Public research only; blocks uncertain sources |
+| `bookkeeper` | Subagent | Summarizes owner-entered VentureOps ledger data | Read-only; no account connections or transfers |
+| `customer-success` | Subagent | Drafts status, delivery and renewal messages | Drafts only; never sends |
+
+The lead may invoke only these named subagents. Every new business specialist is deny-by-default and receives read-only permissions; research roles additionally receive web search/fetch. The existing implementer is the only role with scoped repository edits. Push, tag, merge, outbound communication, applications, uploads, publishing, account changes, financial transactions and purchases remain blocked or require separate owner approval. Parallelize independent read-only research; do not fan out overlapping edits. Implementation, QA and final review should be staged sequentially.
 
 ## Start
 
