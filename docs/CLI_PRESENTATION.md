@@ -38,14 +38,14 @@ Streamed model text, including visible reasoning deltas, passes through `render.
 
 ## Custom ANSI artwork
 
-A local UTF-8 \`.ansi\` or \`.txt\` file can replace the built-in masthead:
+A local UTF-8 `.ansi` or `.txt` file can replace the built-in masthead:
 
-\`\`\`bash
+```bash
 mkdir -p ~/.aether/assets
 # Save copied ANSI artwork as ~/.aether/assets/custom.ansi.
 aether config set terminal.banner_file "~/.aether/assets/custom.ansi"
-\`\`\`
+```
 
-AETHER reads the file as data. It never runs shell commands or scripts from a banner file. The renderer keeps only standard SGR color sequences and printable text; cursor movement, screen clearing, title changes, and other terminal control sequences are removed. Files larger than 32 KiB, empty files, unsupported extensions, and missing files fall back to the built-in logo. Artwork is limited to 20 lines and the current terminal width (up to 120 columns). Set \`NO_COLOR=1\` to remove artwork colors, or \`AETHER_ASCII=1\` to use the built-in ASCII fallback when custom art requires Unicode.
+AETHER reads the file as data. It never runs shell commands or scripts from a banner file. The renderer keeps only standard SGR color sequences and printable text; cursor movement, screen clearing, title changes, and other terminal control sequences are removed. Files larger than 32 KiB, empty files, unsupported extensions, and missing files fall back to the built-in logo. Artwork is limited to 20 lines and the current terminal width (up to 120 columns). Set `NO_COLOR=1` to remove artwork colors, or `AETHER_ASCII=1` to use the built-in ASCII fallback when custom art requires Unicode.
 
-Do not paste TAAG's generated Bash commands into a shell without reviewing them. Prefer saving plain ANSI text as a local \`.ansi\` file. AETHER does not bundle TAAG's TheDraw font files or site code.
+Do not paste TAAG's generated Bash commands into a shell without reviewing them. Prefer saving plain ANSI text as a local `.ansi` file. AETHER does not bundle TAAG's TheDraw font files or site code.
