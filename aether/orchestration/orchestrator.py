@@ -7,9 +7,10 @@ from dataclasses import dataclass, field
 
 from aether.errors import ApprovalRequired, ConfigError, OrchestratorError, PermissionDenied, ProviderError
 from aether.providers.catalog import provider_is_billable
-from aether.utils import make_id, parse_bool, redact, truncate, utc_now
+from aether.utils import make_id, parse_bool, redact, recognized_check_command, truncate, utc_now
 
 from .roles import UNTRUSTED_DATA_NOTICE, resolved_roles
+from .contracts import validate_role_output
 from .state import OrchestrationRun, OrchestrationTask, SharedTaskState, parse_structured_result
 
 
@@ -84,54 +85,134 @@ class Orchestrator:
         available = resolved_roles(self.config)
         role_names = []
         dependencies: dict[str, list[str]] = {}
-        if roles:
+        if roles is not None:
+            if not roles:
+                raise OrchestratorError("At least one orchestration role is required")
             for item in roles:
                 if isinstance(item, dict):
                     name = str(item.get("role") or item.get("name") or "").strip().lower()
-                    deps = [str(value) for value in (item.get("depends_on") or [])]
+                    deps = [str(value).strip().lower() for value in (item.get("depends_on") or [])]
                 else:
                     name = str(item).strip().lower()
                     deps = []
                 if not name:
                     raise OrchestratorError("Every orchestration task needs a role")
+                if name in role_names:
+                    raise OrchestratorError(f"Duplicate orchestration role '{name}'")
                 role_names.append(name)
                 dependencies[name] = deps
         else:
             lowered = objective.lower()
-            implementation = any(
-                token in lowered
-                for token in ("implement", "build", "write", "fix", "debug", "review", "refactor", "patch", "code", "repository", "repo")
-            )
-            role_names = ["researcher", "developer", "debugger", "reviewer"] if implementation else ["researcher", "reviewer"]
-            dependencies = {"researcher": [], "developer": ["researcher"], "debugger": ["developer"]}
-            dependencies["reviewer"] = ["developer"] if implementation else ["researcher"]
+            security_work = any(token in lowered for token in (
+                "security", "vulnerability", "permission", "secret", "authentication",
+                "authorization", "sandbox", "prompt injection",
+            ))
+            debugging_work = any(token in lowered for token in (
+                "debug", "bug", "traceback", "stack trace", "regression", "crash",
+                "failing test", "tests fail", "broken",
+            ))
+            implementation = any(token in lowered for token in (
+                "implement", "build", "write code", "fix", "refactor", "patch",
+                "code", "repository", "repo", "develop", "feature", "application",
+            ))
+            documentation = not implementation and any(token in lowered for token in (
+                "documentation", "document", "docs", "readme", "user guide", "write a guide",
+            ))
+
+            if debugging_work:
+                role_names = ["researcher", "debugger", "tester", "verifier", "reviewer"]
+                dependencies = {
+                    "researcher": [],
+                    "debugger": ["researcher"],
+                    "tester": ["debugger"],
+                    "verifier": ["tester"],
+                    "reviewer": ["verifier"],
+                }
+            elif implementation:
+                role_names = ["planner", "researcher", "architect", "developer", "tester"]
+                dependencies = {
+                    "planner": [],
+                    "researcher": ["planner"],
+                    "architect": ["researcher"],
+                    "developer": ["architect"],
+                    "tester": ["developer"],
+                }
+                if security_work:
+                    role_names.append("security_auditor")
+                    dependencies["security_auditor"] = ["researcher", "developer"]
+                role_names.extend(["verifier", "reviewer"])
+                dependencies["verifier"] = (
+                    ["tester", "security_auditor"] if security_work else ["tester"]
+                )
+                dependencies["reviewer"] = ["verifier"]
+            elif documentation:
+                role_names = ["planner", "researcher", "documentation_writer", "tester", "verifier", "reviewer"]
+                dependencies = {
+                    "planner": [],
+                    "researcher": ["planner"],
+                    "documentation_writer": ["researcher"],
+                    "tester": ["documentation_writer"],
+                    "verifier": ["tester"],
+                    "reviewer": ["verifier"],
+                }
+            else:
+                # Keep simple questions inexpensive; verification is for work products.
+                role_names = ["researcher", "reviewer"]
+                dependencies = {"researcher": [], "reviewer": ["researcher"]}
+
         max_children = self._int_setting("max_children", 8)
         if len(role_names) > max_children:
             raise OrchestratorError(f"Plan has {len(role_names)} tasks; orchestrator.max_children={max_children}")
-        ids: dict[str, str] = {}
-        for name in role_names:
-            ids[name] = make_id("task")
+
+        ids: dict[str, str] = {name: make_id("task") for name in role_names}
         goals = {
-            "researcher": f"Research the objective and gather evidence: {objective}",
-            "developer": f"Implement the requested work: {objective}",
-            "debugger": f"Reproduce, diagnose, and verify failures for: {objective}",
-            "reviewer": f"Review correctness, security, architecture, and regressions for: {objective}",
+            "planner": f"Plan the work, dependencies, risks, and acceptance checks for: {objective}",
+            "researcher": f"Research constraints and gather concrete evidence for: {objective}",
+            "architect": f"Design a backward-compatible implementation and identify affected files: {objective}",
+            "developer": f"Implement the requested work with focused changes and tests: {objective}",
+            "debugger": f"Reproduce and diagnose the failure, then make the smallest safe fix: {objective}",
+            "tester": f"Run focused tests and report exact commands, exit codes, and failures for: {objective}",
+            "security_auditor": f"Audit the work for security, permission, prompt-injection, and secret risks: {objective}",
+            "verifier": f"Independently verify the work by running repository checks; do not rely on other agents' claims: {objective}",
+            "reviewer": f"Independently review correctness, regressions, security, and maintainability: {objective}",
+            "documentation_writer": f"Update user and developer documentation to match implemented behavior: {objective}",
+            "data_analyst": f"Analyze relevant data and distinguish measurements from assumptions: {objective}",
         }
-        tasks = []
-        for index, name in enumerate(role_names):
-            if name not in available and name not in goals:
+        for name in role_names:
+            if name not in available:
                 raise OrchestratorError(f"Unknown agent role '{name}'")
-            deps = dependencies.get(name, [role_names[index - 1]] if index else [])
-            missing = [item for item in deps if item not in ids]
+
+        for name in role_names:
+            missing = [dependency for dependency in dependencies.get(name, []) if dependency not in ids]
             if missing:
                 raise OrchestratorError(f"Role '{name}' depends on unknown roles: {', '.join(missing)}")
+
+        visiting = set()
+        visited = set()
+
+        def visit(name):
+            if name in visiting:
+                raise OrchestratorError(f"Orchestration dependency cycle contains '{name}'")
+            if name in visited:
+                return
+            visiting.add(name)
+            for dependency in dependencies.get(name, []):
+                visit(dependency)
+            visiting.remove(name)
+            visited.add(name)
+
+        for name in role_names:
+            visit(name)
+
+        tasks = []
+        for name in role_names:
             tasks.append(
                 OrchestrationTask(
                     id=ids[name],
                     role=name,
-                    goal=goals.get(name, f"Complete assigned task: {objective}"),
+                    goal=goals.get(name, f"Complete the assigned objective: {objective}"),
                     context=f"Role: {name}\nObjective: {objective}",
-                    dependencies=[ids[item] for item in deps],
+                    dependencies=[ids[item] for item in dependencies.get(name, [])],
                 )
             )
         return tasks
@@ -235,6 +316,47 @@ class Orchestrator:
             )
             self.store.persist_orchestration(creates, updates, usages)
 
+    @staticmethod
+    def _supported_check_command(command: str) -> bool:
+        return bool(recognized_check_command(command))
+
+    @classmethod
+    def _verified_check_evidence(cls, tool_log: list[dict]) -> list[dict]:
+        evidence = []
+        for record in tool_log or []:
+            if not isinstance(record, dict) or not record.get("ok"):
+                continue
+            tool_name = record.get("name")
+            arguments = record.get("arguments") if isinstance(record.get("arguments"), dict) else {}
+            command = str(arguments.get("command") or "").strip()
+            if tool_name == "terminal":
+                if not cls._supported_check_command(command):
+                    continue
+            elif tool_name == "test_run":
+                mode = str(arguments.get("mode") or "").strip().lower()
+                if mode not in ("suite", "module", "compile", "check"):
+                    continue
+                module = str(arguments.get("module") or "").strip()
+                command = f"test_run {mode}" + (f" {module}" if mode == "module" else "")
+            else:
+                continue
+            result = record.get("result")
+            payload = result if isinstance(result, dict) else {}
+            if isinstance(result, str):
+                try:
+                    parsed = json.loads(result)
+                    if isinstance(parsed, dict):
+                        payload = parsed
+                except ValueError:
+                    continue
+            try:
+                exit_code = int(payload.get("exit_code"))
+            except (TypeError, ValueError):
+                continue
+            if exit_code == 0 and not payload.get("timed_out"):
+                evidence.append({"command": truncate(command, 240), "exit_code": 0})
+        return evidence
+
     def _execute_task(self, active: ActiveRun, task: OrchestrationTask, task_event: threading.Event) -> dict:
         if task_event.is_set() or active.cancel_event.is_set():
             return {"ok": False, "output": {}, "summary": "cancelled", "error": "cancelled", "exit_reason": "cancelled", "retryable": False}
@@ -242,7 +364,8 @@ class Orchestrator:
         if not state.try_mark_running(task.id):
             return {"ok": False, "output": {}, "summary": "cancelled", "error": "task is no longer runnable", "exit_reason": "cancelled", "retryable": False}
         self._persist_run(active)
-        role_settings = resolved_roles(self.config).get(task.role, {})
+        role_settings = dict(resolved_roles(self.config).get(task.role, {}))
+        role_settings.setdefault("role", task.role)
         tool_log = []
         try:
             self._authorize_paid(role_settings)
@@ -251,13 +374,48 @@ class Orchestrator:
             result = child.run_turn(self._prompt(active, task, role_settings))
             output = parse_structured_result(result.text)
             combined_log = list(tool_log) + list(getattr(result, "tool_log", []) or [])
+            contract_errors = (
+                validate_role_output(task.role, output)
+                if task.role == "verifier" or bool(self._setting("strict_output_contracts", False))
+                else []
+            )
+            task_ok = result.exit_reason in ("complete", "max_iterations") and not task_event.is_set()
+            error = result.error
+            if task.role == "verifier":
+                evidence = self._verified_check_evidence(combined_log)
+                requested_verdict = str(output.get("verdict") or "").strip().lower()
+                checks = output.get("checks")
+                verified = bool(
+                    task_ok
+                    and not contract_errors
+                    and requested_verdict == "pass"
+                    and isinstance(checks, list)
+                    and checks
+                    and evidence
+                )
+                output["aether_verification"] = {
+                    "verified": verified,
+                    "commands": evidence,
+                    "reason": (
+                        "A successful recognized test/check command was observed in this verifier's own tool log."
+                        if verified
+                        else "Independent test/check evidence and a valid pass contract were not both observed."
+                    ),
+                }
+                if not verified:
+                    task_ok = False
+                    output["verdict"] = "partial" if requested_verdict != "fail" else "fail"
+                    error = "Independent verification was not established: run a recognized check command and report its observed result."
+            elif contract_errors:
+                task_ok = False
+                error = "Structured role output violated its contract: " + "; ".join(contract_errors)
             return {
-                "ok": result.exit_reason in ("complete", "max_iterations") and not task_event.is_set(),
+                "ok": task_ok,
                 "output": output,
                 "summary": str(output.get("summary") or result.text),
                 "usage": dict(result.usage),
                 "tool_log": combined_log,
-                "error": result.error,
+                "error": error,
                 "exit_reason": result.exit_reason,
                 "retryable": result.exit_reason == "provider_error" and not combined_log,
             }
@@ -404,6 +562,22 @@ class Orchestrator:
 
     def _consolidate(self, run: OrchestrationRun, state: SharedTaskState) -> str:
         lines = ["# Aether multi-agent report", "", f"Objective: {run.objective}", ""]
+        verifier_tasks = [task for task in run.tasks.values() if task.role == "verifier"]
+        verified_commands = []
+        for task in verifier_tasks:
+            output = (task.result or {}).get("output") or {}
+            verification = output.get("aether_verification") if isinstance(output, dict) else {}
+            if isinstance(verification, dict) and verification.get("verified"):
+                verified_commands.extend(verification.get("commands") or [])
+        if verifier_tasks and verified_commands:
+            lines.append("Independent verification: VERIFIED")
+            lines.extend(f"- {item.get('command')} (exit {item.get('exit_code')})" for item in verified_commands)
+        elif verifier_tasks:
+            lines.append("Independent verification: NOT VERIFIED")
+        else:
+            lines.append("Independent verification: NOT REQUESTED")
+        lines.append("")
+
         for task in run.tasks.values():
             result = task.result or {}
             output = result.get("output") or {}

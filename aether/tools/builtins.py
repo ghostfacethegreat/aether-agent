@@ -15,6 +15,7 @@ from pathlib import Path
 from aether.errors import ToolError
 
 from .registry import Tool
+from .repository import patch_apply, patch_preview, repo_index, test_run
 
 
 def _workspace(context) -> Path:
@@ -403,8 +404,69 @@ def browser(args, context):
 
 def memory_tool(args, context):
     store = context["memory"]
+    layered = context.get("layered_memory")
     action = str(args.get("action") or "list").lower()
     user = bool(args.get("user"))
+    if action == "layer":
+        if layered is None:
+            raise ToolError("Layered memory is unavailable")
+        operation = str(args.get("layer_action") or args.get("operation") or "list").lower()
+        write_operations = {"add", "correct", "delete", "clear", "consolidate", "prune", "migrate", "import"}
+        if context.get("child_agent") and operation in write_operations:
+            raise ToolError("Child agents cannot modify layered memory")
+        if operation == "add":
+            item = layered.remember(
+                str(args.get("layer") or "semantic"),
+                args.get("content", args.get("text", "")),
+                subject=args.get("subject", ""),
+                provenance=args.get("provenance", "manual"),
+                confidence=args.get("confidence"),
+                session_id=args.get("session_id"),
+                expires_days=args.get("expires_days"),
+                verified=bool(args.get("verified")),
+            )
+            return _text({"id": item["id"]} if item else {"added": False})
+        if operation == "list":
+            return _text(layered.list(layer=args.get("layer"), session_id=args.get("session_id")))
+        if operation in ("recall", "search"):
+            return _text(
+                layered.recall(
+                    args.get("query", args.get("text", "")),
+                    limit=args.get("limit"),
+                    layers=[args.get("layer")] if args.get("layer") else None,
+                    session_id=args.get("session_id"),
+                )
+            )
+        if operation == "context":
+            return layered.context(args.get("query", args.get("text", "")), max_chars=args.get("max_chars"))
+        if operation == "counts":
+            return _text(layered.counts())
+        if operation == "correct":
+            item = layered.correct(
+                str(args.get("item_id") or ""),
+                args.get("content", args.get("text", "")),
+                provenance=args.get("provenance", "correction"),
+                confidence=args.get("confidence"),
+            )
+            return _text(item or {"corrected": False})
+        if operation == "delete":
+            return _text({"deleted": layered.delete(str(args.get("item_id") or ""))})
+        if operation == "clear":
+            return _text({"cleared": layered.clear(layer=args.get("layer"), session_id=args.get("session_id"))})
+        if operation == "consolidate":
+            return _text(layered.consolidate())
+        if operation == "prune":
+            return _text({"expired": layered.prune_expired()})
+        if operation == "migrate":
+            return _text({"migrated": layered.migrate_markdown()})
+        if operation == "export":
+            return _text(layered.export_data())
+        if operation == "import":
+            data = args.get("data")
+            if args.get("path"):
+                data = json.loads(_path(context, args["path"]).read_text(encoding="utf-8"))
+            return _text({"imported": layered.import_data(data, merge=not args.get("replace"))})
+        raise ToolError(f"Unknown layered memory operation '{operation}'")
     if action == "add":
         store.add(str(args.get("text") or ""), str(args.get("category") or "general"), user)
         return "Memory saved"
@@ -493,6 +555,31 @@ def todo_tool(args, context):
     return f"Plan updated: {text or '(cleared)'}"
 
 
+def plan_tool(args, context):
+    plan = context.get("execution_plan")
+    if plan is None:
+        raise ToolError("Execution planning is not available in this context")
+    action = str(args.get("action") or "status").lower()
+    if action == "status":
+        return _text(plan.summary())
+    if action == "show":
+        return plan.render()
+    if action == "checkpoint":
+        callback = context.get("checkpoint_plan")
+        checkpoint_id = callback(str(args.get("note") or "")) if callback else ""
+        return f"Checkpoint saved: {checkpoint_id or '(not persisted)'}"
+    if action in ("complete", "update", "skip"):
+        task_id = str(args.get("task_id") or "")
+        status = "completed" if action == "complete" else ("skipped" if action == "skip" else str(args.get("status") or "in_progress"))
+        if not plan.mark_task(task_id, status, str(args.get("evidence") or "")):
+            raise ToolError(f"Unknown plan task '{task_id}'")
+        return f"Plan task {task_id} set to {status}"
+    if action == "revise":
+        task = plan.revise(str(args.get("signal") or "tool_failure"), str(args.get("reason") or ""))
+        return f"Plan revised; added {task.id}"
+    raise ToolError(f"Unknown plan action '{action}'")
+
+
 def session_search(args, context):
     store = context.get("store")
     if not store:
@@ -517,6 +604,30 @@ def scheduler_tool(args, context):
 
 
 TOOLS = [
+    Tool(
+        "repo_index",
+        "Index the local workspace with root and nested .gitignore handling; refresh a bounded persistent index, search filenames/snippets, or retrieve lexical declarations for Python/JavaScript/TypeScript/Lua/Go/Rust. Symbol search is lexical, not LSP.",
+        {"type": "object", "properties": {"root": {"type": "string"}, "action": {"type": "string", "enum": ["summary", "search", "symbols", "index"]}, "query": {"type": "string"}}, "required": []},
+        repo_index, "read", False, timeout=45,
+    ),
+    Tool(
+        "patch_preview",
+        "Validate a unified diff against existing workspace files and preview affected paths and hashes without changing files. New/deleted files, renames, symlinks, binary files and path escapes are rejected.",
+        {"type": "object", "properties": {"patch": {"type": "string"}}, "required": ["patch"]},
+        patch_preview, "read", True, timeout=30,
+    ),
+    Tool(
+        "patch_apply",
+        "Apply a validated unified diff to existing workspace files. Every target is preflighted before writing; explicit approval is required.",
+        {"type": "object", "properties": {"patch": {"type": "string"}}, "required": ["patch"]},
+        patch_apply, "write", timeout=30,
+    ),
+    Tool(
+        "test_run",
+        "Run bounded repository checks with fixed arguments and no user-controlled shell command: unittest suite, one test_*.py module, compileall, or scripts/check.sh. Returns exact argv and exit code.",
+        {"type": "object", "properties": {"mode": {"type": "string", "enum": ["suite", "module", "compile", "check"]}, "module": {"type": "string"}}, "required": ["mode"]},
+        test_run, "execute", timeout=610,
+    ),
     Tool(
         "list_directory",
         "List files and directories. Use before reading unknown paths.",
@@ -634,16 +745,28 @@ TOOLS = [
     ),
     Tool(
         "memory",
-        "Manage persistent memory: add, list, search, replace, delete, export, import.",
+        "Manage Markdown memory and layered memory: add, list, search, replace, delete, layer, export, import.",
         {
             "type": "object",
             "properties": {
                 "action": {"type": "string"},
+                "layer_action": {"type": "string"},
                 "text": {"type": "string"},
+                "content": {"type": "string"},
                 "category": {"type": "string"},
+                "layer": {"type": "string"},
+                "subject": {"type": "string"},
+                "provenance": {"type": "string"},
+                "confidence": {"type": "number"},
                 "query": {"type": "string"},
                 "index": {"type": "integer"},
+                "item_id": {"type": "string"},
+                "session_id": {"type": "string"},
+                "limit": {"type": "integer"},
+                "max_chars": {"type": "integer"},
+                "expires_days": {"type": "number"},
                 "user": {"type": "boolean"},
+                "verified": {"type": "boolean"},
                 "path": {"type": "string"},
                 "data": {},
                 "replace": {"type": "boolean"},
@@ -713,6 +836,26 @@ TOOLS = [
         "Record or clear the active plan shown to the user and included in system context.",
         {"type": "object", "properties": {"plan": {"type": "string"}, "title": {"type": "string"}, "status": {"type": "string"}}, "required": []},
         todo_tool,
+        "low",
+        True,
+    ),
+    Tool(
+        "plan_tool",
+        "Inspect, checkpoint, revise, or mark steps of the active execution plan. Use skip only with an explicit reason.",
+        {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["status", "show", "checkpoint", "complete", "update", "skip", "revise"]},
+                "task_id": {"type": "string"},
+                "status": {"type": "string"},
+                "evidence": {"type": "string"},
+                "note": {"type": "string"},
+                "signal": {"type": "string"},
+                "reason": {"type": "string"},
+            },
+            "required": ["action"],
+        },
+        plan_tool,
         "low",
         True,
     ),

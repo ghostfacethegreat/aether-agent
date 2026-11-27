@@ -1,11 +1,12 @@
+import inspect
 import json
-import os
 import threading
+import time
 from dataclasses import dataclass, field
 
-from aether.errors import AetherError, ProviderError
+from aether.errors import AetherError, ContextOverflow, ProviderError
 from aether.providers.catalog import provider_is_billable, rough_cost
-from aether.utils import message_tokens, parse_bool, redact, utc_now
+from aether.utils import estimate_tokens, message_tokens, paid_confirmation_value, parse_bool, redact, truncate, utc_now
 
 
 def new_usage() -> dict:
@@ -52,8 +53,15 @@ class TurnState:
     exit_reason: str = ""
     error: str = ""
     plan: str = ""
+    execution_plan: object = None
     spend_budget: dict = field(default_factory=lambda: new_spend_budget())
     cancel_event: threading.Event = field(default_factory=threading.Event)
+    routing_decision: dict = field(default_factory=dict)
+    task_requirements: dict = field(default_factory=dict)
+    context_recovery: list = field(default_factory=list)
+    verification: dict = field(default_factory=lambda: {"status": "unverified", "sources": [], "model_claim": ""})
+    started_at: float = field(default_factory=time.monotonic)
+    turn_limit: float | None = None
 
     def status(self, kind: str, **payload) -> None:
         if self.on_status:
@@ -81,7 +89,7 @@ def _options(state: TurnState) -> dict:
 
 
 def _paid_not_confirmed(state: TurnState) -> bool:
-    env = os.environ.get("AETHER_CONFIRM_PAID")
+    env = paid_confirmation_value()
     if env is not None:
         return not parse_bool(env, False)
     raw = state.config.get("costs.confirm_paid")
@@ -113,7 +121,17 @@ def _cost_limit(state: TurnState) -> float | None:
     with state.spend_budget["lock"]:
         current = state.spend_budget.get("limit")
         state.spend_budget["limit"] = limit if current is None else (min(current, limit) if limit is not None else current)
-    return state.spend_budget["limit"]
+        shared_limit = state.spend_budget["limit"]
+    turn_limit = state.turn_limit
+    if turn_limit is None:
+        return shared_limit
+    try:
+        turn_limit = float(turn_limit)
+    except (TypeError, ValueError) as exc:
+        raise AetherError("turn cost limit must be a number") from exc
+    if shared_limit is None:
+        return turn_limit
+    return min(shared_limit, turn_limit)
 
 
 def _over_cost_limit(state: TurnState) -> bool:
@@ -170,34 +188,161 @@ def _release_reservation(state: TurnState, reservation: float) -> None:
         state.spend_budget["reserved"] = max(0.0, state.spend_budget["reserved"] - reservation)
 
 
+def _mark_failed(state: TurnState, provider, seconds: float, reason: str) -> None:
+    manager = state.provider_manager
+    try:
+        accepts_reason = "reason" in inspect.signature(manager.mark_failed).parameters
+    except (TypeError, ValueError):
+        accepts_reason = False
+    if accepts_reason:
+        manager.mark_failed(provider.name, seconds, reason)
+    else:
+        manager.mark_failed(provider.name, seconds)
+    reasons = getattr(manager, "_failure_reason", None)
+    if isinstance(reasons, dict) and reason:
+        reasons[provider.name] = reason[:500]
+
+
+def _recover_context(state: TurnState, provider, error: str) -> dict:
+    before = message_tokens(state.messages)
+    preserved = [dict(item) for item in state.messages if item.get("role") == "tool" and item.get("tool_call_id")]
+    try:
+        supports_provider = "provider" in inspect.signature(state.context_manager.fit).parameters
+    except (TypeError, ValueError):
+        supports_provider = False
+    if supports_provider:
+        state.messages, fit = state.context_manager.fit(
+            state.messages,
+            provider=provider.name,
+            model=provider.model,
+            force=True,
+        )
+    else:
+        state.messages, fit = state.context_manager.fit(state.messages)
+    fitted_tool = {
+        str(item.get("tool_call_id") or ""): item
+        for item in state.messages
+        if item.get("role") == "tool" and item.get("tool_call_id")
+    }
+    fitted_calls = set()
+    for item in state.messages:
+        if item.get("role") != "assistant":
+            continue
+        for call in item.get("tool_calls") or []:
+            if isinstance(call, dict) and call.get("id"):
+                fitted_calls.add(str(call["id"]))
+    max_tool_chars = int(state.config.get("tools.max_result_chars", 16000) or 16000)
+    limit = int(fit.get("limit") or state.config.get("context_tokens", 8192) or 8192)
+    remaining = max(0, limit - message_tokens(state.messages))
+
+    def fit_content(raw: str, token_budget: int) -> str:
+        char_limit = max_tool_chars
+        content = truncate(raw, char_limit)
+        while content and estimate_tokens(content) > token_budget and char_limit > 0:
+            overage = estimate_tokens(content) - token_budget
+            char_limit = max(0, char_limit - (overage * 4 + 40))
+            content = truncate(raw, char_limit) if char_limit else ""
+        return content
+
+    restored = 0
+    for item in preserved:
+        call_id = str(item.get("tool_call_id") or "")
+        if call_id not in fitted_calls:
+            continue
+        raw = str(item.get("content") or "")
+        target = fitted_tool.get(call_id)
+        if target is not None:
+            existing = str(target.get("content") or "")
+            allowance = remaining + estimate_tokens(existing)
+            content = fit_content(raw, allowance)
+            delta = max(0, estimate_tokens(content) - estimate_tokens(existing))
+            if delta > remaining:
+                continue
+            target["content"] = content
+            remaining -= delta
+            if content != existing:
+                restored += 1
+            continue
+        allowance = max(0, remaining - 4)
+        content = fit_content(raw, allowance)
+        delta = message_tokens([{**item, "content": content}])
+        if delta > remaining:
+            continue
+        state.messages.append({**item, "content": content})
+        remaining -= delta
+        restored += 1
+    recovery = {
+        "provider": provider.name,
+        "model": provider.model,
+        "error": redact(error),
+        "tokens_before": before,
+        "tokens_after": message_tokens(state.messages),
+        "removed": int(fit.get("removed") or 0),
+        "repaired": int(fit.get("repaired") or 0),
+        "restored_tool_results": restored,
+    }
+    state.context_recovery.append(recovery)
+    state.status("context_recovered", **recovery)
+    if state.on_delta:
+        state.on_delta("\n[context compressed after overflow]\n", "status")
+    return recovery
+
+
 def _call_provider(state: TurnState, iteration: int):
     errors = []
-    for provider in state.provider_candidates:
+    for index, provider in enumerate(state.provider_candidates):
         state.status("provider_call", provider=provider.name, model=provider.model, iteration=iteration)
         reservation = 0.0
-        try:
-            _, reservation = _preflight_cost(state, provider)
-            response = provider.chat(
-                state.messages,
-                tools=state.tools,
-                stream=bool(state.config.get("streaming", True)),
-                on_delta=state.on_delta,
-                options=_options(state),
-            )
-            state.usage["provider"] = provider.name
-            state.usage["model"] = provider.model
-            return response, provider, reservation
-        except ProviderError as exc:
-            _release_reservation(state, reservation)
-            message = redact(str(exc))
-            errors.append(f"{provider.name}: {message}")
-            state.status("provider_error", provider=provider.name, error=message, retryable=exc.retryable)
-            state.provider_manager.mark_failed(provider.name, 30 if exc.retryable else 300)
-            if state.on_delta:
-                state.on_delta("\n[provider switched after error]\n", "status")
-        except Exception:
-            _release_reservation(state, reservation)
-            raise
+        for attempt in (0, 1):
+            try:
+                _, reservation = _preflight_cost(state, provider)
+                response = provider.chat(
+                    state.messages,
+                    tools=state.tools,
+                    stream=bool(state.config.get("streaming", True)),
+                    on_delta=state.on_delta,
+                    options=_options(state),
+                )
+                state.usage["provider"] = provider.name
+                state.usage["model"] = provider.model
+                return response, provider, reservation
+            except ContextOverflow as exc:
+                _release_reservation(state, reservation)
+                reservation = 0.0
+                message = redact(str(exc))
+                errors.append(f"{provider.name}: {message}")
+                retrying = attempt == 0 and len(state.context_recovery) < 2
+                state.status("context_overflow", provider=provider.name, error=message, retrying=retrying)
+                if retrying:
+                    _recover_context(state, provider, message)
+                    continue
+                _mark_failed(state, provider, 60, message)
+                next_provider = next(iter(state.provider_candidates[index + 1 :]), None)
+                if next_provider is not None:
+                    state.status(
+                        "routing_fallback",
+                        **{"from": provider.name, "to": next_provider.name, "reason": message},
+                    )
+                break
+            except ProviderError as exc:
+                _release_reservation(state, reservation)
+                reservation = 0.0
+                message = redact(str(exc))
+                errors.append(f"{provider.name}: {message}")
+                state.status("provider_error", provider=provider.name, error=message, retryable=exc.retryable)
+                _mark_failed(state, provider, 30 if exc.retryable else 300, message)
+                next_provider = next(iter(state.provider_candidates[index + 1 :]), None)
+                if next_provider is not None:
+                    state.status(
+                        "routing_fallback",
+                        **{"from": provider.name, "to": next_provider.name, "reason": message},
+                    )
+                if state.on_delta:
+                    state.on_delta("\n[provider switched after error]\n", "status")
+                break
+            except Exception:
+                _release_reservation(state, reservation)
+                raise
     raise AetherError("All providers failed. " + " | ".join(errors))
 
 
@@ -251,7 +396,19 @@ def run_turn_loop(state: TurnState) -> TurnState:
     for iteration in range(1, max(1, int(state.max_iterations)) + 1):
         if state.cancel_event.is_set():
             return _mark_cancelled(state)
-        state.messages, fit = state.context_manager.fit(state.messages)
+        decision = state.routing_decision or {}
+        try:
+            supports_provider = "provider" in inspect.signature(state.context_manager.fit).parameters
+        except (TypeError, ValueError):
+            supports_provider = False
+        if supports_provider:
+            state.messages, fit = state.context_manager.fit(
+                state.messages,
+                provider=str(decision.get("provider") or "") or None,
+                model=str(decision.get("model") or "") or None,
+            )
+        else:
+            state.messages, fit = state.context_manager.fit(state.messages)
         if fit.get("changed"):
             state.status("context_compressed", **fit)
         try:
@@ -291,7 +448,10 @@ def run_turn_loop(state: TurnState) -> TurnState:
             for message, execution in results:
                 state.messages.append(message)
                 state.new_messages.append(message)
-                state.tool_log.append(execution.as_dict())
+                record = execution.as_dict()
+                state.tool_log.append(record)
+            if state.execution_plan is not None and hasattr(state.execution_plan, "summary"):
+                state.status("plan_checkpoint", **state.execution_plan.summary())
             if state.cancel_event.is_set():
                 return _mark_cancelled(state)
             continue

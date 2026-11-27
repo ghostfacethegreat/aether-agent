@@ -1,6 +1,9 @@
+import os
 import sqlite3
+import stat
 import unittest
 
+from aether.home import aether_home
 from aether.persistence import Store
 
 from tests.base import TempHomeTest
@@ -10,6 +13,16 @@ class StoreTests(TempHomeTest):
     def setUp(self):
         super().setUp()
         self.store = Store(self.home / "state.db")
+
+    def test_state_database_is_private(self):
+        mode = stat.S_IMODE(os.stat(self.home / "state.db").st_mode)
+        self.assertEqual(mode, 0o600)
+
+    def test_home_directories_are_private(self):
+        home = aether_home()
+        for path in [home, *(home / name for name in ("memories", "skills", "logs", "cron"))]:
+            with self.subTest(path=path):
+                self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o700)
 
     def test_session_messages_and_search(self):
         session = self.store.create_session(title="first", provider="mock", model="mock-standard")

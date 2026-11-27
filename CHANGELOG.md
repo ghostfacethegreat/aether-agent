@@ -1,5 +1,101 @@
 # Changelog
 
+## Unreleased
+
+### CLI Preview release verification slice
+
+- Branch `feat/aether-parity-foundation`; PR #8 open draft; no merge/tag/release/version/default-branch change; no binary published.
+- Integration base `fcee9db806fff2788198988fea07703b6a5f0cd1` passed GitHub Actions run #90 (also found as run IDs 45737098740/45737090789) with 238 tests across Python 3.10-3.14, `scripts/check.sh`, and clean-checkout install/uninstall.
+- After that base, local changes hardened authorization, verification evidence, SQLite permissions, prompt-injection labels, scheduler env isolation, planning semantics, CLI output sanitization, benchmark packaging, and added a real end-to-end mock-provider coding workflow test.
+- Latest local full verification after all changes: `python3 -m compileall -q aether tests` OK; `python3 -m unittest discover -s tests -v` -> 274 tests OK; `bash scripts/check.sh` -> 274 tests OK, 3 cold starts, median wall time 0.119s, peak child RSS 33.0 MiB, all checks passed; `bash scripts/test_install.sh` OK; `git diff --check` OK. Fresh CI is required for the final pushed commit; the Actions run for that exact SHA is authoritative.
+- Workstation acceptance on this Mac: macOS 15.0.1 build 24A348, Apple M1, RAM 8589934598 bytes (~8 GB), Python 3.14.2, arm64. Active scripts used mock/mock-standard. PASS: fresh install, version, doctor, mock conversation, provider/model switch, memory add/search across separate processes, plan status/resume, approval prompt (fresh once), repo_index search, patch_preview, approval-gated patch_apply, test_run, direct unittest, home dir 0700, state.db 0600, uninstall wrapper removal, Aether state and project data preserved. Cancellation is covered by deterministic unit tests in the 274-test suite, not by a live long-running cancellation demonstration.
+
+### Added
+- Add a bounded local repository index/search tool with root .gitignore handling and generated/vendor, symlink, binary, and size exclusions.
+- Add unified-diff preview and approval-gated patch application with full preflight, path protections, existing-file-only policy, and rollback attempt on filesystem errors.
+- Add fixed-argument repository test runner for unittest suite/module, compileall, and scripts/check.sh; include successful test_run evidence in independent verification.
+
+### Changed
+- Developer, debugger, tester, and verifier roles can use the repository coding workflow; patch writes and test execution require approval.
+
+
+### Added
+- Load bounded repository-root project context from AGENTS.md and compatible instruction files with symlink, traversal, binary, encoding, and size protections.
+- Add structured specialist-output contracts and an independent-verification gate based on the verifier's own successful test/check tool evidence.
+- Expand automatic dependency-aware orchestration across planner, researcher, architect, developer, debugger, tester, security auditor, verifier, reviewer, analyst, and documentation roles.
+- Add a Python 3.10–3.14 GitHub Actions matrix and scoped Copilot custom-agent workstream profiles.
+
+### Changed
+- Implementation, debugging, and documentation workflows include a separate verifier; unverified work remains partial instead of being reported as fully verified.
+
+
+
+### Added
+- Load bounded repository-root project context from AGENTS.md and compatible instruction files with symlink, traversal, binary, encoding, and size protections.
+- Add structured specialist-output contracts and an independent-verification gate based on the verifier's own successful test/check tool evidence.
+- Expand automatic dependency-aware orchestration across planner, researcher, architect, developer, debugger, tester, security auditor, verifier, reviewer, analyst, and documentation roles.
+- Add a Python 3.10–3.14 GitHub Actions matrix and scoped Copilot custom-agent workstream profiles.
+
+### Changed
+- Implementation, debugging, and documentation workflows include a separate verifier; unverified work remains partial instead of being reported as fully verified.
+
+
+
+### Changed
+- Refresh the interactive CLI with an acid-blue 3D-style masthead, framed session overview, labeled streamed responses, and a clearer prompt.
+- Add configurable terminal themes and ASCII/NO_COLOR fallbacks without adding runtime dependencies.
+- Document the TAAG/TheDraw inspiration and font redistribution limitation.
+
+
+## Phase E capability-aware model routing
+
+- Added an evidence-aware capability registry with capability, context-window, pricing, source, and freshness facts; unknown facts and prices remain unknown.
+- Added a deterministic task classifier and a scored router with `capability`, `cost`, and `fixed` strategies, explicit provider/model authority, provider health cooldowns, and inspectable explanations.
+- Integrated routing with context fitting and overflow recovery that preserves the objective, restores only still-matched tool results, caps restored tool text, and retries the same provider once; configured fallbacks remain in the runtime chain.
+- Added verified model-performance history with `mark_model_performance_verified()`, role metadata, and per-turn child role spend shares that do not mutate the shared budget limit.
+- Added `aether models list|inspect|capabilities|routing|explain|performance|health|benchmark` and `/models` diagnostics that never call models; there is no `routing.manual` setting.
+- Added an offline deterministic routing benchmark that prints JSON without model, network, or billable calls or file writes; `--confirm-billable` is acknowledgement only. It is not a task-quality or Hermes-comparison result.
+- Verified locally with 26 focused routing tests, including HTTP 400 context-length detection/recovery and orchestrator role preferred/fallback entries, and 179 total tests. `bash scripts/check.sh && bash scripts/test_install.sh` passed with 3 cold starts, median wall time `0.114s`, peak child RSS `34.4 MiB`, and a local git-remote install test pass. `python3 scripts/benchmark.py` recorded 3 cold starts, median wall time `0.112s`, and peak child RSS `34.9 MiB`. `git diff --check` passed. `ResourceWarning` notices for unclosed SQLite connections are non-failing; no lint/typecheck command is configured.
+- Documented the behavior in `docs/MODEL_ROUTING.md`, `docs/PHASE_E_BENCHMARKS.md`, `docs/PHASE_E_ARCHITECTURE.md`, and `docs/RELEASE_CHECKS.md`. Package version remains `0.1.0`.
+
+## Phase D evidence-based learning
+
+- Added sanitized experience records from real turns, with explicit feedback and deterministic evidence rules that do not treat model claims or successful tool calls as completion proof.
+- Added evidence-based skill discovery, proposal storage, deterministic validation, explicit approval/rejection, skill installation, version history, rollback, metrics, and learning events.
+- Added additive SQLite tables for experiences, proposals, versions, metrics, and learning events without rewriting existing state.
+- Added bounded, labeled learning context to prompts and disabled persistent learning writes in child agents.
+- Added `aether skills discover|proposals|validate|approve|reject|history|versions|rollback|result`, `aether learning pending|metrics|feedback`, `/skills` learning actions, and `/feedback`.
+- Added deterministic tests for evidence rules, discovery, validation, security checks, approval, persistence, improvement, rollback, agent turns, child isolation, CLI, and slash commands; all local checks pass.
+- Documented the learning contract in `docs/PHASE_D_LEARNING.md`.
+
+## Phase C layered memory
+
+- Added additive SQLite-backed working, episodic, semantic, procedural, and user memory layers.
+- Added bounded, labeled recall with provenance, confidence, and source labels.
+- Added semantic correction and contradiction handling, duplicate consolidation, expiration, deletion controls, export/import, and idempotent Markdown migration.
+- Recorded active objectives and turn outcomes from real agent turns while keeping existing `MEMORY.md` and `USER.md` valid.
+- Added `aether memory layer ...`, `/memory layer ...`, and `memory` tool layer actions with child write isolation.
+- Added deterministic recall, provenance, migration, retention, isolation, persistence, and CLI tests; all local checks pass.
+
+## Phase B adaptive planning and execution state
+
+- Added deterministic request classification for simple, moderate, complex, and high-risk work, with inspectable routes and risk notes.
+- Added plan records with objective, constraints, risk assessment, alternatives, task dependencies, required tools, expected results, verification criteria, revision history, and resume context.
+- Added an execution state machine and SQLite-backed plan/checkpoint persistence.
+- Wired plan state into turns so tool results update task status and checkpoint status is emitted.
+- Added `plan_tool`, `aether plan list|show|status|checkpoints|resume`, and `/plan status|checkpoints|resume <id>|text`.
+- Added resume behavior that skips completed and non-idempotent work and records repairs when evidence invalidates a plan.
+- Added deterministic planner, persistence, and agent integration tests; all local checks pass.
+
+## Phase A intelligence audit (documentation checkpoint)
+
+- Changed the 0.2+ priority from visual work to intelligence-first work: planning, memory, learning, model routing, coding, research, tool selection, orchestration, verification, recovery, and measured task success.
+- Froze terminal appearance: existing ASCII artwork and colored rendering are preserved; themes, font tooling, animations, and visual redesigns are out of scope unless fixing a functional regression.
+- Added [INTELLIGENCE_AUDIT.md](docs/INTELLIGENCE_AUDIT.md), [INTELLIGENCE_ROADMAP.md](docs/INTELLIGENCE_ROADMAP.md), and [HERMES_COMPARISON.md](docs/HERMES_COMPARISON.md) with source-evidenced gaps, adoption decisions, and phases A-L.
+- Added benchmark protocol scaffolding under [benchmarks/README.md](benchmarks/README.md) with no result claims.
+- Superseded the visual-first 0.2 plans in the baseline, architecture, and roadmap documents while retaining them as historical provenance.
+- Refreshed the Hermes comparison evidence to current `main` at `fe9a4b58ec137d3e00719c10e2385876fa03b97c`; no runtime behavior changed and no parity or superiority claim is made.
+
 ## Phase 4 security and reliability audit
 
 - Linked parent cancellation into orchestrated runs, propagated task cancellation into child turns and tool execution, and made timeout/cancel paths stop child work between provider/tool operations.

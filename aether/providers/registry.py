@@ -54,6 +54,7 @@ class ProviderManager:
         self.active: BaseProvider = build_provider(config, self.active_name, self.model)
         self.model = self.active.model
         self._cooldown: dict[str, float] = {}
+        self._failure_reason: dict[str, str] = {}
 
     def activate(self, name: str, model: str | None = None) -> BaseProvider:
         provider = build_provider(self.config, name, model)
@@ -71,8 +72,10 @@ class ProviderManager:
         names = [str(name) for name in (self.config.get("fallback_providers") or [])]
         return [name for name in names if name != self.active_name]
 
-    def mark_failed(self, name: str, seconds: float = 60.0) -> None:
-        self._cooldown[name] = time.monotonic() + seconds
+    def mark_failed(self, name: str, seconds: float = 60.0, reason: str = "") -> None:
+        self._cooldown[name] = time.monotonic() + max(0.0, float(seconds))
+        if reason:
+            self._failure_reason[name] = str(reason)[:500]
 
     def _cooling(self, name: str) -> bool:
         until = self._cooldown.get(name)
@@ -87,6 +90,46 @@ class ProviderManager:
                 result.append(build_provider(self.config, name, self.model if name == self.active_name else None))
             except (ConfigError, ValueError):
                 continue
+        return result
+
+    def candidates_for(self, entries: list[tuple[str, str]]) -> list[BaseProvider]:
+        available = self.candidates()
+        available_by_key = {(item.name, item.model): item for item in available}
+        available_by_name = {}
+        for item in available:
+            available_by_name.setdefault(item.name, item)
+        result = []
+        seen = set()
+        for raw_name, raw_model in entries:
+            name = str(raw_name or "")
+            model = str(raw_model or "")
+            if not name:
+                continue
+            if name != self.active_name and self._cooling(name):
+                continue
+            candidate = available_by_key.get((name, model)) or available_by_name.get(name)
+            if candidate is None:
+                try:
+                    candidate = build_provider(self.config, name, model or None)
+                except (ConfigError, ValueError):
+                    continue
+            key = (candidate.name, candidate.model)
+            if key not in seen:
+                seen.add(key)
+                result.append(candidate)
+        return result or available
+
+    def health(self) -> dict:
+        now = time.monotonic()
+        result = {}
+        for name in set(list(self._cooldown) + [self.active_name] + self.fallback_names()):
+            until = float(self._cooldown.get(name) or 0.0)
+            cooling = until > now
+            result[str(name)] = {
+                "status": "cooling" if cooling else "available",
+                "reason": str(self._failure_reason.get(name) or "") if cooling else "",
+                "retry_after_seconds": round(max(0.0, until - now), 1) if cooling else 0.0,
+            }
         return result
 
     def describe_active(self) -> dict:

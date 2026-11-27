@@ -10,7 +10,7 @@ from aether.core import Agent, TurnResult
 from aether.core.loop import TurnState, _cost_limit, new_spend_budget
 from aether.errors import OrchestratorError, ProviderError, ToolError
 from aether.orchestration import OrchestrationRun, OrchestrationTask, SharedTaskState
-from aether.orchestration.roles import resolved_roles
+from aether.orchestration.roles import FORCED_APPROVAL_TOOLS, resolved_roles
 from aether.orchestration.orchestrator import ActiveRun, Orchestrator
 from aether.tools.builtins import skill_tool
 
@@ -27,6 +27,86 @@ class OrchestrationTests(TempHomeTest):
             usage={"prompt_tokens": tokens, "completion_tokens": tokens, "estimated_cost": 0.0},
             exit_reason="complete",
         )
+
+    def test_automatic_implementation_plan_uses_specialist_chain(self):
+        agent = Agent(self.config(), home=self.home)
+        tasks = agent.orchestrator._plan_tasks("Implement a feature and add tests")
+        roles = [task.role for task in tasks]
+        self.assertEqual(roles, ["planner", "researcher", "architect", "developer", "tester", "verifier", "reviewer"])
+        by_role = {task.role: task for task in tasks}
+        self.assertEqual(by_role["tester"].dependencies, [by_role["developer"].id])
+        self.assertEqual(by_role["verifier"].dependencies, [by_role["tester"].id])
+        self.assertEqual(by_role["reviewer"].dependencies, [by_role["verifier"].id])
+
+    def test_automatic_security_plan_adds_security_auditor(self):
+        agent = Agent(self.config(), home=self.home)
+        tasks = agent.orchestrator._plan_tasks("Implement authentication and audit security permissions")
+        roles = [task.role for task in tasks]
+        self.assertIn("security_auditor", roles)
+        self.assertIn("verifier", roles)
+        self.assertLessEqual(len(roles), 8)
+
+    def test_verifier_requires_its_own_successful_check_command(self):
+        good = {
+            "name": "terminal",
+            "ok": True,
+            "arguments": {"command": "bash scripts/check.sh"},
+            "result": '{"exit_code": 0, "output": "all checks passed"}',
+        }
+        bad_exit = {
+            "name": "terminal",
+            "ok": True,
+            "arguments": {"command": "python3 -m unittest discover -s tests"},
+            "result": '{"exit_code": 1, "output": "FAILED"}',
+        }
+        claim_only = {
+            "name": "terminal",
+            "ok": True,
+            "arguments": {"command": "echo tests passed"},
+            "result": '{"exit_code": 0, "output": "tests passed"}',
+        }
+        self.assertEqual(
+            Orchestrator._verified_check_evidence([good]),
+            [{"command": "bash scripts/check.sh", "exit_code": 0}],
+        )
+        self.assertEqual(Orchestrator._verified_check_evidence([bad_exit, claim_only]), [])
+
+    def test_verifier_rejects_trailing_check_command_arguments(self):
+        records = []
+        for command in ("bash scripts/check.sh --help", "pytest --version", "python3 -m compileall -q ."):
+            records.append(
+                {
+                    "name": "terminal",
+                    "ok": True,
+                    "arguments": {"command": command},
+                    "result": '{"exit_code": 0, "output": "ok"}',
+                }
+            )
+        self.assertEqual(Orchestrator._verified_check_evidence(records), [])
+
+    def test_verifier_role_is_read_only_and_requires_terminal_approval(self):
+        agent = Agent(self.config(), home=self.home)
+        role = resolved_roles(agent.config)["verifier"]
+        task = OrchestrationTask(id="task_verifier_policy", role="verifier", goal="Verify")
+        child = agent._orchestration_child(role, task.to_dict(), {}, threading.Event())
+        self.assertIn("terminal", child.registry.tools)
+        self.assertNotIn("write_file", child.registry.tools)
+        self.assertNotIn("edit_file", child.registry.tools)
+        decision = child.policy.check("terminal", {"command": "bash scripts/check.sh"}, risk="execute")
+        self.assertTrue(decision.needs_approval)
+
+    def test_duplicate_roles_and_dependency_cycles_are_rejected(self):
+        agent = Agent(self.config(), home=self.home)
+        with self.assertRaises(OrchestratorError):
+            agent.orchestrator._plan_tasks("x", roles=["researcher", "researcher"])
+        with self.assertRaises(OrchestratorError):
+            agent.orchestrator._plan_tasks(
+                "x",
+                roles=[
+                    {"role": "researcher", "depends_on": ["reviewer"]},
+                    {"role": "reviewer", "depends_on": ["researcher"]},
+                ],
+            )
 
     def test_sequential_dependency_execution(self):
         events = []
@@ -176,6 +256,29 @@ class OrchestrationTests(TempHomeTest):
         self.assertTrue(child.policy.check("read_file", {}, risk="low").allowed)
         self.assertIn("orchestrate_task", child.config.get("tool_permissions.deny_tools", []))
 
+    def test_child_delegate_inherits_parent_registry_ceiling(self):
+        config = self.config(
+            tool_permissions={"allow_tools": ["read_file", "delegate_task"], "deny_tools": ["session_search"], "require_approval": []}
+        )
+        agent = Agent(config, home=self.home, allowed_tools=["read_file", "delegate_task"])
+        child = agent._child_agent({}, {})
+        self.assertNotIn("session_search", child.registry.tools)
+        self.assertNotIn("skill", child.registry.tools)
+        self.assertFalse(child.policy.check("session_search", {}, risk="low").allowed)
+        self.assertTrue(child.policy.check("read_file", {}, risk="low").allowed)
+
+    def test_orchestration_child_inherits_constructor_tool_ceiling(self):
+        config = self.config(tool_permissions={"require_approval": []})
+        agent = Agent(config, home=self.home, allowed_tools=["read_file", "orchestrate_task"])
+        role = {
+            "allowed_tools": ["read_file", "web_search", "session_search", "skill"],
+            "deny_tools": [],
+            "system_prompt": "Focused worker",
+            "max_iterations": 2,
+        }
+        child = agent._orchestration_child(role, {}, {}, threading.Event())
+        self.assertEqual(set(child.registry.tools), {"read_file"})
+
     def test_concurrent_task_isolation_and_communication(self):
         state = SharedTaskState("run_shared", "Objective")
         first = OrchestrationTask(id="task_first", role="researcher", goal="Research")
@@ -298,7 +401,7 @@ class OrchestrationTests(TempHomeTest):
             orchestrator={
                 "roles": {
                     "researcher": {
-                        "allowed_tools": ["terminal"],
+                        "allowed_tools": ["terminal", "memory"],
                         "deny_tools": [],
                         "require_approval": [],
                     }
@@ -310,6 +413,8 @@ class OrchestrationTests(TempHomeTest):
         child = agent._orchestration_child(role, {}, {}, threading.Event())
         decision = child.policy.check("terminal", {"command": "echo ok"}, risk="execute")
         self.assertTrue(decision.needs_approval)
+        self.assertTrue(FORCED_APPROVAL_TOOLS <= set(role["require_approval"]))
+        self.assertTrue(child.policy.check("memory", {"action": "add", "text": "x"}, "write").needs_approval)
 
     def test_child_cannot_mutate_persistent_skills(self):
         agent = Agent(self.config(), home=self.home)
@@ -359,6 +464,20 @@ class OrchestrationTests(TempHomeTest):
         state.mark_cancelled(task.id)
         self.assertFalse(state.try_mark_running(task.id))
         self.assertEqual(task.status, "cancelled")
+
+    def test_patch_apply_is_forced_approval_for_orchestration_children(self):
+        agent = Agent(self.config(tool_permissions={"require_approval": []}), home=self.home)
+        role = resolved_roles(agent.config)["developer"]
+        child = agent._orchestration_child(
+            role,
+            {"id": "task_patch_approval", "role": "developer", "goal": "Apply a patch"},
+            {},
+            threading.Event(),
+        )
+        self.assertIn("patch_apply", child.config.get("tool_permissions.require_approval", []))
+        decision = child.policy.check("patch_apply", {"patch": "diff"}, risk="write")
+        self.assertTrue(decision.allowed)
+        self.assertTrue(decision.needs_approval)
 
 
 if __name__ == "__main__":

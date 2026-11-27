@@ -28,6 +28,18 @@ class CliTests(TempHomeTest):
         self.assertIn("ollama", output)
         self.assertIn("paid", output)
 
+    def test_doctor_command(self):
+        code, output = self.run_cli(["doctor"])
+        self.assertEqual(code, 0)
+        self.assertIn("Aether doctor", output)
+        self.assertIn("ok: Python", output)
+
+    def test_provider_and_model_switch(self):
+        code, output = self.run_cli(["--provider", "mock", "--model", "mock-standard", "status"])
+        self.assertEqual(code, 0)
+        self.assertIn("mock", output)
+        self.assertIn("mock-standard", output)
+
     def test_config_set_and_get(self):
         code, _ = self.run_cli(["config", "set", "personality", "Be brief."])
         self.assertEqual(code, 0)
@@ -62,6 +74,13 @@ class CliTests(TempHomeTest):
         self.assertEqual(code, 0)
         self.assertIn("mock (local)", output)
         self.assertIn("mock-standard", output)
+
+    def test_plan_status_command(self):
+        code, _ = self.run_cli(["--provider", "mock", "run", "Create a file and verify it"])
+        self.assertEqual(code, 0)
+        code, output = self.run_cli(["plan", "status"])
+        self.assertEqual(code, 0)
+        self.assertIn("status", output.lower())
 
     def test_agents_list_command(self):
         code, output = self.run_cli(["agents", "list"])
