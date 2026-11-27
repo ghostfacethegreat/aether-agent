@@ -4,6 +4,8 @@ import shutil
 import sys
 import threading
 
+from .artwork import load_ansi_art
+
 NO_COLOR = bool(os.environ.get("NO_COLOR")) or not sys.stdout.isatty()
 
 COLORS = {
@@ -26,11 +28,12 @@ _USE_UNICODE = True
 _SHOW_BANNER = True
 _SHOW_DASHBOARD = True
 _SHOW_RESPONSE_LABELS = True
+_BANNER_FILE = None
 
 
 def configure(settings=None):
     """Configure presentation without changing agent behavior or global terminal settings."""
-    global _THEME, _USE_UNICODE, _SHOW_BANNER, _SHOW_DASHBOARD, _SHOW_RESPONSE_LABELS
+    global _THEME, _USE_UNICODE, _SHOW_BANNER, _SHOW_DASHBOARD, _SHOW_RESPONSE_LABELS, _BANNER_FILE
 
     settings = settings if isinstance(settings, dict) else {}
     theme = str(settings.get("theme", "acid-blue")).strip().lower()
@@ -46,6 +49,7 @@ def configure(settings=None):
     _SHOW_BANNER = settings.get("show_banner", True) is not False
     _SHOW_DASHBOARD = settings.get("show_dashboard", True) is not False
     _SHOW_RESPONSE_LABELS = settings.get("show_response_labels", True) is not False
+    _BANNER_FILE = str(settings.get("banner_file") or "").strip() or None
 
 
 _UNTRUSTED_ESCAPE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\|$)|\([A-Za-z0-9]|[=>])")
@@ -111,7 +115,15 @@ def banner(version):
     if not _SHOW_BANNER:
         return ""
     width = terminal_width()
-    if width >= 48:
+    custom_art = load_ansi_art(
+        _BANNER_FILE,
+        max_width=max(8, min(120, width - 4)),
+        allow_color=not NO_COLOR and _THEME != "mono",
+        allow_unicode=_USE_UNICODE,
+    )
+    if custom_art:
+        logo = custom_art.splitlines()
+    elif width >= 48:
         rows = _glyph_rows()
         logo = []
         for row in rows:

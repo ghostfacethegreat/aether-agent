@@ -63,6 +63,24 @@ class RenderTests(unittest.TestCase):
             visible = re.sub(r"\x1b\[[0-9;]*m", "", line)
             self.assertLessEqual(len(visible), 40)
 
+    def test_custom_ansi_banner_is_loaded_without_executing_it(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temp:
+            art = Path(temp) / "custom.ansi"
+            art.write_text("CUSTOM\nBANNER\x1b[2J", encoding="utf-8")
+            render.configure({"banner_file": str(art)})
+            output = render.banner("0.1.0")
+            self.assertIn("CUSTOM", output)
+            self.assertIn("0.1.0", output)
+            self.assertNotIn("\x1b[2J", output)
+
+    def test_missing_custom_banner_uses_builtin_logo(self):
+        render.configure({"banner_file": "/missing/banner.ansi"})
+        output = render.banner("0.1.0")
+        self.assertIn("AETHER", output)
+
     def test_response_labels_can_be_disabled(self):
         render.configure({"show_response_labels": False})
         self.assertEqual(render.assistant_prefix(), "")
