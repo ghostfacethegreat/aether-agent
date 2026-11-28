@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="360" viewBox="0 0 1440 360" role="img" aria-labelledby="title desc">
+<title id="title">Ghostface — independent software</title>
+<desc id="desc">A deep crimson and ink-black technical banner with an ivory star-and-eye emblem, fine gold geometry, and editorial typography.</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#12090b"/>
+    <stop offset=".46" stop-color="#3b090e"/>
+    <stop offset="1" stop-color="#10080a"/>
+  </linearGradient>
+  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#f4dfb7"/>
+    <stop offset=".55" stop-color="#b58a56"/>
+    <stop offset="1" stop-color="#6d4930"/>
+  </linearGradient>
+  <radialGradient id="glow">
+    <stop offset="0" stop-color="#8d2630" stop-opacity=".42"/>
+    <stop offset="1" stop-color="#8d2630" stop-opacity="0"/>
+  </radialGradient>
+  <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+    <path d="M48 0H0V48" fill="none" stroke="#d4a76a" stroke-opacity=".10" stroke-width="1"/>
+    <circle cx="0" cy="0" r="1.5" fill="#e5c18d" fill-opacity=".25"/>
+  </pattern>
+</defs>
+<rect width="1440" height="360" fill="url(#bg)"/>
+<rect width="1440" height="360" fill="url(#grid)"/>
+<ellipse cx="1130" cy="180" rx="390" ry="260" fill="url(#glow)"/>
+<g fill="none" stroke="url(#gold)" stroke-opacity=".55">
+  <circle cx="1130" cy="180" r="145" stroke-width="1.4"/>
+  <circle cx="1130" cy="180" r="174" stroke-dasharray="2 9"/>
+  <circle cx="1130" cy="180" r="206" stroke-opacity=".28"/>
+  <path d="M920 180H1340M1130 -24V384M980 30L1280 330M1280 30L980 330" stroke-width="1"/>
+  <path d="M30 70H520M30 290H650M650 0V360" stroke-opacity=".22"/>
+  <path d="M80 52l12 12-12 12-12-12zM710 48l8 8-8 8-8-8zM1380 276l10 10-10 10-10-10z" />
+</g>
+<g transform="translate(1130 180)">
+  <path d="M0-112L25-34L106-34L40 14L65 94L0 46L-65 94L-40 14L-106-34L-25-34Z" fill="#ead9bf" fill-opacity=".90" stroke="#9d7951" stroke-width="4"/>
+  <path d="M-54 0Q0-42 54 0Q0 42-54 0Z" fill="#241217" stroke="#1a0d10" stroke-width="8"/>
+  <ellipse cx="0" cy="0" rx="25" ry="17" fill="#d77f83"/>
+  <ellipse cx="0" cy="0" rx="9" ry="14" fill="#09090b"/>
+  <circle cx="3" cy="-5" r="3" fill="#f7e9d0"/>
+</g>
+<g fill="#d8b886" opacity=".75" font-family="Georgia,serif" font-size="15">
+  <text x="78" y="92">✦</text><text x="564" y="72">⌬</text><text x="680" y="282">⟡</text>
+  <text x="1340" y="94">✧</text><text x="790" y="126">◌</text><text x="872" y="290">✳</text>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+  <text x="88" y="150" fill="#f0e5d5" font-size="18" letter-spacing="7">INDEPENDENT SOFTWARE</text>
+  <text x="84" y="218" fill="#f7eddf" font-size="54" letter-spacing="3">GHOSTFACE</text>
+  <path d="M88 238H575" stroke="url(#gold)" stroke-width="2"/>
+  <text x="90" y="274" fill="#c4a77d" font-size="17" letter-spacing="4">AI SYSTEMS  /  MACOS  /  AUTOMATION</text>
+  <text x="90" y="318" fill="#9e8067" font-size="11" letter-spacing="3">RESEARCH  ·  BUILD  ·  REFINE</text>
+</g>
+<rect x="12" y="12" width="1416" height="336" fill="none" stroke="#b98b59" stroke-opacity=".55"/>
+</svg>
