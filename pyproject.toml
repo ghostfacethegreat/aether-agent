@@ -31,7 +31,7 @@ aether = "aether.cli.app:main"
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["aether*"]
+include = ["aether*", "benchmarks*"]
 
 [tool.setuptools.package-data]
 "aether.skills" = ["builtin/*/SKILL.md"]

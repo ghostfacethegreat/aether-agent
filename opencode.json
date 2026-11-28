@@ -1,0 +1,532 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "aether-lead",
+  "agents": {
+    "aether-lead": {
+      "description": "Coordinates AETHER development, delegates bounded work, and requires evidence before declaring tasks complete.",
+      "mode": "primary",
+      "steps": 30,
+      "permissions": [
+        {
+          "action": "subagent",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "subagent",
+          "resource": "architect",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "implementer",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "qa",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "reviewer",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "git push *",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "git tag *",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "gh pr merge *",
+          "effect": "deny"
+        },
+        {
+          "action": "subagent",
+          "resource": "income-scout",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "payment-pathfinder",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "coding-triager",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "proposal-writer",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "offer-strategist",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "rights-reviewer",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "bookkeeper",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "customer-success",
+          "effect": "allow"
+        }
+      ]
+    },
+    "architect": {
+      "description": "Read-only architect that maps AETHER code, dependencies, roadmap gaps, and safe implementation boundaries.",
+      "mode": "subagent",
+      "steps": 12,
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    },
+    "implementer": {
+      "description": "Implements one approved AETHER work package with scoped edits and local verification.",
+      "mode": "subagent",
+      "steps": 24,
+      "permissions": [
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "edit",
+          "resource": "aether/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "tests/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "docs/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "README.md",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "shell",
+          "resource": "git status *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git diff *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python3 -m compileall *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python3 -m unittest *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "bash scripts/check.sh",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git push *",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "git tag *",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "gh pr merge *",
+          "effect": "deny"
+        }
+      ]
+    },
+    "qa": {
+      "description": "Runs AETHER's deterministic tests and CI-relevant checks; diagnoses failures without changing production code.",
+      "mode": "subagent",
+      "steps": 16,
+      "permissions": [
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "shell",
+          "resource": "git status *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git diff *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python3 -m compileall *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python3 -m unittest *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "bash scripts/check.sh",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "bash scripts/test_install.sh",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git push *",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "gh pr merge *",
+          "effect": "deny"
+        }
+      ]
+    },
+    "reviewer": {
+      "description": "Independent read-only reviewer for correctness, security, test coverage, and documentation accuracy.",
+      "mode": "subagent",
+      "steps": 14,
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    },
+    "income-scout": {
+      "description": "Finds and verifies current paid coding and creator-service opportunities; never applies or contacts.",
+      "mode": "subagent",
+      "steps": 12,
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    },
+    "payment-pathfinder": {
+      "description": "Researches official payment and wallet requirements; never accesses accounts or moves money.",
+      "mode": "subagent",
+      "steps": 12,
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    },
+    "rights-reviewer": {
+      "description": "Checks source licenses, commercial permissions, and platform rules; never publishes or submits.",
+      "mode": "subagent",
+      "steps": 12,
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    },
+    "coding-triager": {
+      "description": "Read-only intake and root-cause triage for small customer coding bugs.",
+      "mode": "subagent",
+      "steps": 10,
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    },
+    "proposal-writer": {
+      "description": "Drafts tailored client proposals and messages for human review only.",
+      "mode": "subagent",
+      "steps": 10,
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    },
+    "offer-strategist": {
+      "description": "Defines narrow, testable service offers, scopes, and price assumptions.",
+      "mode": "subagent",
+      "steps": 10,
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    },
+    "bookkeeper": {
+      "description": "Summarizes owner-entered ledger records without connecting financial accounts.",
+      "mode": "subagent",
+      "steps": 10,
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    },
+    "customer-success": {
+      "description": "Drafts project updates, handoffs, and renewal messages for human review.",
+      "mode": "subagent",
+      "steps": 10,
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    }
+  }
+}

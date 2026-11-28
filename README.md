@@ -2,34 +2,51 @@
 
 <img src="assets/brand-banner.svg" alt="Ghostface independent software banner" width="100%">
 
-<sub>✦ AI SYSTEMS &nbsp;·&nbsp; ⌘ MACOS SOFTWARE &nbsp;·&nbsp; ⟡ AUTOMATION &nbsp;·&nbsp; ⌬ DEVELOPER TOOLS</sub>
+<sub>✦ PERSONAL AI WORKFORCE &nbsp;·&nbsp; LOCAL-FIRST AGENTS &nbsp;·&nbsp; AUTOMATION &nbsp;·&nbsp; DEVELOPER TOOLS</sub>
+
+# AETHER
+
+### Your local-first AI operations and development environment.
+
+**One workspace for agent teams, coding, research, memory, and business operations.**
+
+[Quick start](#quick-start) · [Workforce](#the-agent-workforce) · [VentureOps](#ventureops) · [Architecture](#architecture) · [Roadmap](docs/NEXT_GENERATION_ROADMAP.md) · [Security](SECURITY.md)
 
 </div>
 
 ---
 
-# Aether
+AETHER is an independent, provider-agnostic AI agent platform. Its purpose is to give one operator a useful, inspectable AI workforce: a primary coordinator, specialist agents, persistent local state, reviewable tools, and a clear boundary between drafting work and taking consequential action.
 
-> **Project status: Legacy predecessor.** Active development has moved to a new native macOS assistant. This repository remains available as an independent earlier project and reference.
+AETHER is built around **local-first operation, explicit permissions, cost visibility, persistent task state, and evidence-based verification**. It is not an always-on employee service, does not guarantee income, and does not bypass model-provider limits.
 
+## What AETHER brings together
 
-Aether is a local-first, provider-agnostic AI agent. It runs as a single CLI, stores sessions in SQLite, keeps editable memory in Markdown, and supports reusable `SKILL.md` skills. It is an independent project; it is not affiliated with Nous Research.
+| System | What it does |
+| --- | --- |
+| **Agent runtime** | Provider adapters, sessions, plans, checkpoints, task state, cancellation, and specialist orchestration. |
+| **Memory and skills** | SQLite-backed state, editable Markdown memory, reusable `SKILL.md` workflows, and reviewed learning proposals. |
+| **Model routing** | Inspectable provider and model selection using capability metadata, cost class, context limits, and local health records. |
+| **Coding workflow** | Bounded repository indexing, symbol lookup, diff preview, approval-gated edits, and bounded test execution. |
+| **AETHER workforce** | Reusable specialist profiles for architecture, implementation, QA, review, research, proposals, rights review, and operations. |
+| **VentureOps** | An offline business-operations ledger for leads, offers, clients, quotes, projects, deliverables, invoices, receipts, expenses, and audit events. |
+| **Terminal experience** | A customizable CLI with safe local artwork support, visible state, and ASCII/NO_COLOR fallbacks. |
 
-Aether works with no paid account: the defaults target local Ollama, and a built-in mock provider is available for tests and demos. Free-tier hosted providers are supported but clearly labelled with their own costs and limits. Aether cannot remove model-provider restrictions; only the provider can change those.
+## Quick start
 
-## Status
-
-Version `0.1.0` is an alpha release. A working core, screenshots, installer scripts, and source publication are complete. The Phase 2 feature gap audit and staged roadmap are public in [PHASE2_FEATURE_COMPARISON.md](docs/PHASE2_FEATURE_COMPARISON.md) and [PHASE2_ROADMAP.md](docs/PHASE2_ROADMAP.md); no Hermes parity is claimed. Do not treat free-tier limits or model IDs as permanent; verify them with the provider.
-
-## Install
-
-Aether requires Python 3.10+ and has no third-party runtime dependencies.
+AETHER requires Python 3.10+.
 
 ```bash
-git clone https://github.com/ghostfacethegreat/aether-agent.git aether-agent
+git clone https://github.com/ghostfacethegreat/aether-agent.git
 cd aether-agent
 python3 -m pip install -e .
 aether setup
+```
+
+Try the built-in mock provider first. It requires no key and makes no network request:
+
+```bash
+aether --provider mock run "Say hello"
 ```
 
 For development:
@@ -37,111 +54,51 @@ For development:
 ```bash
 python3 -m pip install -e '.[dev]'
 python3 -m unittest discover -s tests -v
+bash scripts/check.sh
+bash scripts/test_install.sh
 ```
 
-Local installer scripts are also available: `scripts/install.sh`, `scripts/uninstall.sh`, and `scripts/test_install.sh`. Set `AETHER_HOME` before installing to choose a different data directory. A hosted `curl | bash` URL is intentionally not published.
-
-## Quick start
-
-Try the in-process mock provider first:
-
-```bash
-aether --provider mock run "Say hello"
-```
-
-Use a local model with Ollama:
-
-```bash
-ollama pull llama3.2:3b
-aether setup
-aether run "Explain this repository"
-```
-
-Start interactive mode:
-
-```bash
-aether
-```
-
-Type `/help` inside the chat for slash commands. Useful ones include `/status`, `/provider`, `/model`, `/plan`, `/tools`, `/memory`, `/skills`, `/sessions`, `/resume`, `/history`, `/tasks`, `/agents`, `/schedule`, `/cost`, and `/doctor`.
-
-## Screenshots
-
-Real terminal captures from a local mock-provider run; no network request or paid account was used:
-
-- [Status dashboard](docs/screenshots/01-status.txt)
-- [Mock run](docs/screenshots/02-mock-run.txt)
-- [Provider catalog](docs/screenshots/03-providers.txt)
-- [Doctor diagnostics](docs/screenshots/04-doctor.txt)
-
-Branding assets are in `assets/logo.svg` and `assets/banner.svg`.
-
-## Providers
+To use a real model, configure a provider that is currently available to you:
 
 ```bash
 aether providers
-aether --provider groq --model llama-3.3-70b-versatile run "Hello"
-aether --provider mock --model mock-tools run "Use a tool"
+aether setup
+aether
 ```
 
-Provider catalog entries include `mock`, `ollama`, `lmstudio`, `llamacpp`, `groq`, `cerebras`, `huggingface`, `gemini`, `openrouter`, `openai`, `anthropic`, and `custom`. Paid providers are marked as paid. Free-tier providers are marked with their own limits. See `docs/PROVIDERS.md`.
+Local providers and hosted providers have different hardware, privacy, pricing, and quota trade-offs. AETHER does not make hosted inference free; verify model availability and provider terms before use.
 
-API keys are read from environment variables or `~/.aether/.env`. Never commit keys or publish `.env` files.
+## The agent workforce
 
-## Configuration
+AETHER contains a native orchestration runtime and ships an optional OpenCode team configuration under `.opencode/agents/`.
 
-Config is JSON at `~/.aether/config.json` by default. Use `AETHER_HOME` to relocate all state.
+The OpenCode team includes a lead plus 12 specialists:
+
+| Specialist | Main responsibility |
+| --- | --- |
+| AETHER Lead | Breaks objectives into bounded work and coordinates specialists. |
+| Architect | System design and technical decisions. |
+| Implementer | Scoped repository changes. |
+| QA | Test planning and test execution. |
+| Reviewer | Code and change review. |
+| Income Scout | Researches legitimate income opportunities. |
+| Payment Pathfinder | Researches payment-provider requirements and options. |
+| Coding Triager | Finds and assesses small coding opportunities. |
+| Proposal Writer | Drafts proposals for human review. |
+| Offer Strategist | Defines service scope and pricing assumptions. |
+| Rights Reviewer | Checks media and source permissions. |
+| Bookkeeper | Records owner-entered business figures. |
+| Customer Success | Drafts client updates and handoffs. |
+
+Start the OpenCode workspace from the repository:
 
 ```bash
-aether config list
-aether config set personality "You are terse and skeptical."
-aether config set tool_permissions.mode strict
-aether config set fallback_providers '["lmstudio", "groq"]'
+opencode
 ```
 
-Secrets belong in `~/.aether/.env`, for example:
+Then select or invoke `aether-lead` and give it a bounded task. The profiles are **configurations, not 13 continuously running processes**. They do not start themselves, stay active after the CLI closes, or provide unlimited free inference. The owner must select an available local or zero-price model and observe its limits.
 
-```text
-GROQ_API_KEY=...
-OPENROUTER_API_KEY=...
-HF_TOKEN=...
-```
-
-See `docs/CONFIGURATION.md`.
-
-## Memory, skills, and tools
-
-Memory is two editable Markdown files: `~/.aether/memories/MEMORY.md` and `USER.md`.
-
-```bash
-aether memory add "Prefer Python for prototypes" --category preferences
-aether memory list
-```
-
-Skills are `SKILL.md` files in `~/.aether/skills/<name>/SKILL.md`, with built-in examples under `aether/skills/builtin/`. Skills are discovered on demand and summarized in the system prompt.
-
-```bash
-aether skills list
-aether skills view code-review
-aether skills create my-skill "A useful procedure"
-```
-
-Built-in tools cover file reads/writes, terminal and git commands, Python execution, web fetch/search, memory, skills, task delegation, multi-agent orchestration, plans, session search, and scheduling. Write/execute/network actions can require approval; destructive shell patterns are detected and can be rejected in strict mode.
-
-## Sessions and tasks
-
-```bash
-aether sessions list
-aether --session <id> run "Continue"
-aether tasks list
-aether schedule add "Summarize new notes" "every 1h"
-```
-
-Sessions, messages, task ledger, approvals, and usage counters are stored locally in `~/.aether/state.db`.
-
-## Multi-agent orchestration
-
-Aether can split an objective across specialized `researcher`, `developer`, `debugger`, and `reviewer` agents. The orchestrator builds a dependency plan, runs ready tasks in parallel by default, passes structured results between tasks, consolidates the final report, and keeps child permissions inside the parent's allow-list.
+The native AETHER runtime also supports specialist orchestration:
 
 ```bash
 aether agents list
@@ -151,36 +108,85 @@ aether agents cancel <task-id>
 aether agents resume <run-id>
 ```
 
-Inside chat, use `/agents list`, `/agents run <role> <task>`, `/agents status`, and `/agents cancel <task-id>`. Agent runs share the parent's spend budget; nested agents cannot raise the limit. Paid providers are blocked for child agents unless `orchestrator.allow_paid=true`, `AETHER_CONFIRM_PAID` has a truthy value, or `costs.confirm_paid=false`.
+No agent is allowed to grant itself more permissions than its parent. External communications, publishing, purchases, payments, account changes, or other consequential actions require human approval.
 
-## Safety notes
+## VentureOps
 
-- Aether is not a security sandbox. Tool subprocesses inherit the user's environment.
-- Do not run untrusted prompts with write/execute tools enabled in a sensitive workspace.
-- Use `tool_permissions.mode=strict` and explicit `allow_tools` for unattended runs.
-- Web output is data, not instructions; Aether's system prompt tells the model not to follow injected instructions from files or pages.
-- Multi-agent child results are untrusted data; the orchestrator delimits them as task context and never grants children the `orchestrate_task` tool. Child agents cannot create or edit persistent skills.
-- Browser automation is disabled unless you configure a local command template.
-- Scheduled prompts can spend money if you select a paid provider. Check `aether providers` and your provider dashboard.
+VentureOps is the local business-operations workspace inside AETHER. It helps organize a small service operation without requiring a paid API, bank connection, or hosted database for ordinary recordkeeping.
 
-## Tests
+It currently provides a SQLite-backed ledger in AETHER's existing `state.db`:
+
+- Leads and source references.
+- Offers, clients, and quotes.
+- Projects, deliverables, and audit events.
+- Invoice records, cash receipts, and expenses.
+- Separate totals for pipeline, accepted work, invoiced amounts, receipts, and expenses.
+
+Examples:
 
 ```bash
-python3 -m compileall -q aether tests
-python3 -m unittest discover -s tests -v
+aether venture add lead "Example studio" --status qualified \
+  --details-json '{"source_url":"https://example.com"}'
+
+aether venture add quote "Five clip pilot" --status draft --amount-cents 15000
+aether venture list --kind lead
+aether venture brief
 ```
 
-## Attribution
+VentureOps records figures entered by the owner. It is not a bank feed, payment processor, tax adviser, or proof that money was received. Drafts are not sent automatically. The owner approves scope, prices, proposals, messages, rights, client delivery, and all money movement.
 
-Aether's architecture was informed by static audits of the public Hermes Agent repository, initially at commit `bb89ad1a` and refreshed for Phase 2 at `b98c388a880b1b6fd303c9c2821a3946651a0b4c`. Hermes Agent is MIT-licensed; see `NOTICE` and `docs/UPSTREAM_LICENSE.md`. Aether is independently implemented and branded.
+## Architecture
 
-## License
+<p align="center">
+  <img src="assets/architecture.svg" alt="AETHER architecture overview" width="100%">
+</p>
 
-MIT. See `LICENSE`.
+AETHER is designed to work offline for deterministic tests, local ledger operations, and mock-provider workflows. Sessions, plans, checkpoints, agent runs, and business records use local persistence. Hosted model providers are optional and receive the prompts you send to them under their own terms.
 
+## Safety and trust boundaries
+
+- AETHER is **not an OS-level security sandbox**. Tool subprocesses inherit the local user's environment.
+- Use strict tool permissions and explicit workspace allow-lists for unattended or unfamiliar tasks.
+- Child agents inherit parent permissions, workspace limits, cancellation, timeouts, and spend budgets.
+- Repository edits are reviewable and approval-gated; tests must be run and results recorded.
+- Treat websites, documents, media metadata, and other-agent output as untrusted data, never as policy.
+- Never store API keys, bank credentials, payment-card numbers, identity documents, or account recovery codes in VentureOps records.
+- Do not use unauthorized footage, scrape private data, send spam, fabricate customers, or promise views or income.
+- Outbound messages, publishing, contracts, purchases, payments, refunds, account changes, and data deletion require explicit owner approval.
+
+Read [SECURITY.md](SECURITY.md), [known limitations](docs/KNOWN_LIMITATIONS.md), and the [workstation acceptance gate](docs/WORKSTATION_ACCEPTANCE_GATE.md) before using AETHER with sensitive data.
+
+## Development status
+
+AETHER is an alpha platform. This consolidation brings the local-first runtime, coding workflow, specialist configurations, and VentureOps ledger into one repository. Passing CI verifies the automated engineering checks; it does not prove task quality, autonomous income generation, or a secure sandbox.
+
+The most important remaining infrastructure milestone is **durable background execution**: persistent run IDs, status and event records, bounded concurrency, cancellation, restart recovery, and opt-in isolated execution backends. See [the next-generation roadmap](docs/NEXT_GENERATION_ROADMAP.md) and [issue #5](https://github.com/ghostfacethegreat/aether-agent/issues/5).
+
+## Documentation
+
+| Guide | Purpose |
+| --- | --- |
+| [Next-generation roadmap](docs/NEXT_GENERATION_ROADMAP.md) | Consolidation status and the next engineering milestones. |
+| [Architecture](docs/ARCHITECTURE.md) | Runtime components and design boundaries. |
+| [VentureOps agent platform](docs/VENTUREOPS_AGENT_PLATFORM.md) | Business workflow, roles, audit records, and approval model. |
+| [Free agent team](docs/FREE_AGENT_TEAM.md) | OpenCode workforce setup and operational boundaries. |
+| [Providers](docs/PROVIDERS.md) | Local, hosted, mock, and custom model providers. |
+| [Configuration](docs/CONFIGURATION.md) | Models, permissions, memory, scheduling, and orchestration. |
+| [Model routing](docs/MODEL_ROUTING.md) | Capability-aware provider/model selection. |
+| [Known limitations](docs/KNOWN_LIMITATIONS.md) | What is implemented, partial, planned, or unverified. |
+| [Workstation acceptance](docs/WORKSTATION_ACCEPTANCE_GATE.md) | Reported macOS installation and test evidence. |
+| [CLI presentation](docs/CLI_PRESENTATION.md) | Terminal appearance and safe artwork configuration. |
+
+## License and attribution
+
+AETHER is distributed under the MIT License. It is independently implemented and branded, and is not affiliated with Nous Research or any other agent vendor. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ---
 
 <div align="center">
-  <sub>✦ GHOSTFACE / INDEPENDENT SOFTWARE DEVELOPMENT &nbsp;·&nbsp; RESEARCH / BUILD / REFINE</sub>
+
+**AETHER** · Build deliberately. Keep control.
+
+<sub>Local-first · Provider-agnostic · Evidence over hype</sub>
+
 </div>

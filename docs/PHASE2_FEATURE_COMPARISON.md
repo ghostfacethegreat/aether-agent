@@ -1,5 +1,7 @@
 # Phase 2 Feature Comparison: Aether vs Hermes Agent
 
+> Historical document. Phase A refreshes the comparison against Hermes current `main` at `fe9a4b58ec137d3e00719c10e2385876fa03b97c` and changes the priority to intelligence first. Use [HERMES_COMPARISON.md](HERMES_COMPARISON.md) and [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md) for current planning.
+
 ## Scope and evidence
 
 This is the Phase 2 source-level comparison requested after Aether `0.1.0`. It is not a parity claim. It records what exists, what is absent, and what is implemented with different tradeoffs.

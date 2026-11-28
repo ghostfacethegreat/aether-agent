@@ -4,12 +4,22 @@ import time
 import urllib.error
 import urllib.request
 
-from aether.errors import AuthenticationError, ProviderError, RateLimitError
+from aether.errors import AuthenticationError, ContextOverflow, ProviderError, RateLimitError
 from aether.utils import redact
 
 from .base import BaseProvider, ModelResponse, ToolCall
 
 _HEADER_TOKEN = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
+_CONTEXT_OVERFLOW_MARKERS = (
+    "context length",
+    "context_length",
+    "maximum context",
+    "max context",
+    "too many tokens",
+    "token limit",
+    "prompt is too long",
+    "context window",
+)
 _PROTECTED_HEADERS = {
     "authorization",
     "proxy-authorization",
@@ -46,6 +56,11 @@ def _safe_extra_headers(extra) -> dict[str, str]:
             continue
         result[name] = text
     return result
+
+
+def _is_context_overflow(body: str) -> bool:
+    text = str(body or "").lower()
+    return any(marker in text for marker in _CONTEXT_OVERFLOW_MARKERS)
 
 
 def _content_text(value) -> str:
@@ -132,6 +147,8 @@ class OpenAICompatibleProvider(BaseProvider):
                 except OSError:
                     body = ""
                 summary = redact(body[:400])
+                if exc.code == 400 and _is_context_overflow(body):
+                    raise ContextOverflow(f"{self.label} context overflow (HTTP {exc.code}). {summary}") from exc
                 if exc.code in (401, 403):
                     raise AuthenticationError(
                         f"{self.label} rejected the API key (HTTP {exc.code}). Check the key in your environment. "

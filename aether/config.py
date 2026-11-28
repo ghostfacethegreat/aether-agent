@@ -17,7 +17,22 @@ DEFAULTS = {
     "context_tokens": 8192,
     "compression_threshold": 0.75,
     "reasoning_effort": None,
+    "planning": {"enabled": True, "persist_checkpoints": True},
     "personality": "You are Aether, a precise, pragmatic engineering assistant. Be concise and verify claims.",
+    "terminal": {
+        "theme": "acid-blue",
+        "unicode": True,
+        "show_banner": True,
+        "show_dashboard": True,
+        "show_response_labels": True,
+    },
+    "context_files": {
+        "enabled": True,
+        "filenames": ["AGENTS.md", "AETHER.md", ".aether.md", "CLAUDE.md", "SOUL.md", ".cursorrules", ".hermes.md"],
+        "max_files": 8,
+        "max_file_bytes": 32768,
+        "max_total_chars": 12000,
+    },
     "system_prompt": "",
     "streaming": True,
     "request_timeout": 60,
@@ -28,19 +43,58 @@ DEFAULTS = {
         "allow_tools": None,
         "deny_tools": [],
         "allowed_roots": [],
-        "require_approval": ["terminal", "write_file", "edit_file", "python", "git", "browser"],
+        "require_approval": ["terminal", "write_file", "edit_file", "python", "git", "browser", "patch_apply", "test_run", "memory", "skill", "scheduler", "delegate_task", "orchestrate_task"],
         "allow_destructive": False,
         "approval_cache": "session",
     },
+    "repository_index": {"persistent": True, "max_files": 3000, "max_file_bytes": 262144, "max_total_bytes": 8388608, "max_results": 40, "max_index_symbols": 20000, "test_timeout": 300},
     "tools": {
         "timeout": 30,
         "max_result_chars": 16000,
         "parallel_safe": True,
         "python_enabled": True,
     },
-    "memory": {"enabled": True, "char_limit": 4000, "inject_user_profile": True},
+    "memory": {
+        "enabled": True,
+        "char_limit": 4000,
+        "inject_user_profile": True,
+        "layered": {
+            "enabled": True,
+            "context_chars": 1800,
+            "recall_limit": 12,
+            "working_days": 1,
+        },
+    },
     "skills": {"enabled": True, "max_prompt_chars": 3000},
+    "learning": {
+        "enabled": True,
+        "experience_retention": 500,
+        "min_experiences": 2,
+        "min_confidence": 0.7,
+        "require_approval": True,
+        "allow_auto_approve": False,
+        "max_context_chars": 1200,
+        "regression_limit": 6,
+    },
     "costs": {"confirm_paid": True, "max_estimated_usd_per_turn": None},
+    "routing": {
+        "enabled": True,
+        "explain": True,
+        "strategy": "capability",
+        "prefer_local": True,
+        "strict_capabilities": False,
+        "context_safety_margin": 0.1,
+        "max_candidates": 5,
+        "learned_min_samples": 3,
+        "learned_weight": 12.0,
+        "role": "",
+        "avoid_models": [],
+        "default_role_spend_share": 0.25,
+        "category_keywords": {},
+        "overrides": {},
+        "roles": {},
+    },
+    "models": {"metadata": {}},
     "integrations": {
         "web_search": {"provider": "duckduckgo", "api_key_env": "", "base_url": ""},
         "web_fetch": {"max_bytes": 262144},
@@ -56,6 +110,7 @@ DEFAULTS = {
         "task_timeout_seconds": 120,
         "retries": 1,
         "allow_paid": False,
+        "strict_output_contracts": False,
         "roles": {},
     },
     "logging": {"level": "INFO", "file": True},
@@ -163,6 +218,33 @@ class Config:
         roles = self.get("orchestrator.roles", {})
         if not isinstance(roles, dict):
             warnings.append("orchestrator.roles must be an object keyed by role name.")
+        for key in ("experience_retention", "min_experiences", "max_context_chars", "regression_limit"):
+            value = self.get(f"learning.{key}")
+            if not isinstance(value, int) or value < 0:
+                warnings.append(f"learning.{key} must be a non-negative integer.")
+        confidence = self.get("learning.min_confidence")
+        if not isinstance(confidence, (int, float)) or not 0.0 <= float(confidence) <= 1.0:
+            warnings.append("learning.min_confidence must be between 0 and 1.")
+        strategy = self.get("routing.strategy")
+        if strategy not in ("capability", "cost", "fixed"):
+            warnings.append("routing.strategy must be capability, cost, or fixed.")
+        margin = self.get("routing.context_safety_margin")
+        if not isinstance(margin, (int, float)) or not 0.0 <= float(margin) <= 0.5:
+            warnings.append("routing.context_safety_margin must be between 0 and 0.5.")
+        for key in ("routing.max_candidates", "routing.learned_min_samples"):
+            value = self.get(key)
+            if not isinstance(value, int) or value < 0:
+                warnings.append(f"{key} must be a non-negative integer.")
+        weight = self.get("routing.learned_weight")
+        if not isinstance(weight, (int, float)) or float(weight) < 0:
+            warnings.append("routing.learned_weight must be non-negative.")
+        for key in ("routing.category_keywords", "routing.overrides", "routing.roles", "models.metadata"):
+            value = self.get(key)
+            if not isinstance(value, dict):
+                warnings.append(f"{key} must be an object.")
+        avoid = self.get("routing.avoid_models")
+        if not isinstance(avoid, list):
+            warnings.append("routing.avoid_models must be a list.")
         return warnings
 
 

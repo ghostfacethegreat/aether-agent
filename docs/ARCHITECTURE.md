@@ -1,5 +1,7 @@
 # Aether Architecture Audit and Target Design
 
+> Phase A priority change: this original audit and the Phase 2 refresh below are retained as historical evidence. Current planning is intelligence first in [INTELLIGENCE_AUDIT.md](INTELLIGENCE_AUDIT.md), [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md), [HERMES_COMPARISON.md](HERMES_COMPARISON.md), and [AETHER_02_ARCHITECTURE.md](AETHER_02_ARCHITECTURE.md). Terminal appearance is frozen; preserve existing ASCII artwork and colored rendering.
+
 ## Scope and method
 
 This document records the Milestone 1 audit of the upstream Hermes Agent repository:
@@ -172,6 +174,7 @@ All local state is under `AETHER_HOME` (default `~/.aether`):
 config.json          user configuration (no secrets)
 .env                 optional API keys, mode 0600, never committed
 state.db             sessions, messages, tasks, usage
+repo_index.db        workspace file metadata and lexical symbols (mode 0600)
 memories/MEMORY.md   agent notes
 memories/USER.md     user preferences
 skills/              user skills (SKILL.md)
