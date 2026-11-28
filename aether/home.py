@@ -1,14 +1,23 @@
+import os
 from pathlib import Path
 
 
-def aether_home() -> Path:
-    import os
+def _restrict(path: Path) -> None:
+    try:
+        os.chmod(path, 0o700)
+    except OSError:
+        pass
 
+
+def aether_home() -> Path:
     raw = os.environ.get("AETHER_HOME")
     path = Path(raw).expanduser() if raw else Path.home() / ".aether"
-    path.mkdir(parents=True, exist_ok=True)
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    _restrict(path)
     for name in ("memories", "skills", "logs", "cron"):
-        (path / name).mkdir(parents=True, exist_ok=True)
+        child = path / name
+        child.mkdir(parents=True, exist_ok=True, mode=0o700)
+        _restrict(child)
     return path
 
 

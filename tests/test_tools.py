@@ -1,3 +1,4 @@
+import json
 import os
 import time
 import unittest
@@ -5,6 +6,7 @@ import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
+from aether.config import Config
 from aether.errors import ApprovalRequired, PermissionDenied, ToolError
 from aether.providers.base import ToolCall
 from aether.tools import PermissionPolicy, Tool, ToolExecutor, ToolRegistry, default_registry
@@ -152,6 +154,170 @@ class ToolTests(TempHomeTest):
 
         self.assertFalse(execution.ok)
         self.assertIn("denied", execution.error)
+
+    def test_persistent_mutations_require_approval_even_when_config_omits_tool_list(self):
+        config = self.config(tool_permissions={"require_approval": []})
+        policy = PermissionPolicy(config, workspace=self.workspace)
+        cases = [
+            ("patch_apply", {"patch": "diff"}),
+            ("memory", {"action": "add", "text": "remember this"}),
+            ("memory", {"action": "replace", "text": "updated"}),
+            ("memory", {"action": "delete"}),
+            ("memory", {"action": "import", "data": {}}),
+            ("memory", {"action": "layer", "layer_action": "add", "content": "fact"}),
+            ("memory", {"action": "layer", "layer_action": "correct", "content": "fact"}),
+            ("memory", {"action": "layer", "layer_action": "delete", "item_id": "x"}),
+            ("memory", {"action": "layer", "layer_action": "clear"}),
+            ("memory", {"action": "layer", "layer_action": "consolidate"}),
+            ("memory", {"action": "layer", "layer_action": "prune"}),
+            ("memory", {"action": "layer", "layer_action": "migrate"}),
+            ("memory", {"action": "layer", "layer_action": "import", "data": {}}),
+            ("skill", {"action": "create", "name": "sample"}),
+            ("skill", {"action": "edit", "name": "sample"}),
+            ("scheduler", {"action": "add", "prompt": "run"}),
+            ("scheduler", {"action": "remove", "id": "job"}),
+        ]
+        for name, arguments in cases:
+            with self.subTest(tool=name, arguments=arguments):
+                decision = policy.check(name, arguments, risk="write")
+                self.assertTrue(decision.allowed)
+                self.assertTrue(decision.needs_approval)
+                self.assertIn("persistent", decision.reason)
+
+    def test_persistent_mutation_approval_does_not_block_read_actions(self):
+        config = self.config(tool_permissions={"require_approval": []})
+        policy = PermissionPolicy(config, workspace=self.workspace)
+        cases = [
+            ("memory", {"action": "list"}),
+            ("memory", {"action": "layer", "layer_action": "recall"}),
+            ("skill", {"action": "view", "name": "sample"}),
+            ("skill", {"action": "list"}),
+            ("scheduler", {"action": "list"}),
+            ("patch_preview", {"patch": "diff"}),
+        ]
+        for name, arguments in cases:
+            with self.subTest(tool=name, arguments=arguments):
+                decision = policy.check(name, arguments, risk="read")
+                self.assertTrue(decision.allowed)
+                self.assertFalse(decision.needs_approval)
+
+    def test_default_config_requires_approval_for_state_changing_tools(self):
+        required = set(Config().get("tool_permissions.require_approval", []) or [])
+        self.assertTrue({"terminal", "patch_apply", "test_run", "memory", "skill", "scheduler", "delegate_task", "orchestrate_task"} <= required)
+
+    def test_forced_approval_survives_legacy_empty_config(self):
+        policy = PermissionPolicy(self.config(), workspace=self.workspace)
+        self.assertTrue(policy.check("terminal", {"command": "echo ok"}, "execute").needs_approval)
+        self.assertTrue(policy.check("test_run", {"mode": "compile"}, "execute").needs_approval)
+        self.assertTrue(policy.check("write_file", {"path": "note.txt", "content": "x"}, "write").fresh)
+        self.assertTrue(policy.check("patch_apply", {"patch": "diff"}, "write").fresh)
+
+    def test_strict_path_check_precedes_state_change_approval(self):
+        config = self.config(tool_permissions={"mode": "strict", "allowed_roots": [str(self.workspace)], "require_approval": []})
+        policy = PermissionPolicy(config, workspace=self.workspace)
+        decision = policy.check("memory", {"action": "layer", "layer_action": "import", "path": str(self.root / "outside.json")}, "write")
+        self.assertFalse(decision.allowed)
+
+    def test_custom_home_is_an_allowed_root(self):
+        custom_home = self.root / "custom-home"
+        custom_home.mkdir()
+        config = self.config(tool_permissions={"mode": "strict", "require_approval": []})
+        policy = PermissionPolicy(config, workspace=self.workspace, home=custom_home)
+        decision = policy.check("read_file", {"path": str(custom_home / "note.txt")}, "low")
+        self.assertTrue(decision.allowed)
+
+    def test_approval_key_is_home_bound(self):
+        config = self.config(tool_permissions={"require_approval": ["read_file"]})
+        first = PermissionPolicy(config, workspace=self.workspace, home=self.home, approve_callback=lambda *args: "session")
+        first.authorize("read_file", {"path": "note.txt"}, "low")
+        other_home = self.root / "other-home"
+        other_home.mkdir()
+        second = PermissionPolicy(config, workspace=self.workspace, home=other_home)
+        with self.assertRaises(ApprovalRequired):
+            second.authorize("read_file", {"path": "note.txt"}, "low")
+
+    def test_layered_memory_write_requires_fresh_approval(self):
+        policy = PermissionPolicy(self.config(), workspace=self.workspace)
+        write = policy.check("memory", {"action": "layer", "layer_action": "add", "content": "remember"}, "write")
+        read = policy.check("memory", {"action": "layer", "layer_action": "list"}, "low")
+        self.assertTrue(write.needs_approval)
+        self.assertTrue(write.fresh)
+        self.assertFalse(read.needs_approval)
+
+    def test_persistent_mutation_cannot_reuse_session_approval(self):
+        answers = iter(["session", "once"])
+        policy = PermissionPolicy(self.config(), workspace=self.workspace, approve_callback=lambda *args: next(answers))
+        args = {"action": "add", "text": "persist this"}
+        policy.authorize("memory", args, "write")
+        policy.authorize("memory", dict(args), "write")
+        self.assertEqual(list(answers), [])
+
+    def test_persisted_always_approval_cannot_replay_state_change(self):
+        class ApprovalStore:
+            def get_approval(self, rule_key):
+                return "always"
+
+            def set_approval(self, rule_key, decision):
+                raise AssertionError("state-changing approval must not be persisted")
+
+        config = self.config(tool_permissions={"approval_cache": "always"})
+        calls = []
+
+        def approve(*args):
+            calls.append(args)
+            return "always"
+
+        policy = PermissionPolicy(config, store=ApprovalStore(), workspace=self.workspace, approve_callback=approve)
+        policy.authorize("skill", {"action": "create", "name": "demo", "body": "test"}, "write")
+        policy.authorize("skill", {"action": "create", "name": "demo", "body": "test"}, "write")
+        self.assertEqual(len(calls), 2)
+
+    def test_approval_key_is_workspace_bound(self):
+        config = self.config(tool_permissions={"require_approval": ["read_file"]})
+        first = PermissionPolicy(config, workspace=self.workspace, approve_callback=lambda *args: "session")
+        first.authorize("read_file", {"path": "note.txt"}, "low")
+        other_workspace = self.root / "other-workspace"
+        other_workspace.mkdir()
+        second = PermissionPolicy(config, workspace=other_workspace)
+        with self.assertRaises(ApprovalRequired):
+            second.authorize("read_file", {"path": "note.txt"}, "low")
+
+    def test_clear_session_approvals_revokes_cached_decision(self):
+        config = self.config(tool_permissions={"require_approval": ["read_file"]})
+        policy = PermissionPolicy(config, workspace=self.workspace)
+        args = {"path": "note.txt"}
+        policy.grant_session(policy.check("read_file", args, "low").rule_key)
+        policy.authorize("read_file", args, "low")
+        policy.clear_session_approvals()
+        with self.assertRaises(ApprovalRequired):
+            policy.authorize("read_file", args, "low")
+
+    def test_approval_details_are_redacted_and_action_bound(self):
+        with patch.dict(os.environ, {"AETHER_TEST_SECRET_VALUE": "supersecret123"}):
+            captured = {}
+
+            def approve(subject, reason, rule_key, details=None):
+                captured.update(details or {})
+                return "once"
+
+            policy = PermissionPolicy(self.config(), workspace=self.workspace, approve_callback=approve)
+            policy.authorize("memory", {"action": "add", "text": "key=supersecret123"}, "write")
+        self.assertEqual(captured["tool"], "memory")
+        self.assertEqual(captured["action"], "add")
+        self.assertTrue(captured["fresh"])
+        self.assertNotIn("supersecret123", json.dumps(captured))
+
+    def test_approval_details_redact_secrets_nested_in_lists(self):
+        with patch.dict(os.environ, {"AETHER_TEST_SERVICE_TOKEN": "nestedsecret123"}):
+            captured = {}
+
+            def approve(subject, reason, rule_key, details=None):
+                captured.update(details or {})
+                return "once"
+
+            policy = PermissionPolicy(self.config(), workspace=self.workspace, approve_callback=approve)
+            policy.authorize("delegate_task", {"tasks": [{"api_key": "nestedsecret123"}]}, "execute")
+        self.assertNotIn("nestedsecret123", json.dumps(captured))
 
 
 if __name__ == "__main__":

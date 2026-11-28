@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">AETHER architecture overview</title>
+  <desc id="desc">AETHER CLI feeds the agent runtime and planner, which coordinates specialist agents and routes approved actions through a permission boundary. Local state and model providers connect to the runtime.</desc>
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#10213a"/><stop offset="1" stop-color="#171b3a"/></linearGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5eead4"/><stop offset=".5" stop-color="#60a5fa"/><stop offset="1" stop-color="#a78bfa"/></linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#7dd3fc"/></marker>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#94a3b8" stroke-opacity=".07"/></pattern>
+  </defs>
+  <rect width="1200" height="650" rx="26" fill="#081321"/>
+  <rect width="1200" height="650" rx="26" fill="url(#grid)"/>
+  <text x="600" y="48" fill="#f8fafc" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="25" font-weight="750" letter-spacing="2">AETHER · SYSTEM MAP</text>
+
+  <rect x="420" y="78" width="360" height="76" rx="15" fill="url(#panel)" stroke="#60a5fa" stroke-width="2"/>
+  <text x="600" y="109" fill="#f8fafc" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="21" font-weight="700">CLI / INTERACTIVE SHELL</text>
+  <text x="600" y="133" fill="#a5b4fc" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="14">Prompts · sessions · slash commands</text>
+
+  <path d="M600 154V190" stroke="url(#line)" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <rect x="65" y="204" width="300" height="126" rx="16" fill="url(#panel)" stroke="#5eead4" stroke-opacity=".8" stroke-width="2"/>
+  <text x="215" y="244" fill="#99f6e4" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="20" font-weight="700">PLAN + CONTEXT</text>
+  <text x="215" y="274" fill="#cbd5e1" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="15">Task plans · memory · skills</text>
+  <text x="215" y="298" fill="#94a3b8" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13">SQLite + editable Markdown</text>
+
+  <rect x="450" y="204" width="300" height="126" rx="16" fill="url(#panel)" stroke="#60a5fa" stroke-opacity=".85" stroke-width="2"/>
+  <text x="600" y="244" fill="#bfdbfe" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="20" font-weight="700">AGENT RUNTIME</text>
+  <text x="600" y="274" fill="#cbd5e1" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="15">Provider routing · orchestration</text>
+  <text x="600" y="298" fill="#94a3b8" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13">Specialist agents · bounded budgets</text>
+
+  <rect x="835" y="204" width="300" height="126" rx="16" fill="url(#panel)" stroke="#a78bfa" stroke-opacity=".9" stroke-width="2"/>
+  <text x="985" y="244" fill="#ddd6fe" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="20" font-weight="700">PERMISSION GATE</text>
+  <text x="985" y="274" fill="#cbd5e1" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="15">Allow-lists · approval prompts</text>
+  <text x="985" y="298" fill="#94a3b8" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13">Policy checks · bounded execution</text>
+
+  <path d="M600 190H215V204M600 190V204M600 190H985V204" fill="none" stroke="url(#line)" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <path d="M365 267H450M750 267H835" fill="none" stroke="#7dd3fc" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <rect x="835" y="390" width="300" height="126" rx="16" fill="#10251f" stroke="#5eead4" stroke-opacity=".85" stroke-width="2"/>
+  <text x="985" y="430" fill="#99f6e4" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="20" font-weight="700">APPROVED TOOLS</text>
+  <text x="985" y="460" fill="#cbd5e1" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="15">Files · repository · terminal</text>
+  <text x="985" y="484" fill="#94a3b8" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13">Python · web · task tools</text>
+  <path d="M985 330V390" stroke="#7dd3fc" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <rect x="65" y="390" width="300" height="126" rx="16" fill="#10251f" stroke="#5eead4" stroke-opacity=".75" stroke-width="2"/>
+  <text x="215" y="430" fill="#99f6e4" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="20" font-weight="700">LOCAL STATE</text>
+  <text x="215" y="460" fill="#cbd5e1" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="15">SQLite sessions + task ledger</text>
+  <text x="215" y="484" fill="#94a3b8" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13">Markdown memory + SKILL.md</text>
+  <path d="M215 330V390" stroke="#7dd3fc" stroke-width="2.5" stroke-dasharray="6 7" marker-end="url(#arrow)"/>
+
+  <rect x="450" y="390" width="300" height="126" rx="16" fill="#1c1b37" stroke="#a78bfa" stroke-opacity=".8" stroke-width="2"/>
+  <text x="600" y="430" fill="#ddd6fe" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="20" font-weight="700">MODEL PROVIDERS</text>
+  <text x="600" y="460" fill="#cbd5e1" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="15">Ollama · LM Studio · llama.cpp</text>
+  <text x="600" y="484" fill="#94a3b8" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13">Hosted APIs · mock provider</text>
+  <path d="M600 330V390" stroke="#7dd3fc" stroke-width="2.5" stroke-dasharray="6 7" marker-end="url(#arrow)"/>
+
+  <rect x="65" y="564" width="1070" height="48" rx="12" fill="#111c30" stroke="#334155"/>
+  <text x="600" y="594" fill="#94a3b8" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="15">Local-first state · provider choice · explicit permission boundaries · evidence-based verification</text>
+</svg>

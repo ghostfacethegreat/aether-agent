@@ -23,6 +23,124 @@ Aether stores config at `~/.aether/config.json`. Override the location with `AET
 
 Use `aether config get <dotted.key>`, `aether config set <dotted.key> <json-or-string>`, and `aether config list`.
 
+## Model routing
+
+Routing is additive and reads only configured candidates: the active provider/model, configured fallbacks, role pins, and `models.metadata` entries that match configured providers. The recognized keys are exactly:
+
+```json
+{
+  "routing": {
+    "enabled": true,
+    "explain": true,
+    "strategy": "capability",
+    "prefer_local": true,
+    "strict_capabilities": false,
+    "context_safety_margin": 0.1,
+    "max_candidates": 5,
+    "learned_min_samples": 3,
+    "learned_weight": 12.0,
+    "role": "",
+    "avoid_models": [],
+    "default_role_spend_share": 0.25,
+    "category_keywords": {},
+    "overrides": {},
+    "roles": {}
+  },
+  "models": {
+    "metadata": {
+      "ollama/qwen2.5-coder:7b": {
+        "context_window": 32768,
+        "capabilities": {"coding": true, "tool_calling": true},
+        "evidence": {"context_window": "provider-reported", "coding": "provider-reported"},
+        "source": "user config",
+        "freshness": "2026-11-24"
+      }
+    }
+  }
+}
+```
+
+`strategy` is `capability`, `cost`, or `fixed`. `strict_capabilities=true` rejects models with unknown required capabilities instead of penalizing them; the default rejects known-false capabilities and insufficient verified context windows. `learned_min_samples` and `learned_weight` control verified performance history. `default_role_spend_share` applies to child roles per turn and does not raise the shared budget limit. `avoid_models`, `category_keywords`, `overrides`, and `roles` refine selection; role metadata is described in [PROVIDERS.md](PROVIDERS.md) and user-facing behavior in [MODEL_ROUTING.md](MODEL_ROUTING.md).
+
+There is no `routing.manual` key. CLI `--provider`/`--model` and `Agent(provider_name=..., model=...)` are authoritative as `TaskRequirements.explicit_provider`/`explicit_model`. Inspect decisions without model calls:
+
+```bash
+aether models list
+aether models inspect PROVIDER [MODEL]
+aether models capabilities PROVIDER [MODEL]
+aether models routing "TASK TEXT"
+aether models explain "TASK TEXT"
+aether models performance
+aether models health
+aether models benchmark [--samples N] [--confirm-billable]
+```
+
+`aether models benchmark` is an offline deterministic routing simulation that prints JSON, writes no files, and makes no model/network/billable calls; `--confirm-billable` is acknowledgement only.
+
+## Terminal presentation
+
+The terminal renderer is configurable through the `terminal` object:
+
+```json
+{
+  "terminal": {
+    "theme": "acid-blue",
+    "unicode": true,
+    "show_banner": true,
+    "show_dashboard": true,
+    "show_response_labels": true
+  }
+}
+```
+
+Themes are `acid-blue`, `classic`, and `mono`. Set `unicode` to `false` for ASCII-only output. The `show_*` settings independently control the startup masthead, session overview, and response labels. The environment variables `NO_COLOR=1` and `AETHER_ASCII=1` provide terminal-level overrides.
+
+## Project context files
+
+Aether loads selected guidance files directly from the workspace root at the start of each turn. It does not recurse, search parent directories, follow symlinks, or fetch files over the network.
+
+```json
+{
+  "context_files": {
+    "enabled": true,
+    "filenames": ["AGENTS.md", "AETHER.md", ".aether.md", "CLAUDE.md", "SOUL.md", ".cursorrules", ".hermes.md"],
+    "max_files": 8,
+    "max_file_bytes": 32768,
+    "max_total_chars": 12000
+  }
+}
+```
+
+These files are lower-priority workspace guidance. They cannot change tool permissions, approvals, safety rules, or override the current user request. Set `context_files.enabled=false` to disable them.
+
+## Specialist output contracts
+
+`orchestrator.strict_output_contracts` defaults to `false` to preserve compatibility with older and custom models. When enabled, deterministic contracts validate required JSON fields and basic types for specialist roles. The independent verifier contract and test-command evidence gate are always enforced.
+
+## Repository index and coding tools
+
+The repository tools are local-only and use bounded defaults:
+
+```json
+{
+  "repository_index": {
+    "persistent": true,
+    "max_files": 3000,
+    "max_file_bytes": 262144,
+    "max_total_bytes": 8388608,
+    "max_results": 40,
+    "max_index_symbols": 20000,
+    "test_timeout": 300
+  }
+}
+```
+
+`repo_index` reads from the configured workspace (or a subdirectory), honors root and nested `.gitignore` rules, and skips symlinks, binary files, oversized files, and known generated/vendor folders. `action="index"` refreshes the persistent cache; `action="symbols"` refreshes incrementally and retrieves lexical declarations from it. The cache is a separate `repo_index.db` under `AETHER_HOME` with mode `0600`; it stores paths, hashes, metadata, and symbol names, not file contents. Invalidation uses size, mtime, ctime, content hash, index bounds, and a symbol-extractor version. The cache is single-process and lexical, not an LSP or call graph. Set `persistent` to `false` to restore strictly on-demand behavior; `action="index"` then fails explicitly.
+
+`patch_preview` is read-only. `patch_apply` requires approval and can modify existing UTF-8 files only; it rejects new/deleted files, renames, symlinks, binary files, and paths outside the workspace. It preflights every target before writing and attempts rollback on filesystem write failure.
+
+`test_run` requires approval and accepts only the fixed `suite`, `module`, `compile`, or `check` modes. It does not accept arbitrary shell command strings. These safeguards do not make subprocess execution an OS sandbox.
+
 ## Tool permissions
 
 ```json
@@ -32,7 +150,7 @@ Use `aether config get <dotted.key>`, `aether config set <dotted.key> <json-or-s
     "allow_tools": null,
     "deny_tools": [],
     "allowed_roots": [],
-    "require_approval": ["terminal", "write_file", "edit_file", "python", "git", "browser"],
+    "require_approval": ["terminal", "write_file", "edit_file", "python", "git", "browser", "patch_apply", "test_run", "memory", "skill", "scheduler", "delegate_task", "orchestrate_task"],
     "allow_destructive": false,
     "approval_cache": "session"
   }
@@ -45,7 +163,9 @@ Modes:
 - `strict`: deny destructive operations; require approval for execute/network tools; paths outside allowed roots are denied.
 - `local-dev`: intended for trusted local workspaces only.
 
-Use `allow_tools` as an allow-list for unattended runs. `null` means unrestricted; an explicit `[]` denies every tool, including nested agents. Set `approval_cache` to `always` only if you accept persistent approval decisions in the local database. Approval choices are scoped to the exact tool arguments; `once` is not cached, and `session` is cached only for that exact action.
+Use `allow_tools` as an allow-list for unattended runs. `null` means unrestricted; an explicit `[]` denies every tool, including nested agents. Set `approval_cache` to `always` only if you accept persistent approval decisions in the local database. Forced approval is enforced at the `PermissionPolicy` layer. Approval choices are scoped to the exact tool arguments plus workspace, home, permission mode, allowed roots, and policy version 2; older persisted keys are ignored. `once` is not cached, and `session` is cached only for that exact non-fresh action.
+Persistent memory, skill, scheduler, file-write, patch, destructive, and delegation actions are action-aware mutators that require fresh approval, so `session` and `always` are treated as `once` for them.
+`/new`, `/clear`, and `/resume` clear session approvals. Scheduled runs are restricted to read-only tools and use context-local paid confirmation, not process env mutation; they ignore `--confirm-paid` unless `scheduler.allow_paid=true`.
 
 ## Memory and skills
 
@@ -56,7 +176,7 @@ Use `allow_tools` as an allow-list for unattended runs. `null` means unrestricte
 }
 ```
 
-Memory files are edited directly at `~/.aether/memories/MEMORY.md` and `USER.md`. Skills are Markdown files at `~/.aether/skills/<name>/SKILL.md`.
+Memory files are edited directly at `~/.aether/memories/MEMORY.md` and `USER.md`. Skills are Markdown files at `~/.aether/skills/<name>/SKILL.md`. Memory and skills prompt context is explicitly data-only and labeled as untrusted content; it cannot override system policy, approval rules, or tool permissions.
 
 ## Integrations
 

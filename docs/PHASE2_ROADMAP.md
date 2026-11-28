@@ -1,5 +1,7 @@
 # Phase 2 Roadmap
 
+> Historical document. Current work follows [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md), with intelligence-first phases A-L and a frozen terminal appearance. The visual work formerly tracked under 0.2 is superseded.
+
 This roadmap turns [PHASE2_FEATURE_COMPARISON.md](PHASE2_FEATURE_COMPARISON.md) into staged work. It is a plan, not a completion report. Each milestone must end with a working checkpoint, tests that exercise behavior, honest validation notes, documentation updates, and its own Git commit.
 
 ## Ranking method

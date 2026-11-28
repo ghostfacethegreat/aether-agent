@@ -9,6 +9,17 @@ Legend for Aether status:
 
 Upstream columns describe what exists in the audited Hermes commit; they are not claims that every path is free or bug-free.
 
+## Intelligence and agent execution
+
+| Capability | AETHER status on parity-foundation branch | Notes |
+|---|---|---|
+| Repository context files | Implemented baseline | Bounded workspace-root AGENTS.md-compatible context; no recursion, symlinks, or network fetches. |
+| Dynamic specialist planning | Implemented baseline | Dependency-aware planner/researcher/architect/developer/tester/verifier/reviewer chain, with debugging, documentation, and security variants. |
+| Structured role contracts | Implemented baseline | Deterministic required-field/type/enum checks; strict validation for other specialist roles is opt-in. |
+| Independent verification | Implemented bounded baseline | Requires verifier's own successful recognized test/check command in terminal log; not formal proof or task-quality benchmark. |
+| Parallel agent profiles | Prepared | Four custom Copilot profiles and workstream instructions are included; they do not start automatically. |
+| Task-quality evaluation | Planned | Integration base `fcee9db...` passed CI run #90; fresh CI is required for the final pushed SHA. No comparable live-model task-quality benchmark or quality-parity claim exists. |
+
 ## AI core
 
 | Capability | Upstream Hermes | Aether | Notes |
@@ -23,6 +34,7 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | Reasoning / planning modes | Reasoning params, trust gates, planning prompts | Partial | `reasoning_effort` forwarding, `/plan` mode, `todo` tool. Model must support reasoning. |
 | Reliable tool calling | Schema repair, retries, role alternation repair | Partial | Required-key validation, unknown-tool error message, ordered parallel results, M2.1 role-alternation repair, and M2.2 executor-level timeouts. No full JSON Schema validation yet. |
 | Provider fallback and error recovery | Credential pools, cooldowns, fallback chain | Done | Ordered fallback with retryable classification and cooldown per provider. |
+| Capability-aware model routing | Provider routing and fallback providers | Done | Evidence-aware capability facts, deterministic classifier, scored `capability`/`cost`/`fixed` strategies, explicit provider/model authority, health cooldowns, and offline diagnostics; benchmark is a deterministic routing simulation, not task-quality evidence. |
 | Cost and limit transparency | Catalog pricing, usage guards, account usage | Partial | Every provider has a cost annotation in `aether providers`; no per-turn dollar estimate or account-balance scraping. |
 
 ## Agent system
@@ -35,9 +47,12 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 | File read/write/edit | Rich file tools with guards | Done | `read_file`, `write_file`, `edit_file`, `list_directory`. |
 | Terminal execution | Sandboxed/backed terminal tool | Done | `terminal` with timeout, output cap, approval for destructive commands. Not a sandbox. |
 | Git integration | Several git helpers | Done | `git status/diff/log/add/commit` through one tool; git actions require approval by default. |
+| Repository index and search | Codebase navigability and search tools | Partial | `repo_index` builds a bounded local index, honors root and nested `.gitignore` rules, returns filename/source snippets, and refreshes a persistent lexical symbol cache with incremental invalidation. No LSP, call graph, or semantic diff review. |
+| Patch preview and apply | `patch` tool with checkpoints | Partial | `patch_preview` validates and hashes changes; `patch_apply` modifies existing UTF-8 files only after full preflight and explicit approval. No new/deleted files, rename, binary patch, or OS sandbox. |
+| Constrained test execution | Terminal/code execution workflows | Partial | `test_run` supports unittest suite/module, compileall, and the repository check script with fixed argv and approval. It is not yet an autonomous multi-turn TDD controller. |
 | Web research | Exa/Firecrawl/Parallel plus fetch | Partial | Key-free `web_fetch` and DuckDuckGo HTML `web_search`; optional paid keys supported but not required. M2.2 rejects private URL targets and unsafe redirects. |
 | Browser automation | Local CDP, cloud Browserbase, desktop control | Partial | Configurable `browser` command template; no bundled browser runtime. Disabled by default. |
-| Code generation / debugging | Full coding agent | Done | Tool-driven editing plus built-in `debug` and `code-review` skills. |
+| Code generation / debugging | Full coding agent | Partial | Existing file tools plus repository search, patch preview/apply, and bounded test runner; end-to-end autonomous TDD, symbol navigation, and independent diff-review loop remain incomplete. |
 | Task history and recovery | Durable sessions, delegation ledgers | Done | SQLite `tasks` table with `/tasks` and in-chat `/resume`; M2.1 preserves assistant tool calls and tool result IDs across reload. |
 | Local scheduling | Cron jobs with delivery and audit logs | Partial | M2.3 executes due prompts in-process, claims jobs before runs, records `cron/executions.jsonl`, reports due/executed/skipped/failed, and supports update/pause/resume/cancel. No daemon, delivery targets, or cron syntax. |
 
@@ -86,7 +101,7 @@ Upstream columns describe what exists in the audited Hermes commit; they are not
 |---|---|---|---|
 | One-command installer | Hosted shell installer | Partial | `scripts/install.sh` exists and passed a local git-remote install test; no hosted URL published. |
 | Dependency checks | PM + doctor | Partial | Installer checks Python; `aether doctor` checks runtime, config, state DB, and binaries. |
-| Apple Silicon | Supported | Partial | Tested on a macOS environment; no CI matrix. |
+| Apple Silicon | Supported | Partial | Tested on macOS 15.0.1 Apple M1 Python 3.14.2; no CI macOS matrix. |
 | Isolated dependencies | PM-managed venv | Done | Installer creates `AETHER_HOME/venv`; Aether has no third-party runtime dependencies. |
 | Configuration setup | Interactive setup | Done | First-run config generation and `aether setup`. |
 | Clear installation errors | Extensive installer | Partial | Fail-fast messages exist; not unit-tested. |

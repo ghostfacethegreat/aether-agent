@@ -47,6 +47,10 @@ class SkillError(AetherError):
     pass
 
 
+class LearningError(AetherError):
+    pass
+
+
 class SchedulerError(AetherError):
     pass
 

@@ -10,23 +10,30 @@ from pathlib import Path
 from aether import __version__
 from aether.config import Config, load_config, load_environment
 from aether.core import Agent
+
+from aether.core.planning import ExecutionPlan
 from aether.errors import AetherError
 from aether.home import aether_home, env_path
 from aether.logging import get_logger, set_level
-from aether.memory import MemoryStore
+from aether.memory import LAYERS, LayeredMemory, MemoryStore
 from aether.orchestration import ROLE_NAMES, Orchestrator, resolved_roles
+from aether.orchestration.roles import FORCED_APPROVAL_TOOLS, FORCED_DENY_TOOLS
 from aether.persistence import Store
 from aether.providers.catalog import PROVIDERS, provider_is_billable
+from aether.routing import classify_task
 from aether.tasks import Scheduler
-from aether.utils import parse_bool, read_json, redact, redact_mapping, truncate, atomic_json_write
+from aether.ventures import KINDS, STATUSES, VentureLedger
+from aether.utils import confirm_paid_override, parse_bool, read_json, redact, redact_mapping, truncate, atomic_json_write
 
 from . import render
 
 
+SCHEDULED_TOOLS = ["list_directory", "read_file"]
+
 SLASH_COMMANDS = [
     "/help", "/quit", "/exit", "/new", "/clear", "/status", "/provider", "/model",
     "/plan", "/tools", "/memory", "/skills", "/sessions", "/resume", "/history",
-    "/tasks", "/agents", "/schedule", "/cost", "/doctor", "/export",
+    "/tasks", "/agents", "/schedule", "/models", "/cost", "/doctor", "/export", "/feedback",
 ]
 
 
@@ -50,6 +57,27 @@ def build_parser():
 
     p_providers = sub.add_parser("providers", help="List providers with honest cost and limit notes")
     p_providers.set_defaults(func=cmd_providers)
+
+    p_models = sub.add_parser("models", help="Inspect and explain model routing without calling a model")
+    models = p_models.add_subparsers(dest="action", required=True)
+    for name in ("list", "health", "performance"):
+        models.add_parser(name).set_defaults(func=cmd_models)
+    inspect = models.add_parser("inspect")
+    inspect.add_argument("provider", nargs="?")
+    inspect.add_argument("model", nargs="?")
+    inspect.set_defaults(func=cmd_models)
+    capabilities = models.add_parser("capabilities")
+    capabilities.add_argument("provider", nargs="?")
+    capabilities.add_argument("model", nargs="?")
+    capabilities.set_defaults(func=cmd_models)
+    for name in ("routing", "explain"):
+        item = models.add_parser(name)
+        item.add_argument("prompt", nargs="+")
+        item.set_defaults(func=cmd_models)
+    benchmark = models.add_parser("benchmark")
+    benchmark.add_argument("--samples", type=int, default=5)
+    benchmark.add_argument("--confirm-billable", action="store_true", help="Acknowledge any configured live benchmark costs")
+    benchmark.set_defaults(func=cmd_models)
 
     p_status = sub.add_parser("status", help="Show active provider and session status")
     p_status.set_defaults(func=cmd_status)
@@ -112,6 +140,56 @@ def build_parser():
     mem_import.add_argument("--replace", action="store_true")
     mem_import.set_defaults(func=cmd_memory)
 
+    mem_layer = mem.add_parser("layer", help="Manage layered memory")
+    layer = mem_layer.add_subparsers(dest="layer_action", required=True)
+    layer_list = layer.add_parser("list")
+    layer_list.add_argument("--layer", choices=LAYERS)
+    layer_list.add_argument("--session")
+    layer_list.set_defaults(func=cmd_memory)
+    layer_add = layer.add_parser("add")
+    layer_add.add_argument("content")
+    layer_add.add_argument("--layer", choices=LAYERS, default="semantic")
+    layer_add.add_argument("--subject", default="")
+    layer_add.add_argument("--provenance", default="manual")
+    layer_add.add_argument("--confidence", type=float)
+    layer_add.add_argument("--session")
+    layer_add.add_argument("--expires-days", type=float)
+    layer_add.add_argument("--verified", action="store_true")
+    layer_add.set_defaults(func=cmd_memory)
+    layer_recall = layer.add_parser("recall")
+    layer_recall.add_argument("query", nargs="?")
+    layer_recall.add_argument("--layer", choices=LAYERS)
+    layer_recall.add_argument("--session")
+    layer_recall.add_argument("--limit", type=int)
+    layer_recall.add_argument("--max-chars", type=int)
+    layer_recall.set_defaults(func=cmd_memory)
+    layer_context = layer.add_parser("context")
+    layer_context.add_argument("task", nargs="*")
+    layer_context.add_argument("--max-chars", type=int)
+    layer_context.set_defaults(func=cmd_memory)
+    layer_correct = layer.add_parser("correct")
+    layer_correct.add_argument("id")
+    layer_correct.add_argument("content")
+    layer_correct.add_argument("--provenance", default="correction")
+    layer_correct.add_argument("--confidence", type=float)
+    layer_correct.set_defaults(func=cmd_memory)
+    layer_delete = layer.add_parser("delete")
+    layer_delete.add_argument("id")
+    layer_delete.set_defaults(func=cmd_memory)
+    layer_clear = layer.add_parser("clear")
+    layer_clear.add_argument("--layer", choices=LAYERS)
+    layer_clear.add_argument("--session")
+    layer_clear.set_defaults(func=cmd_memory)
+    for name in ("consolidate", "prune", "migrate", "counts"):
+        layer.add_parser(name).set_defaults(func=cmd_memory)
+    layer_export = layer.add_parser("export")
+    layer_export.add_argument("path", nargs="?")
+    layer_export.set_defaults(func=cmd_memory)
+    layer_import = layer.add_parser("import")
+    layer_import.add_argument("path")
+    layer_import.add_argument("--replace", action="store_true")
+    layer_import.set_defaults(func=cmd_memory)
+
     p_skills = sub.add_parser("skills", help="Manage reusable SKILL.md skills")
     skill = p_skills.add_subparsers(dest="action", required=True)
     skill_list = skill.add_parser("list")
@@ -128,6 +206,60 @@ def build_parser():
     skill_edit.add_argument("name")
     skill_edit.add_argument("body")
     skill_edit.set_defaults(func=cmd_skills)
+    skill_discover = skill.add_parser("discover", help="Propose skills from verified experiences")
+    skill_discover.add_argument("--limit", type=int)
+    skill_discover.add_argument("--query", default="")
+    skill_discover.set_defaults(func=cmd_skills)
+    skill_proposals = skill.add_parser("proposals", help="List skill proposals and evidence")
+    skill_proposals.add_argument("--status")
+    skill_proposals.add_argument("--skill")
+    skill_proposals.set_defaults(func=cmd_skills)
+    skill_validate = skill.add_parser("validate", help="Validate a proposed skill")
+    skill_validate.add_argument("skill")
+    skill_validate.set_defaults(func=cmd_skills)
+    skill_approve = skill.add_parser("approve", help="Approve and save a validated proposal")
+    skill_approve.add_argument("proposal")
+    skill_approve.add_argument("--yes", action="store_true", help="Confirm persistent skill change")
+    skill_approve.set_defaults(func=cmd_skills)
+    skill_reject = skill.add_parser("reject", help="Reject a proposal")
+    skill_reject.add_argument("proposal")
+    skill_reject.add_argument("--reason", default="")
+    skill_reject.set_defaults(func=cmd_skills)
+    skill_history = skill.add_parser("history", help="Show learning history for a skill")
+    skill_history.add_argument("skill", nargs="?")
+    skill_history.add_argument("--query", default="")
+    skill_history.add_argument("--limit", type=int)
+    skill_history.set_defaults(func=cmd_skills)
+    skill_versions = skill.add_parser("versions", help="List stored skill versions")
+    skill_versions.add_argument("skill")
+    skill_versions.set_defaults(func=cmd_skills)
+    skill_rollback = skill.add_parser("rollback", help="Activate a previous skill version")
+    skill_rollback.add_argument("skill")
+    skill_rollback.add_argument("version", type=int)
+    skill_rollback.add_argument("--yes", action="store_true", help="Confirm rollback")
+    skill_rollback.set_defaults(func=cmd_skills)
+    skill_result = skill.add_parser("result", help="Record a verified skill execution result")
+    skill_result.add_argument("skill")
+    skill_result.add_argument("--success", action="store_true")
+    skill_result.add_argument("--verified", action="store_true")
+    skill_result.add_argument("--duration-ms", type=float, default=0.0)
+    skill_result.add_argument("--tokens", type=int, default=0)
+    skill_result.add_argument("--cost", type=float, default=0.0)
+    skill_result.set_defaults(func=cmd_skills)
+
+    p_learning = sub.add_parser("learning", help="Inspect learning state and record feedback")
+    learning = p_learning.add_subparsers(dest="action", required=True)
+    p_feedback = learning.add_parser("feedback", help="Record explicit user feedback")
+    p_feedback.add_argument("verdict", choices=["verified", "failed", "neutral"])
+    p_feedback.add_argument("text", nargs="+")
+    p_feedback.add_argument("--experience")
+    p_feedback.add_argument("--session")
+    p_feedback.set_defaults(func=cmd_learning)
+    p_pending = learning.add_parser("pending", help="List pending learning proposals")
+    p_pending.set_defaults(func=cmd_learning)
+    p_metrics = learning.add_parser("metrics", help="Show tracked skill performance")
+    p_metrics.add_argument("skill", nargs="?")
+    p_metrics.set_defaults(func=cmd_learning)
 
     p_tasks = sub.add_parser("tasks", help="Inspect delegated task ledger")
     tasks = p_tasks.add_subparsers(dest="action", required=True)
@@ -136,6 +268,54 @@ def build_parser():
     tasks_resume = tasks.add_parser("resume")
     tasks_resume.add_argument("id")
     tasks_resume.set_defaults(func=cmd_tasks)
+
+    p_venture = sub.add_parser("venture", help="Manage the local VentureOps business ledger")
+    venture = p_venture.add_subparsers(dest="action", required=True)
+    venture_add = venture.add_parser("add", help="Add a lead, offer, client, project, quote, or money record")
+    venture_add.add_argument("kind", choices=KINDS)
+    venture_add.add_argument("name")
+    venture_add.add_argument("--status", choices=STATUSES, default="open")
+    venture_add.add_argument("--amount-cents", type=int)
+    venture_add.add_argument("--currency", default="USD")
+    venture_add.add_argument("--details-json", default="{}", help="JSON object with non-sensitive record details")
+    venture_add.set_defaults(func=cmd_venture)
+    venture_list = venture.add_parser("list", help="List local business records")
+    venture_list.add_argument("--kind", choices=KINDS)
+    venture_list.add_argument("--status", choices=STATUSES)
+    venture_list.set_defaults(func=cmd_venture)
+    venture_show = venture.add_parser("show", help="Show a record and its details")
+    venture_show.add_argument("id")
+    venture_show.set_defaults(func=cmd_venture)
+    venture_update = venture.add_parser("update", help="Update a record; this does not contact anyone")
+    venture_update.add_argument("id")
+    venture_update.add_argument("--status", choices=STATUSES)
+    venture_update.add_argument("--name")
+    venture_update.add_argument("--amount-cents", type=int)
+    venture_update.add_argument("--clear-amount", action="store_true")
+    venture_update.add_argument("--details-json", help="Replace details with a JSON object")
+    venture_update.set_defaults(func=cmd_venture)
+    venture_events = venture.add_parser("events", help="Show the local audit trail for a record")
+    venture_events.add_argument("id")
+    venture_events.set_defaults(func=cmd_venture)
+    venture_brief = venture.add_parser("brief", help="Summarize pipeline, booked, invoiced, received, and expense records")
+    venture_brief.set_defaults(func=cmd_venture)
+
+    p_plan = sub.add_parser("plan", help="Inspect or resume adaptive execution plans")
+    plan = p_plan.add_subparsers(dest="action", required=True)
+    plan_list = plan.add_parser("list", help="List stored execution plans")
+    plan_list.set_defaults(func=cmd_plan)
+    plan_show = plan.add_parser("show", help="Show a stored execution plan")
+    plan_show.add_argument("id")
+    plan_show.set_defaults(func=cmd_plan)
+    plan_status = plan.add_parser("status", help="Show the active or selected execution plan status")
+    plan_status.add_argument("id", nargs="?")
+    plan_status.set_defaults(func=cmd_plan)
+    plan_checkpoints = plan.add_parser("checkpoints", help="List checkpoints for a stored plan")
+    plan_checkpoints.add_argument("id", nargs="?")
+    plan_checkpoints.set_defaults(func=cmd_plan)
+    plan_resume = plan.add_parser("resume", help="Resume a stored execution plan")
+    plan_resume.add_argument("id")
+    plan_resume.set_defaults(func=cmd_plan)
 
     p_agents = sub.add_parser("agents", help="Inspect and run specialized agents")
     agents = p_agents.add_subparsers(dest="action", required=True)
@@ -225,10 +405,17 @@ def prepare(args):
 
 
 def make_approver():
-    def approve(subject, reason, rule_key):
+    def approve(subject, reason, rule_key, details=None):
         print("\n" + render.paint(subject, "yellow"))
         print("  " + str(reason))
         print("  rule: " + str(rule_key))
+        info = details or {}
+        if info.get("action"):
+            print("  action: " + str(info["action"]))
+        for name, value in (info.get("arguments") or {}).items():
+            print("    " + str(name) + ": " + truncate(redact(str(value)), 240))
+        if info.get("fresh"):
+            print("  fresh approval required; session/always are treated as once")
         try:
             answer = input("  Allow? [y] once / [s] session / [a] always / [n] no: ").strip().lower()
         except EOFError:
@@ -245,12 +432,16 @@ def make_agent(args, config, home, scheduler=None):
         session_id=args.session,
         approve_callback=make_approver(),
         scheduler=scheduler,
+        provider_name=getattr(args, "provider", None),
+        model=getattr(args, "model", None),
     )
 
 
 def stream_turn(agent, text, args=None, quiet=False):
     spinner = render.Spinner("thinking")
     first_content = [False]
+    reasoning_started = [False]
+    response_started = [False]
     reasoning = []
     show_reasoning = bool(args and args.reasoning)
     debug = bool(args and args.debug)
@@ -262,14 +453,25 @@ def stream_turn(agent, text, args=None, quiet=False):
                 if not first_content[0]:
                     spinner.stop()
                     first_content[0] = True
-                sys.stdout.write(render.paint(str(delta), "yellow"))
-                sys.stdout.flush()
+                if not reasoning_started[0]:
+                    if not quiet:
+                        sys.stdout.write(render.reasoning_prefix())
+                        sys.stdout.flush()
+                    reasoning_started[0] = True
+                if not quiet:
+                    sys.stdout.write(render.paint(render.sanitize_untrusted(delta), "yellow"))
+                    sys.stdout.flush()
             return
         if not first_content[0]:
             spinner.stop()
             first_content[0] = True
+        if not response_started[0]:
+            if not quiet:
+                sys.stdout.write(render.assistant_prefix())
+                sys.stdout.flush()
+            response_started[0] = True
         if not quiet:
-            sys.stdout.write(str(delta))
+            sys.stdout.write(render.sanitize_untrusted(delta))
             sys.stdout.flush()
 
     def on_status(payload):
@@ -350,20 +552,110 @@ def _print_help():
         ("/status", "show provider and workspace status"),
         ("/provider <name> [model]", "switch provider"),
         ("/model <model>", "switch model on active provider"),
-        ("/plan [text]", "show or set the active plan"),
+        ("/plan [status|checkpoints|resume <id>|text]", "inspect, resume, or set the active plan"),
         ("/tools", "list enabled tools"),
-        ("/memory [list|add|search|delete]", "manage memory"),
-        ("/skills [list|view]", "inspect skills"),
+        ("/memory [list|add|search|delete|layer]", "manage memory"),
+        ("/skills [list|view|discover|proposals|validate|history|versions]", "inspect skills and learning state"),
+        ("/feedback <verified|failed|neutral> <text>", "record explicit outcome feedback"),
         ("/sessions, /resume <id>", "list or resume sessions"),
         ("/history [query]", "search previous messages"),
         ("/tasks", "list delegated tasks"),
         ("/agents [list|run|status|cancel]", "coordinate specialized agents"),
+        ("/models [list|inspect|capabilities|routing|explain|performance|health]", "inspect model routing without a model call"),
         ("/schedule list|add|remove", "manage scheduled jobs"),
         ("/cost", "show rough local cost and token totals"),
         ("/doctor", "run environment checks"),
         ("/export <path>", "export current session JSON"),
     ]
     print(render.table(["Command", "Meaning"], rows))
+
+
+def _model_command(agent, action: str, args: list[str]) -> None:
+    registry = agent.model_router.registry
+    manager = agent.provider_manager
+    if action in ("list", "capabilities"):
+        entries = registry.configured_entries(manager, role=agent.role or None)
+        if args:
+            provider = str(args[0] or "")
+            model = str(args[1] or "") if len(args) > 1 else ""
+            entries = [(provider, model)] if model else [(entry_provider, entry_model) for entry_provider, entry_model in entries if entry_provider == provider]
+        rows = []
+        for provider, model in entries:
+            caps = registry.for_model(provider, model)
+            window = caps.fact("context_window")
+            price = caps.fact("input_pricing")
+            rows.append(
+                (
+                    f"{provider}/{model}",
+                    f"{window.value or 'unknown'} ({window.evidence})",
+                    "yes" if caps.local else "no",
+                    "yes" if caps.fact("credentials_configured").value else "no",
+                    f"${price.value:.6f}" if isinstance(price.value, (int, float)) else "unknown",
+                    truncate("; ".join(caps.restrictions), 60),
+                )
+            )
+        print(render.table(["Model", "Context", "Local", "Ready", "Input price", "Notes"], rows) if rows else "(no configured models)")
+        return
+    if action == "inspect":
+        provider = str(args[0] or manager.active_name)
+        model = str(args[1] or manager.model)
+        caps = registry.for_model(provider, model)
+        payload = caps.to_dict()
+        payload["health"] = (manager.health() or {}).get(provider, {"status": "unknown", "reason": ""})
+        print(json.dumps(payload, indent=2, ensure_ascii=False, default=str))
+        return
+    if action in ("routing", "explain"):
+        text = " ".join(args)
+        requirements = classify_task(
+            text,
+            agent.config,
+            agent.execution_plan,
+            role=agent.role,
+            explicit_provider=agent.explicit_provider,
+            explicit_model=agent.explicit_model,
+            avoid_models=list(agent.config.get("routing.avoid_models", []) or []),
+        )
+        decision = agent.model_router.route(requirements, manager, role=agent.role)
+        if action == "explain":
+            print(agent.model_router.explain(decision))
+        else:
+            print(json.dumps(decision.to_dict(), indent=2, ensure_ascii=False, default=str))
+        return
+    if action == "performance":
+        rows = agent.store.list_model_performance(limit=None) or []
+        print(
+            render.table(
+                ["Category", "Model", "Success", "Verified", "Samples", "Sources", "Cost known"],
+                [
+                    (
+                        row["category"],
+                        f"{row['provider']}/{row['model']}",
+                        "yes" if row["success"] else "no",
+                        "yes" if row["verified"] else "no",
+                        str(row["tokens"]),
+                        ",".join(row.get("sources") or []),
+                        "yes" if row["cost_known"] else "no",
+                    )
+                    for row in rows
+                ],
+            )
+            if rows
+            else "(no recorded model performance)"
+        )
+        return
+    if action == "health":
+        health = manager.health() or {}
+        print(
+            render.table(
+                ["Provider", "Status", "Retry in", "Reason"],
+                [(name, item.get("status", ""), str(item.get("retry_after_seconds", 0)), truncate(str(item.get("reason") or ""), 80)) for name, item in health.items()],
+            )
+            if health
+            else "(no provider health records)"
+        )
+        print(render.paint("Health is local state only; this command does not poll providers.", "dim"))
+        return
+    print(render.error_line("usage: /models list|inspect|capabilities|routing|explain|performance|health"))
 
 
 def _agent_command(agent, parts):
@@ -381,6 +673,9 @@ def _agent_command(agent, parts):
     if action == "status":
         print(render.dashboard(agent.status_summary()))
         return False
+    if action == "models":
+        _model_command(agent, args[0] if args else "list", args[1:])
+        return False
     if action == "provider" and args:
         provider = agent.switch_provider(args[0], args[1] if len(args) > 1 else None)
         agent.config.save()
@@ -392,9 +687,32 @@ def _agent_command(agent, parts):
         print(render.success_line(f"using {provider.name}/{provider.model}"))
         return False
     if action == "plan":
-        if args:
+        sub = args[0] if args else ""
+        if sub == "status":
+            if agent.execution_plan:
+                print(json.dumps(agent.execution_plan.summary(), indent=2, ensure_ascii=False))
+            else:
+                print("(no active execution plan)")
+        elif sub == "checkpoints":
+            if agent.execution_plan:
+                rows = agent.store.list_execution_checkpoints(agent.execution_plan.id)
+                print(render.table(["ID", "Seq", "Phase", "Note", "Created"], [(row["id"], str(row["sequence"]), row["phase"], row["note"], row["created_at"]) for row in rows]) if rows else "(no checkpoints)")
+            else:
+                print("(no active execution plan)")
+        elif sub == "resume" and len(args) > 1:
+            row = agent.store.get_execution_plan(args[1])
+            if not row:
+                print(render.error_line(f"plan '{args[1]}' not found"))
+                return False
+            agent.execution_plan = ExecutionPlan.from_dict(row.get("plan") or {})
+            agent.plan = agent.execution_plan.render()
+            agent._refresh_executor_context()
+            print(render.success_line(f"resumed plan {args[1]}"))
+        elif args:
             agent.set_plan(" ".join(args))
-        print(agent.plan or "(no active plan)")
+            print(agent.plan or "(no active plan)")
+        else:
+            print(agent.execution_plan.render() if agent.execution_plan else (agent.plan or "(no active plan)"))
         return False
     if action == "tools":
         rows = [(name, tool.risk, "yes" if tool.parallel_safe else "no") for name, tool in agent.registry.tools.items()]
@@ -414,11 +732,33 @@ def _agent_command(agent, parts):
         elif sub == "list":
             rows = agent.memory.list(user)
             print(render.table(["Category", "Entry"], [(c, truncate(e, 100)) for c, e in rows]) if rows else "(empty)")
+        elif sub == "layer" and len(args) >= 2:
+            operation = args[1]
+            layered = agent.layered_memory
+            if operation == "list":
+                rows = [
+                    (item["id"][:12], item["layer"], item["subject"][:40], truncate(item["content"], 100))
+                    for item in layered.list()
+                ]
+                print(render.table(["ID", "Layer", "Subject", "Content"], rows) if rows else "(empty)")
+            elif operation == "add" and len(args) >= 4:
+                item = layered.remember(args[2], " ".join(args[3:]), provenance="cli")
+                print(render.success_line(item["id"]) if item else render.error_line("memory not saved"))
+            elif operation in ("recall", "search") and len(args) >= 3:
+                rows = [
+                    (item["layer"], item["subject"][:40], truncate(item["content"], 120))
+                    for item in layered.recall(" ".join(args[2:]))
+                ]
+                print(render.table(["Layer", "Subject", "Content"], rows) if rows else "(no matches)")
+            elif operation == "counts":
+                print(json.dumps(layered.counts(), indent=2))
+            else:
+                print(render.error_line("usage: /memory layer list|add <layer> <text>|recall <query>|counts"))
         elif sub == "delete" and len(args) >= 3:
             ok = agent.memory.delete(args[1], int(args[2]), user)
             print(render.success_line("deleted") if ok else render.error_line("no matching entry"))
         else:
-            print(render.error_line("usage: /memory list|add <text>|search <query>|delete <category> <index>"))
+            print(render.error_line("usage: /memory list|add <text>|search <query>|delete <category> <index>|layer ..."))
         return False
     if action == "skills":
         sub = args[0] if args else "list"
@@ -428,8 +768,37 @@ def _agent_command(agent, parts):
         elif sub == "view" and len(args) > 1:
             skill = agent.skills.view(args[1])
             print(f"# {skill.name}\n\n{skill.body}")
+        elif sub == "discover":
+            proposals = agent.learning.discover(limit=5, query=" ".join(args[1:]))
+            if not proposals:
+                print("(no new skill proposals)")
+            else:
+                for proposal in proposals:
+                    print(f"{proposal['skill_name']}: evidence={', '.join(proposal['evidence'][:5])}")
+        elif sub == "proposals":
+            rows = agent.learning.pending()
+            print(render.table(
+                ["ID", "Skill", "Kind", "Evidence"],
+                [(row["id"][:16], row["skill_name"], row["kind"], str(len(row.get("evidence") or []))) for row in rows],
+            ) if rows else "(no pending proposals)")
+        elif sub == "validate" and len(args) > 1:
+            validation = agent.learning.validate_proposal(args[1])
+            print(json.dumps(validation, indent=2, ensure_ascii=False, default=str))
+        elif sub == "history":
+            history = agent.learning.history(skill_name=args[1] if len(args) > 1 else "", query=" ".join(args[2:]))
+            print(json.dumps(history, indent=2, ensure_ascii=False, default=str)[:4000])
+        elif sub == "versions" and len(args) > 1:
+            rows = agent.learning.versions(args[1])
+            print(render.table(
+                ["Version", "Status", "Score"],
+                [(str(row["version"]), row["status"], str(row["score"])) for row in rows],
+            ) if rows else "(no stored versions)")
         else:
-            print(render.error_line("usage: /skills list|view <name>"))
+            print(render.error_line("usage: /skills list|view <name>|discover|proposals|validate <skill>|history [skill]|versions <skill>"))
+        return False
+    if action == "feedback" and args:
+        result = agent.learning.record_feedback(" ".join(args[1:]), args[0], session_id=agent.session_id)
+        print(render.success_line(f"recorded {result.get('verdict', args[0])} feedback") if result else render.error_line("learning is disabled"))
         return False
     if action == "sessions":
         rows = [(row["id"], row["title"][:40], row["provider"], row["updated_at"]) for row in agent.store.list_sessions()]
@@ -441,6 +810,7 @@ def _agent_command(agent, parts):
             print(render.error_line(f"session '{args[0]}' not found"))
             return False
         agent.session_id = args[0]
+        agent.policy.clear_session_approvals()
         agent.history = agent._load_history()
         agent._refresh_executor_context()
         print(render.success_line(f"resumed {args[0]}"))
@@ -528,12 +898,17 @@ def _agent_command(agent, parts):
 
 def cmd_chat(args, config, home, scheduler=None):
     agent = make_agent(args, config, home, scheduler)
-    print(render.banner(__version__))
-    print(render.dashboard(agent.status_summary()))
+    header = render.banner(__version__)
+    if header:
+        print(header)
+    overview = render.dashboard(agent.status_summary())
+    if overview:
+        print(overview)
+    print(render.hint_line())
     setup_completer()
     while True:
         try:
-            raw = input(render.paint("aether> ", "cyan"))
+            raw = input(render.prompt())
         except (EOFError, KeyboardInterrupt):
             print()
             break
@@ -564,6 +939,24 @@ def cmd_setup(args, config, home):
     print("  aether doctor")
     print("  aether run 'Say hello'")
     print("  ollama pull llama3.2:3b   # only if you choose local Ollama")
+    return 0
+
+
+def cmd_models(args, config, home):
+    if args.action == "benchmark":
+        from benchmarks.model_routing.runner import run_benchmark
+
+        result = run_benchmark(config, samples=max(1, int(args.samples or 1)))
+        result["billable_live_calls"] = False
+        result["notice"] = "Offline deterministic benchmark; no model or network calls were made."
+        if getattr(args, "confirm_billable", False):
+            result["notice"] += " --confirm-billable acknowledged but no live calls are performed."
+        print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+        return 0
+    agent = make_agent(args, config, home)
+    raw = getattr(args, "prompt", None) or [getattr(args, "provider", ""), getattr(args, "model", "")]
+    values = [str(item) for item in raw if item]
+    _model_command(agent, args.action, values)
     return 0
 
 
@@ -681,6 +1074,8 @@ def cmd_sessions(args, config, home):
 
 
 def cmd_memory(args, config, home):
+    if args.action == "layer":
+        return cmd_memory_layer(args, config, home)
     store = MemoryStore(home, config.get("memory.char_limit", 4000))
     user = bool(getattr(args, "user", False))
     if args.action == "list":
@@ -709,22 +1104,299 @@ def cmd_memory(args, config, home):
     return 0
 
 
-def cmd_skills(args, config, home):
-    from aether.skills import SkillEngine
-
-    engine = SkillEngine(home, enabled=bool(config.get("skills.enabled", True)))
-    if args.action == "list":
-        rows = [(item["name"], item["source"], item["views"], item["description"][:80]) for item in engine.list_skills()]
-        print(render.table(["Name", "Source", "Views", "Description"], rows))
-    elif args.action == "view":
-        skill = engine.view(args.name)
-        print(f"# {skill.name}\n\n{skill.body}")
-    elif args.action == "create":
-        engine.create(args.name, args.description, args.body or "TODO: describe the procedure.")
-        print(render.success_line(f"created {args.name}"))
+def cmd_memory_layer(args, config, home):
+    markdown = MemoryStore(home, config.get("memory.char_limit", 4000))
+    store = Store(home / "state.db")
+    layered = LayeredMemory(markdown, store, config=config, persist=True)
+    action = str(args.layer_action)
+    if action == "list":
+        rows = layered.list(layer=getattr(args, "layer", None), session_id=getattr(args, "session", None))
+        rendered = [(row["id"][:12], row["layer"], row["subject"][:40], truncate(row["content"], 100), row["provenance"][:30]) for row in rows]
+        print(render.table(["ID", "Layer", "Subject", "Content", "Source"], rendered) if rendered else "(empty)")
+    elif action == "add":
+        item = layered.remember(
+            args.layer,
+            args.content,
+            subject=args.subject,
+            provenance=args.provenance,
+            confidence=args.confidence,
+            session_id=args.session,
+            expires_days=getattr(args, "expires_days", None),
+            verified=bool(getattr(args, "verified", False)),
+        )
+        print(render.success_line(item["id"]) if item else render.error_line("memory not saved"))
+    elif action == "recall":
+        rows = layered.recall(
+            getattr(args, "query", "") or "",
+            limit=args.limit,
+            layers=[args.layer] if getattr(args, "layer", None) else None,
+            session_id=getattr(args, "session", None),
+            max_chars=getattr(args, "max_chars", None),
+        )
+        rendered = [(row["layer"], row["subject"][:40], truncate(row["content"], 120), f"{float(row['confidence']):.2f}") for row in rows]
+        print(render.table(["Layer", "Subject", "Content", "Confidence"], rendered) if rendered else "(no matches)")
+    elif action == "context":
+        context = layered.context(" ".join(args.task), max_chars=getattr(args, "max_chars", None))
+        print(context or "(empty)")
+    elif action == "correct":
+        item = layered.correct(args.id, args.content, provenance=args.provenance, confidence=args.confidence)
+        print(render.success_line(item["id"]) if item else render.error_line("no matching item"))
+    elif action == "delete":
+        print(render.success_line("deleted") if layered.delete(args.id) else render.error_line("no matching item"))
+    elif action == "clear":
+        print(render.success_line(f"cleared {layered.clear(layer=getattr(args, 'layer', None), session_id=getattr(args, 'session', None))}"))
+    elif action == "consolidate":
+        print(json.dumps(layered.consolidate(), indent=2))
+    elif action == "prune":
+        print(json.dumps({"expired": layered.prune_expired()}, indent=2))
+    elif action == "migrate":
+        print(json.dumps({"migrated": layered.migrate_markdown()}, indent=2))
+    elif action == "counts":
+        print(json.dumps(layered.counts(), indent=2))
+    elif action == "export":
+        path = Path(args.path) if args.path else home / "exports" / "memory-layers.json"
+        atomic_json_write(path, layered.export_data())
+        print(render.success_line(str(path)))
     else:
-        engine.edit(args.name, args.body)
+        payload = read_json(Path(args.path), {})
+        print(render.success_line(f"imported {layered.import_data(payload, merge=not args.replace)}"))
+    return 0
+
+
+def _learning_components(config, home):
+    from aether.learning import LearningEngine
+    from aether.memory import LayeredMemory, MemoryStore
+    from aether.skills import SkillEngine
+    from aether.tools import default_registry
+
+    store = Store(home / "state.db")
+    skill_engine = SkillEngine(home, enabled=bool(config.get("skills.enabled", True)))
+    memory = MemoryStore(home, int(config.get("memory.char_limit", 4000)))
+    layered = LayeredMemory(memory, store, config=config, session_id="cli-learning")
+    engine = LearningEngine(
+        store,
+        skill_engine,
+        layered,
+        config,
+        list(default_registry(int(config.get("tools.max_result_chars", 16000))).tools),
+    )
+    return engine, skill_engine
+
+
+def _show_proposal(proposal: dict) -> None:
+    print(f"Proposal {proposal['id']}: {proposal['skill_name']} ({proposal['kind']}, {proposal['status']})")
+    print("Evidence: " + ", ".join(str(item) for item in (proposal.get("evidence") or [])))
+    print(truncate(proposal.get("content", ""), 1200))
+
+
+def cmd_skills(args, config, home):
+    engine, skill_engine = _learning_components(config, home)
+    if args.action == "list":
+        rows = [(item["name"], item["source"], item["views"], item["description"][:80]) for item in skill_engine.list_skills()]
+        print(render.table(["Name", "Source", "Views", "Description"], rows))
+        return 0
+    if args.action == "view":
+        skill = skill_engine.view(args.name)
+        print(f"# {skill.name}\n\n{skill.body}")
+        return 0
+    if args.action == "create":
+        skill_engine.create(args.name, args.description, args.body or "TODO: describe the procedure.")
+        print(render.success_line(f"created {args.name}"))
+        return 0
+    if args.action == "edit":
+        skill_engine.edit(args.name, args.body)
         print(render.success_line(f"updated {args.name}"))
+        return 0
+    if args.action == "discover":
+        proposals = engine.discover(limit=args.limit, query=args.query)
+        if not proposals:
+            print("(no new skill proposals)")
+            return 0
+        for proposal in proposals:
+            _show_proposal(proposal)
+        return 0
+    if args.action == "proposals":
+        rows = engine.proposals(status=args.status, skill_name=args.skill)
+        if not rows:
+            print("(no proposals)")
+            return 0
+        print(render.table(
+            ["ID", "Skill", "Kind", "Status", "Evidence"],
+            [(row["id"][:16], row["skill_name"], row["kind"], row["status"], str(len(row.get("evidence") or []))) for row in rows],
+        ))
+        return 0
+    if args.action == "validate":
+        validation = engine.validate_proposal(args.skill)
+        print(json.dumps(validation, indent=2, ensure_ascii=False, default=str))
+        return 0 if validation.get("passed") else 1
+    if args.action == "approve":
+        proposal = next((row for row in engine.proposals() if row["id"] == args.proposal), None)
+        if proposal is None:
+            print(render.error_line(f"proposal '{args.proposal}' not found"))
+            return 1
+        _show_proposal(proposal)
+        if not args.yes:
+            print(render.error_line("approval not granted; rerun with --yes to save this skill"))
+            return 1
+        result = engine.approve_proposal(args.proposal, authorized=True, approver="cli-user")
+        print(render.success_line(f"approved {result['skill']} version {result['version']}"))
+        return 0
+    if args.action == "reject":
+        result = engine.reject_proposal(args.proposal, approver="cli-user", reason=args.reason)
+        print(render.success_line(f"rejected {result['skill_name']}"))
+        return 0
+    if args.action == "history":
+        history = engine.history(skill_name=args.skill or "", query=args.query, limit=args.limit)
+        print(json.dumps(history, indent=2, ensure_ascii=False, default=str)[:8000])
+        return 0
+    if args.action == "versions":
+        rows = engine.versions(args.skill)
+        print(render.table(
+            ["Version", "Status", "Score", "Proposal", "Created"],
+            [(str(row["version"]), row["status"], str(row["score"]), row["proposal_id"][:16], row["created_at"]) for row in rows],
+        ) if rows else "(no stored versions)")
+        return 0
+    if args.action == "rollback":
+        row = next((item for item in engine.versions(args.skill) if int(item["version"]) == args.version), None)
+        if row is None:
+            print(render.error_line(f"version {args.version} of '{args.skill}' not found"))
+            return 1
+        print(truncate(row["content"], 1200))
+        if not args.yes:
+            print(render.error_line("approval not granted; rerun with --yes to activate this version"))
+            return 1
+        result = engine.rollback_skill(args.skill, args.version, authorized=True, approver="cli-user")
+        print(render.success_line(f"active version is now {result['active_version']}"))
+        return 0
+    if args.action == "result":
+        metrics = engine.record_skill_result(
+            args.skill,
+            success=args.success,
+            verified=args.verified,
+            duration_ms=args.duration_ms,
+            tokens=args.tokens,
+            cost=args.cost,
+        )
+        print(json.dumps(metrics, indent=2))
+        return 0
+    print(render.error_line(f"unknown skills action '{args.action}'"))
+    return 1
+
+
+def cmd_learning(args, config, home):
+    engine, _ = _learning_components(config, home)
+    if args.action == "feedback":
+        result = engine.record_feedback(
+            " ".join(args.text),
+            args.verdict,
+            experience_id=args.experience or "",
+            session_id=args.session or "cli-learning",
+        )
+        print(json.dumps(result, indent=2, ensure_ascii=False, default=str)[:4000])
+        return 0
+    if args.action == "pending":
+        rows = engine.pending()
+        print(render.table(
+            ["ID", "Skill", "Kind", "Created", "Evidence"],
+            [(row["id"][:16], row["skill_name"], row["kind"], row["created_at"], str(len(row.get("evidence") or []))) for row in rows],
+        ) if rows else "(no pending proposals)")
+        return 0
+    rows = engine.metrics(args.skill)
+    print(json.dumps(rows, indent=2, ensure_ascii=False) if rows else "(no tracked skills)")
+    return 0
+
+
+def cmd_venture(args, config, home):
+    ledger = VentureLedger(Store(home / "state.db"))
+
+    def parse_details(raw):
+        try:
+            value = json.loads(raw or "{}")
+        except ValueError as exc:
+            raise ValueError("--details-json must contain valid JSON") from exc
+        if not isinstance(value, dict):
+            raise ValueError("--details-json must contain a JSON object")
+        return value
+
+    def money(cents, currency="USD"):
+        if cents is None:
+            return "-"
+        return f"${int(cents) / 100:,.2f}" if currency == "USD" else f"{currency} {int(cents) / 100:,.2f}"
+
+    if args.action == "add":
+        item = ledger.create(
+            args.kind,
+            args.name,
+            status=args.status,
+            amount_cents=args.amount_cents,
+            currency=args.currency,
+            details=parse_details(args.details_json),
+        )
+        print(render.success_line(f"saved {item['kind']} {item['id']}"))
+        return 0
+    if args.action == "list":
+        items = ledger.list(kind=args.kind, status=args.status)
+        rows = [
+            (
+                item["id"],
+                item["kind"],
+                truncate(item["name"], 36),
+                item["status"],
+                money(item["amount_cents"], item["currency"]),
+                item["updated_at"],
+            )
+            for item in items
+        ]
+        print(render.table(["ID", "Kind", "Name", "Status", "Amount", "Updated"], rows) if rows else "(no business records)")
+        return 0
+    if args.action == "show":
+        item = ledger.get(args.id)
+        if item is None:
+            print(render.error_line(f"record '{args.id}' not found"))
+            return 1
+        print(json.dumps(item, indent=2, ensure_ascii=False))
+        return 0
+    if args.action == "update":
+        if args.clear_amount and args.amount_cents is not None:
+            raise ValueError("use either --amount-cents or --clear-amount, not both")
+        details = parse_details(args.details_json) if args.details_json is not None else None
+        item = ledger.update(
+            args.id,
+            status=args.status,
+            name=args.name,
+            amount_cents=args.amount_cents,
+            set_amount=args.amount_cents is not None or args.clear_amount,
+            details=details,
+        )
+        if item is None:
+            print(render.error_line(f"record '{args.id}' not found"))
+            return 1
+        print(render.success_line(f"updated {item['id']}"))
+        return 0
+    if args.action == "events":
+        events = ledger.events(args.id)
+        if not events:
+            print("(no audit events)")
+            return 0
+        print(render.table(
+            ["When", "Action", "Payload"],
+            [(row["created_at"], row["action"], truncate(json.dumps(row["payload"], ensure_ascii=False), 120)) for row in events],
+        ))
+        return 0
+
+    brief = ledger.brief()
+    rows = [
+        ("Records", str(brief["record_count"])),
+        ("Open leads", str(brief["open_leads"])),
+        ("Active projects", str(brief["active_projects"])),
+        ("Pipeline (draft/sent quotes)", money(brief["pipeline_cents"])),
+        ("Booked (accepted quotes)", money(brief["booked_cents"])),
+        ("Invoiced", money(brief["invoiced_cents"])),
+        ("Received (recorded receipts)", money(brief["received_cents"])),
+        ("Expenses (recorded)", money(brief["expense_cents"])),
+    ]
+    print(render.table(["Metric", "Value"], rows))
+    print(render.paint("Amounts are owner-entered records, not verified bank balances or payment activity.", "dim"))
     return 0
 
 
@@ -736,6 +1408,44 @@ def cmd_tasks(args, config, home):
         return 0
     print(render.error_line("resume requires an interactive agent; use /resume <session> or delegate_task"))
     return 1
+
+
+def cmd_plan(args, config, home):
+    store = Store(home / "state.db")
+    if args.action == "list":
+        rows = [(row["id"], row["status"], row["complexity"], truncate(row["objective"], 70), row["updated_at"]) for row in store.list_execution_plans(limit=20)]
+        print(render.table(["ID", "Status", "Complexity", "Objective", "Updated"], rows))
+        return 0
+    plan_id = getattr(args, "id", None)
+    row = store.get_execution_plan(plan_id) if plan_id else None
+    if row is None:
+        rows = store.list_execution_plans(limit=1)
+        row = rows[0] if rows else None
+    if row is None:
+        print(render.error_line("no execution plan found"))
+        return 1
+    plan = ExecutionPlan.from_dict(row.get("plan") or {})
+    if args.action == "show":
+        print(plan.render())
+        return 0
+    if args.action == "status":
+        print(json.dumps(plan.summary(), indent=2, ensure_ascii=False))
+        return 0
+    if args.action == "checkpoints":
+        rows = store.list_execution_checkpoints(plan.id)
+        print(render.table(["ID", "Seq", "Phase", "Note", "Created"], [(item["id"], str(item["sequence"]), item["phase"], item["note"], item["created_at"]) for item in rows]) if rows else "(no checkpoints)")
+        return 0
+    if args.action == "resume" and plan.status in ("completed", "cancelled"):
+        print(render.error_line(f"plan '{plan.id}' is {plan.status} and cannot be resumed"))
+        return 1
+    if plan.session_id and not getattr(args, "session", None):
+        args.session = plan.session_id
+    agent = make_agent(args, config, home)
+    agent.execution_plan = plan
+    agent.plan = plan.render()
+    agent._refresh_executor_context()
+    result = stream_turn(agent, "resume", args)
+    return 0 if result.exit_reason not in ("provider_error", "cost_limit") else 1
 
 
 def cmd_agents(args, config, home, scheduler=None):
@@ -770,7 +1480,7 @@ def scheduled_runner(config, home):
     def run(prompt):
         provider = str(config.get("provider") or "unknown")
         model = str(config.get("model") or "")
-        allow_paid = parse_bool(config.get("scheduler.allow_paid"), False) or parse_bool(os.environ.get("AETHER_CONFIRM_PAID"), False)
+        allow_paid = parse_bool(config.get("scheduler.allow_paid"), False)
         if provider_is_billable(provider, model) and not allow_paid:
             raise RuntimeError(
                 f"Scheduled execution with billable provider '{provider}' is disabled by default; "
@@ -780,7 +1490,15 @@ def scheduled_runner(config, home):
         run_config.set("costs.confirm_paid", not allow_paid)
         run_config.set("orchestrator.allow_paid", False)
         run_config.set("orchestrator.enabled", False)
-        run_config.set("tool_permissions.allow_tools", None)
+        run_config.set("learning.enabled", False)
+        run_config.set("memory.enabled", False)
+        run_config.set("skills.enabled", False)
+        run_config.set("tool_permissions.allow_tools", list(SCHEDULED_TOOLS))
+        run_config.set(
+            "tool_permissions.deny_tools",
+            sorted(FORCED_DENY_TOOLS | FORCED_APPROVAL_TOOLS | {"write_file", "edit_file", "patch_apply", "test_run", "memory", "skill", "scheduler"}),
+        )
+        run_config.set("tool_permissions.require_approval", sorted(FORCED_APPROVAL_TOOLS))
         agent = Agent(
             run_config,
             home=home,
@@ -789,7 +1507,8 @@ def scheduled_runner(config, home):
             enable_subagents=False,
             enable_orchestrator=False,
         )
-        result = agent.run_turn(prompt)
+        with confirm_paid_override("1" if allow_paid else "0"):
+            result = agent.run_turn(prompt)
         if result.exit_reason in ("provider_error", "cost_limit"):
             raise RuntimeError(f"scheduled run stopped: {result.exit_reason}")
         return result.text
@@ -868,6 +1587,7 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     try:
         config, home = prepare(args)
+        render.configure(config.get("terminal", {}))
         scheduler = None
         if getattr(args, "command", None) not in ("version", "update") and parse_bool(config.get("scheduler.enabled"), False):
             scheduler = Scheduler(config, home, runner=scheduled_runner(config, home))

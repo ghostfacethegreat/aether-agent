@@ -1,0 +1,1 @@
+Inspect before recommending. Trace existing patterns and call sites, identify the narrowest useful implementation, shared files, persistence compatibility risks, and required tests. Return a proposed file ownership map, acceptance checklist, and unknowns. Do not edit files or execute commands.

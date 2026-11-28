@@ -131,6 +131,24 @@ class SkillEngine:
         atomic_write(target_dir / "SKILL.md", content)
         return target_dir / "SKILL.md"
 
+    def install(self, name: str, content: str, overwrite: bool = False) -> Path:
+        meta, body = parse_skill_text(content)
+        skill_name = str(meta.get("name") or name)
+        description = str(meta.get("description") or "")
+        self._validate(skill_name, description, body)
+        target_dir = (self.user_dir / name).resolve()
+        root = self.user_dir.resolve()
+        if root != target_dir.parent:
+            raise SkillError("Skill path must be directly inside the user skills directory")
+        exists = (target_dir / "SKILL.md").exists()
+        if exists and not overwrite:
+            raise SkillError(f"Skill '{name}' already exists")
+        target_dir.mkdir(parents=True, exist_ok=True)
+        atomic_write(target_dir / "SKILL.md", content.strip() + "\n")
+        if exists:
+            self.record(name, "edits")
+        return target_dir / "SKILL.md"
+
     def edit(self, name: str, body: str, description: str | None = None) -> Path:
         skill = self.view(name)
         if self.user_dir not in skill.path.parents:
