@@ -1,4 +1,17 @@
+<div align="center">
+
+<img src="assets/brand-banner.svg" alt="Ghostface independent software banner" width="100%">
+
+<sub>✦ AI SYSTEMS &nbsp;·&nbsp; ⌘ MACOS SOFTWARE &nbsp;·&nbsp; ⟡ AUTOMATION &nbsp;·&nbsp; ⌬ DEVELOPER TOOLS</sub>
+
+</div>
+
+---
+
 # Aether
+
+> **Project status: Legacy predecessor.** Active development has moved to a new native macOS assistant. This repository remains available as an independent earlier project and reference.
+
 
 Aether is a local-first, provider-agnostic AI agent. It runs as a single CLI, stores sessions in SQLite, keeps editable memory in Markdown, and supports reusable `SKILL.md` skills. It is an independent project; it is not affiliated with Nous Research.
 
@@ -164,3 +177,10 @@ Aether's architecture was informed by static audits of the public Hermes Agent r
 ## License
 
 MIT. See `LICENSE`.
+
+
+---
+
+<div align="center">
+  <sub>✦ GHOSTFACE / INDEPENDENT SOFTWARE DEVELOPMENT &nbsp;·&nbsp; RESEARCH / BUILD / REFINE</sub>
+</div>
